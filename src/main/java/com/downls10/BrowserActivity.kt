@@ -1878,11 +1878,8 @@ class BrowserActivity : Activity() {
         // إذا كانت النافذة المنبثقة تحتوي رابط ملف مباشر، فزر «سماح» يبدأ
         // التنزيل مباشرة بدل تحميل الرابط داخل WebView ثم فقدان حدث التنزيل.
         if (isWebUrl && looksLikeDirectFileUrl(cleanUrl)) {
-            DownloadsRepository.startNewDownload(
-                this,
-                cleanUrl,
-                showToast = true,
-                userAgent = currentWebView().settings.userAgentString,
+            requestDownloadWithOptions(
+                cleanUrl, userAgent = currentWebView().settings.userAgentString,
                 referer = currentWebView().url
             )
             return
