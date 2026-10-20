@@ -109,6 +109,10 @@ class BrowserActivity : Activity() {
 
     private var hideMedia = false
     private var nightMode = false
+    private var selectedSiteCountry: String
+        get() = settingsPrefs().getString("siteCountry", "default") ?: "default"
+        set(value) { settingsPrefs().edit().putString("siteCountry", value).apply() }
+    private var btnLocationFlag: Button? = null
     private var mobileUA: String = ""
     private val desktopUA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
@@ -219,6 +223,9 @@ class BrowserActivity : Activity() {
         }
         progressBar = findViewById(R.id.progressBar)
         val btnBookmarkStar = findViewById<Button>(R.id.btnBookmarkStar)
+        btnLocationFlag = findViewById(R.id.btnLocationFlag)
+        updateLocationFlag()
+        btnLocationFlag?.setOnClickListener { showSiteCountryDialog() }
         val btnForward = findViewById<Button>(R.id.btnForward)
         val btnDownloads = findViewById<Button>(R.id.btnDownloads)
         btnTabs = findViewById(R.id.btnTabs)
@@ -978,6 +985,7 @@ class BrowserActivity : Activity() {
                 if (isActiveTab(view)) {
                     if (hideMedia) applyHideMediaJs(view)
                 }
+                applySiteCountryToPage(view)
 
                 if (isSearchResultsPage(url)) {
                     // الحالة مبنية على سجل دائم، لذلك تبقى الألوان بعد الرجوع وإعادة فتح التطبيق.
@@ -1727,6 +1735,65 @@ class BrowserActivity : Activity() {
 
     // ---------------- قائمة ☰ ----------------
 
+    private data class SiteCountry(val id: String, val label: String, val flag: String, val language: String, val timeZone: String, val latitude: Double, val longitude: Double)
+
+    private val siteCountries = listOf(
+        SiteCountry("us", "الولايات المتحدة", "🇺🇸", "en-US", "America/New_York", 40.7128, -74.0060),
+        SiteCountry("de", "ألمانيا", "🇩🇪", "de-DE", "Europe/Berlin", 52.5200, 13.4050),
+        SiteCountry("ru", "روسيا", "🇷🇺", "ru-RU", "Europe/Moscow", 55.7558, 37.6173),
+        SiteCountry("fr", "فرنسا", "🇫🇷", "fr-FR", "Europe/Paris", 48.8566, 2.3522),
+        SiteCountry("jp", "اليابان", "🇯🇵", "ja-JP", "Asia/Tokyo", 35.6762, 139.6503),
+        SiteCountry("cn", "الصين", "🇨🇳", "zh-CN", "Asia/Shanghai", 39.9042, 116.4074),
+        SiteCountry("sg", "سنغافورة", "🇸🇬", "en-SG", "Asia/Singapore", 1.3521, 103.8198),
+        SiteCountry("in", "الهند", "🇮🇳", "hi-IN", "Asia/Kolkata", 28.6139, 77.2090),
+        SiteCountry("br", "البرازيل", "🇧🇷", "pt-BR", "America/Sao_Paulo", -23.5505, -46.6333),
+        SiteCountry("za", "جنوب أفريقيا", "🇿🇦", "en-ZA", "Africa/Johannesburg", -25.7479, 28.2293)
+    )
+
+    private fun updateLocationFlag() {
+        val country = siteCountries.firstOrNull { it.id == selectedSiteCountry }
+        btnLocationFlag?.apply {
+            text = country?.flag ?: ""
+            visibility = if (country == null) View.GONE else View.VISIBLE
+            contentDescription = country?.let { "موقع التصفح: ${it.label}" } ?: "الموقع الافتراضي"
+        }
+    }
+
+    private fun showSiteCountryDialog() {
+        val options = siteCountries.map { country ->
+            (if (selectedSiteCountry == country.id) "✓  " else "") + country.flag + "  " + country.label
+        } + listOf((if (selectedSiteCountry == "default") "✓  " else "") + "🌐  افتراضي (بدون تغيير)")
+        AlertDialog.Builder(this).setTitle("تغيير موقع التصفح").setItems(options.toTypedArray()) { dialog, which ->
+            selectedSiteCountry = if (which == siteCountries.size) "default" else siteCountries[which].id
+            updateLocationFlag()
+            tabs.filter { !it.isHome }.forEach { it.webView.reload() }
+            val label = siteCountries.firstOrNull { it.id == selectedSiteCountry }?.label ?: "الافتراضي"
+            Toast.makeText(this, "تم اختيار $label", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }.setNegativeButton("إلغاء", null).show()
+    }
+
+    /** يغيّر إشارات المنطقة داخل صفحات الويب فقط؛ لا يغيّر عنوان IP الفعلي. */
+    private fun applySiteCountryToPage(webView: WebView) {
+        val country = siteCountries.firstOrNull { it.id == selectedSiteCountry }
+        if (country == null) {
+            webView.evaluateJavascript("try{delete window.__downls10Country}catch(e){}", null)
+            return
+        }
+        val language = org.json.JSONObject.quote(country.language)
+        val timezone = org.json.JSONObject.quote(country.timeZone)
+        val js = """
+          (function(){try{
+            var c={language:$language,timezone:$timezone,lat:${country.latitude},lon:${country.longitude}};
+            window.__downls10Country=c;
+            try{Object.defineProperty(navigator,"language",{configurable:true,get:function(){return c.language}})}catch(e){}
+            try{Object.defineProperty(navigator,"languages",{configurable:true,get:function(){return [c.language,c.language.split("-")[0]]}})}catch(e){}
+            try{var O=Intl.DateTimeFormat;function F(l,o){o=Object.assign({},o||{});if(!o.timeZone)o.timeZone=c.timezone;return new O(l||c.language,o)}F.prototype=O.prototype;Object.setPrototypeOf(F,O);F.supportedLocalesOf=O.supportedLocalesOf.bind(O);Intl.DateTimeFormat=F}catch(e){}
+            try{if(navigator.geolocation)Object.defineProperty(navigator,"geolocation",{configurable:true,value:{getCurrentPosition:function(ok){if(ok)setTimeout(function(){ok({coords:{latitude:c.lat,longitude:c.lon,accuracy:10000,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()})},0)},watchPosition:function(ok){var id=setTimeout(function(){if(ok)ok({coords:{latitude:c.lat,longitude:c.lon,accuracy:10000,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()})},0);return id},clearWatch:function(id){clearTimeout(id)}}})}catch(e){}
+          }catch(e){}})();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
     private fun showBrowserMenu() {
         val options = arrayOf(
             if (hideMedia) "إظهار الوسائط" else "إخفاء الوسائط بالكامل",
@@ -1737,6 +1804,7 @@ class BrowserActivity : Activity() {
             "السجل",
             "ترجمة إلى العربية",
             "الأذونات",
+            "تغيير الموقع",
             "البحث",
             if (nightMode) "إيقاف الوضع الليلي" else "تفعيل الوضع الليلي"
         )
@@ -1753,8 +1821,9 @@ class BrowserActivity : Activity() {
                     5 -> showHistoryDialog()
                     6 -> runTranslate()
                     7 -> showPermissionsDialog()
-                    8 -> showSearchProviderDialog()
-                    9 -> toggleNightMode()
+                    8 -> showSiteCountryDialog()
+                    9 -> showSearchProviderDialog()
+                    10 -> toggleNightMode()
                 }
             }
             .show()
