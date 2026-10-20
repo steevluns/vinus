@@ -774,9 +774,17 @@ object DownloadsRepository {
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
 
-        val collection = MediaStore.Files.getContentUri("external")
-        return runCatching { resolver.insert(collection, values(mime)) }.getOrNull()
-            ?: runCatching { resolver.insert(collection, values("application/octet-stream")) }.getOrNull()
+        // Prefer the public Downloads collection; it is more consistently writable
+        // than the generic Files collection on Android 10+ scoped storage.
+        val downloads = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val files = MediaStore.Files.getContentUri("external")
+        val candidates = listOf(downloads, MediaStore.Downloads.EXTERNAL_CONTENT_URI, files)
+        for (collection in candidates) {
+            val uri = runCatching { resolver.insert(collection, values(mime)) }.getOrNull()
+                ?: runCatching { resolver.insert(collection, values("application/octet-stream")) }.getOrNull()
+            if (uri != null) return uri
+        }
+        return null
     }
 
     private fun publishDownload(context: Context, uri: Uri) {
@@ -791,18 +799,28 @@ object DownloadsRepository {
 
     private fun findDownloadUriByName(resolver: ContentResolver, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-        val collection = MediaStore.Files.getContentUri("external")
-        return resolver.query(
-            collection,
-            arrayOf(MediaStore.MediaColumns._ID),
-            "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
-            arrayOf(fileName, "DownLS10/"),
-            null
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                ContentUris.withAppendedId(collection, cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)))
-            } else null
+        val collections = listOf(
+            MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            MediaStore.Files.getContentUri("external")
+        )
+        for (collection in collections) {
+            val found = runCatching {
+                resolver.query(
+                    collection,
+                    arrayOf(MediaStore.MediaColumns._ID),
+                    "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
+                    arrayOf(fileName, "DownLS10/"),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) ContentUris.withAppendedId(
+                        collection, cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+                    ) else null
+                }
+            }.getOrNull()
+            if (found != null) return found
         }
+        return null
     }
 
     private fun mimeTypeFor(fileName: String): String {
