@@ -641,7 +641,19 @@ object DownloadsRepository {
     fun executeDownload(context: Context, item: DownloadItem) {
         val appContext = context.applicationContext
         trackActivities(context)
+        // حدّث الواجهة فوراً حتى لا تبقى المهمة عالقة على «في الانتظار».
+        item.state = DownloadState.DOWNLOADING
+        item.status = "جارٍ الاتصال بالخادم..."
+        item.speed = "0 KB/s"
+        notifyChanged(appContext, forceSave = true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // تحقق أن URI المحفوظ ما زال موجوداً؛ قد يبقى في السجل URI قديم بعد فشل/حذف الملف.
+            val savedUri = item.localUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
+            val savedUriExists = savedUri != null && runCatching {
+                appContext.contentResolver.query(savedUri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)
+                    ?.use { it.moveToFirst() } == true
+            }.getOrDefault(false)
+            if (savedUri != null && !savedUriExists) item.localUri = null
             val uri = item.localUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
                 ?: createPendingDownload(appContext, item.fileName)?.also { item.localUri = it.toString() }
             if (uri == null) {
@@ -722,8 +734,19 @@ object DownloadsRepository {
     }
 
     fun resumeDownload(context: Context, item: DownloadItem) {
+        val app = context.applicationContext
+        ensureLoaded(app)
+        if (!isResumable(item)) {
+            toast(app, "لا يمكن استئناف هذا النوع من الروابط")
+            return
+        }
+        // امنع الضغط المتكرر من تشغيل أكثر من محاولة لنفس العنصر.
+        if (item.state == DownloadState.DOWNLOADING) return
         item.state = DownloadState.DOWNLOADING
-        executeDownload(context, item)
+        item.status = "جارٍ استئناف التنزيل..."
+        item.speed = "0 KB/s"
+        notifyChanged(app, forceSave = true)
+        executeDownload(app, item)
     }
 
     fun deleteDownload(context: Context, item: DownloadItem, deleteFileOnDisk: Boolean) {
