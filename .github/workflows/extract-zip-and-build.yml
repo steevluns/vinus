@@ -1,0 +1,75 @@
+name: Extract project ZIP and build APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Locate and extract ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="$(find . -maxdepth 3 -type f -iname '*.zip' -not -path './.git/*' | head -n 1)"
+          if [ -z "${ZIP_FILE}" ]; then
+            echo "No ZIP archive found in repository (searched root and two directory levels)." >&2
+            exit 1
+          fi
+          echo "Using archive: ${ZIP_FILE}"
+          mkdir -p /tmp/project-extracted
+          unzip -o "${ZIP_FILE}" -d /tmp/project-extracted
+          # Copy extracted project contents into the repository root, preserving folders.
+          rsync -a --exclude='.git/' /tmp/project-extracted/ ./
+          rm -f "${ZIP_FILE}"
+
+      - name: Commit extracted project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No extracted file changes to commit."
+          else
+            git commit -m "Extract Android project from ZIP"
+            git push
+          fi
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -x ./gradlew ]; then
+            ./gradlew assembleDebug
+          elif [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleDebug
+          else
+            gradle assembleDebug
+          fi
+
+      - name: Upload APK artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 7
