@@ -2,6 +2,9 @@ name: Extract project ZIP and build APK
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/extract-zip-and-build.yml'
 
 permissions:
   contents: write
@@ -25,7 +28,6 @@ jobs:
           echo "Using archive: ${ZIP_FILE}"
           mkdir -p /tmp/project-extracted
           unzip -o "${ZIP_FILE}" -d /tmp/project-extracted
-          # Copy extracted project contents into the repository root, preserving folders.
           rsync -a --exclude='.git/' /tmp/project-extracted/ ./
           rm -f "${ZIP_FILE}"
 
@@ -70,6 +72,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: '**/build/outputs/apk/debug/*.apk'
           if-no-files-found: warn
           retention-days: 7
