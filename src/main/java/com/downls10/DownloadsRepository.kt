@@ -36,8 +36,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * يدير التنزيلات وسجل روابطها بشكل دائم.
- * Android 10+: يحفظ مباشرة في مجلد Download عبر MediaStore.
- * Android 9 وأقدم: يحفظ في مجلد Download العام.
+ * يحفظ الملفات في مجلد DownLS10 داخل التخزين الداخلي العام، باستخدام MediaStore
+ * على Android 10+ وملفات مباشرة على الإصدارات الأقدم.
  */
 data class DownloadPreview(
     val url: String,
@@ -527,7 +527,7 @@ object DownloadsRepository {
                 item.localUri = created.toString()
                 output = appContext.contentResolver.openOutputStream(created, "w")
             } else {
-                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val dir = File(Environment.getExternalStorageDirectory(), "DownLS10")
                 if (!dir.exists()) dir.mkdirs()
                 val target = File(dir, name)
                 file = target
@@ -683,7 +683,7 @@ object DownloadsRepository {
                 }
             )
         } else {
-            val saveDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val saveDir = File(Environment.getExternalStorageDirectory(), "DownLS10")
             if (!saveDir.exists()) saveDir.mkdirs()
             downloadEngine.downloadFile(
                 item = item,
@@ -735,7 +735,7 @@ object DownloadsRepository {
                     runCatching { appContext.contentResolver.delete(Uri.parse(uriString), null, null) }
                 }
             } else {
-                val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), item.fileName)
+                val file = File(File(Environment.getExternalStorageDirectory(), "DownLS10"), item.fileName)
                 if (file.exists()) file.delete()
             }
         }
@@ -756,7 +756,7 @@ object DownloadsRepository {
                 findDownloadUriByName(context.contentResolver, item.fileName) != null
             }
         } else {
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), item.fileName).exists()
+            File(File(Environment.getExternalStorageDirectory(), "DownLS10"), item.fileName).exists()
         }
     }
 
@@ -764,39 +764,21 @@ object DownloadsRepository {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         val resolver = context.contentResolver
         val mime = mimeTypeFor(fileName)
+        val dir = File(Environment.getExternalStorageDirectory(), "DownLS10")
+        if (!dir.exists()) dir.mkdirs()
 
-        fun values(type: String, includeRelativePath: Boolean = true): ContentValues =
-            ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(MediaStore.MediaColumns.MIME_TYPE, type)
-                if (includeRelativePath) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/")
-                }
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
-
-        // بعض أجهزة Android 10/ROMs لا تتعامل مع مسار MediaStore واحد بشكل ثابت.
-        // نجرب مجموعتي Downloads و Files، مع وبدون RELATIVE_PATH، ثم المسار القديم
-        // الخاص بـ Downloads، حتى لا يفشل إنشاء الملف بعد موافقة المستخدم على التنزيل.
-        val attempts = listOf<() -> Uri?>(
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values(mime)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values("application/octet-stream")) },
-            { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values(mime)) },
-            { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values("application/octet-stream")) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime)) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream")) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime, includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream", includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values(mime, includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values("application/octet-stream", includeRelativePath = false)) }
-        )
-
-        for (attempt in attempts) {
-            val uri = runCatching { attempt() }.getOrNull()
-            if (uri != null) return uri
+        fun values(type: String): ContentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, type)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "DownLS10/")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
-        return null
+
+        val collection = MediaStore.Files.getContentUri("external")
+        return runCatching { resolver.insert(collection, values(mime)) }.getOrNull()
+            ?: runCatching { resolver.insert(collection, values("application/octet-stream")) }.getOrNull()
     }
+
     private fun publishDownload(context: Context, uri: Uri) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
@@ -809,12 +791,12 @@ object DownloadsRepository {
 
     private fun findDownloadUriByName(resolver: ContentResolver, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val collection = MediaStore.Files.getContentUri("external")
         return resolver.query(
             collection,
             arrayOf(MediaStore.MediaColumns._ID),
-            "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-            arrayOf(fileName),
+            "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
+            arrayOf(fileName, "DownLS10/"),
             null
         )?.use { cursor ->
             if (cursor.moveToFirst()) {
@@ -886,10 +868,10 @@ object DownloadsRepository {
     private fun isFileNamePresentInDownload(context: Context, fileName: String): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findDownloadUriByName(context.contentResolver, fileName) != null ||
-                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName).exists()
+                File(File(Environment.getExternalStorageDirectory(), "DownLS10"), fileName).exists()
         } else {
             File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                File(Environment.getExternalStorageDirectory(), "DownLS10"),
                 fileName
             ).exists()
         }
