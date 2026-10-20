@@ -143,11 +143,14 @@ class DownloadManagerEngine {
         val ref = item.referer
         while (true) {
             val conn = URL(currentUrl).openConnection() as HttpURLConnection
-            conn.connectTimeout = 60000
-            conn.readTimeout = 300000
+            // مهلات أقصر تمنع بقاء المهمة ظاهرياً على «جار الاتصال بالخادم» لدقائق.
+            conn.connectTimeout = 20000
+            conn.readTimeout = 45000
             conn.instanceFollowRedirects = false
-            // بدون ضغط gzip حتى يكون حجم الملف وتقدّم التنزيل ومواضع الاستئناف دقيقة
+            // بدون ضغط gzip حتى يكون حجم الملف وتقدّم التنزيل ومواضع الاستئناف دقيقة.
             conn.setRequestProperty("Accept-Encoding", "identity")
+            conn.setRequestProperty("Connection", "close")
+            conn.setRequestProperty("Accept", "*/*")
             conn.setRequestProperty("User-Agent", if (!ua.isNullOrBlank()) ua else defaultUserAgent)
             val cookies = try { CookieManager.getInstance().getCookie(currentUrl) } catch (e: Exception) { null }
             if (!cookies.isNullOrBlank()) conn.setRequestProperty("Cookie", cookies)
@@ -302,7 +305,8 @@ class DownloadManagerEngine {
     /** الحجم الفعلي للملف المكتوب (المصدر الوحيد الموثوق لنقطة الاستئناف). */
     private fun uriLength(resolver: ContentResolver, uri: Uri): Long {
         return try {
-            resolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L
+            // بعض مزوّدي MediaStore يعيدون -1 للحجم غير المعروف؛ لا تستخدمه كموضع Range.
+            (resolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L).coerceAtLeast(0L)
         } catch (e: Exception) {
             0L
         }
