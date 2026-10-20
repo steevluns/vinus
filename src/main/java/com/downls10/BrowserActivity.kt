@@ -1877,7 +1877,8 @@ class BrowserActivity : Activity() {
             .setPositiveButton("حفظ وتطبيق") { _, _ ->
                 val hostValue = host.text.toString().trim()
                 val portValue = port.text.toString().trim()
-                if (enabled.isChecked && (hostValue.isBlank() || portValue.toIntOrNull() !in 1..65535)) {
+                val parsedPort = portValue.toIntOrNull()
+                if (enabled.isChecked && (hostValue.isBlank() || parsedPort == null || parsedPort !in 1..65535)) {
                     Toast.makeText(this, "أدخل عنوان بروكسي ومنفذًا صحيحًا", Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
