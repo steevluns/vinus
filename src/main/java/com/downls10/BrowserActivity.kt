@@ -1764,17 +1764,61 @@ class BrowserActivity : Activity() {
     }
 
     private fun showSiteCountryDialog() {
-        val options = siteCountries.map { country ->
-            (if (selectedSiteCountry == country.id) "✓  " else "") + country.flag + "  " + country.label
-        } + listOf((if (selectedSiteCountry == "default") "✓  " else "") + "🌐  افتراضي (بدون تغيير)")
+        val options = listOf("⚡  الاتصال الأسرع (VPN)") +
+            siteCountries.map { country ->
+                (if (selectedSiteCountry == country.id) "✓  " else "") + country.flag + "  " + country.label
+            } + listOf((if (selectedSiteCountry == "default") "✓  " else "") + "🌐  افتراضي (بدون تغيير)")
         AlertDialog.Builder(this).setTitle("تغيير موقع التصفح").setItems(options.toTypedArray()) { dialog, which ->
-            selectedSiteCountry = if (which == siteCountries.size) "default" else siteCountries[which].id
-            updateLocationFlag()
-            tabs.filter { !it.isHome }.forEach { it.webView.reload() }
-            val label = siteCountries.firstOrNull { it.id == selectedSiteCountry }?.label ?: "الافتراضي"
-            Toast.makeText(this, "تم اختيار $label", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
+            when {
+                which == 0 -> openFastestVpn()
+                which <= siteCountries.size -> {
+                    selectedSiteCountry = siteCountries[which - 1].id
+                    updateLocationFlag()
+                    tabs.filter { !it.isHome }.forEach { it.webView.reload() }
+                    val label = siteCountries.firstOrNull { it.id == selectedSiteCountry }?.label ?: "الافتراضي"
+                    Toast.makeText(this, "تم اختيار $label", Toast.LENGTH_SHORT).show()
+                }
+                else -> {
+                    selectedSiteCountry = "default"
+                    updateLocationFlag()
+                    tabs.filter { !it.isHome }.forEach { it.webView.reload() }
+                    Toast.makeText(this, "تم اختيار الموقع الافتراضي", Toast.LENGTH_SHORT).show()
+                }
+            }
         }.setNegativeButton("إلغاء", null).show()
+    }
+
+    /**
+     * يفتح Proton VPN حتى يختار التطبيق خادمًا سريعًا متاحًا.
+     * لا يمكن للمتصفح تشغيل اتصال VPN داخل تطبيق آخر دون تكامل رسمي منه وموافقة Android.
+     */
+    private fun openFastestVpn() {
+        AlertDialog.Builder(this)
+            .setTitle("الاتصال الأسرع عبر VPN")
+            .setMessage("سيفتح Proton VPN. اضغط «الاتصال السريع / Fastest country» داخله لإجراء الاتصال. في الخطة المجانية قد يختار دولة مختلفة عن الدولة التي اخترتها في المتصفح.")
+            .setPositiveButton("فتح Proton VPN") { _, _ ->
+                val launchIntent = packageManager.getLaunchIntentForPackage("ch.protonvpn.android")
+                if (launchIntent != null) {
+                    try {
+                        startActivity(launchIntent)
+                    } catch (_: Exception) {
+                        openProtonVpnDownloadPage()
+                    }
+                } else {
+                    openProtonVpnDownloadPage()
+                }
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
+
+    private fun openProtonVpnDownloadPage() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://protonvpn.com/download-android/")))
+        } catch (_: Exception) {
+            Toast.makeText(this, "تعذّر فتح صفحة Proton VPN", Toast.LENGTH_LONG).show()
+        }
     }
 
     /** يغيّر إشارات المنطقة داخل صفحات الويب فقط؛ لا يغيّر عنوان IP الفعلي. */
