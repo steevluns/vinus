@@ -39,6 +39,15 @@ import java.util.concurrent.atomic.AtomicReference
  * Android 10+: يحفظ مباشرة في مجلد Download عبر MediaStore.
  * Android 9 وأقدم: يحفظ في مجلد Download العام.
  */
+data class DownloadPreview(
+    val url: String,
+    val fileName: String,
+    val sizeBytes: Long,
+    val mimeType: String?,
+    val userAgent: String?,
+    val referer: String?
+)
+
 object DownloadsRepository {
 
     val downloadList = mutableListOf<DownloadItem>()
@@ -99,6 +108,72 @@ object DownloadsRepository {
      * يبدأ أو يستأنف رابطاً. يدعم http/https وdata:، وعند غموض اسم الملف أو نوعه
      * يستكشف استجابة الخادم أولاً (Content-Disposition + Content-Type + التحويلات).
      */
+    /** يستكشف بيانات الملف قبل التنزيل حتى نعرض الاسم والحجم والامتداد للمستخدم. */
+    fun previewDownload(
+        context: Context,
+        url: String,
+        userAgent: String? = null,
+        referer: String? = null,
+        suggestedFileName: String? = null,
+        mimeType: String? = null,
+        callback: (DownloadPreview?, String?) -> Unit
+    ) {
+        val app = context.applicationContext
+        ensureLoaded(app)
+        probeExecutor.execute {
+            try {
+                var typed = url.trim()
+                if (typed.isBlank()) throw IllegalArgumentException("رابط الملف فارغ")
+                if (!typed.contains("://") && !typed.startsWith("data:", true) && !typed.startsWith("blob:", true)) typed = "https://$typed"
+                if (typed.startsWith("data:", true) || typed.startsWith("blob:", true) || typed.startsWith("magnet:", true)) {
+                    throw IllegalArgumentException("هذا النوع من الروابط لا يمكن معاينة حجمه بهذه الطريقة")
+                }
+                val scheme = typed.substringBefore("://", "").lowercase()
+                val cleanUrl = if (scheme == "ftp") typed else LinkResolver.resolve(typed)
+                val info = if (scheme == "ftp") null else downloadEngine.probe(cleanUrl, userAgent, referer)
+                val name = resolveFileName(
+                    suggestedFileName?.takeIf { it.isNotBlank() } ?: nameFromUrlIfReliable(cleanUrl),
+                    info, cleanUrl, mimeType
+                )
+                val preview = DownloadPreview(cleanUrl, name, info?.contentLength?.coerceAtLeast(0L) ?: 0L,
+                    info?.contentType ?: mimeType, userAgent, referer)
+                mainHandler.post { callback(preview, null) }
+            } catch (e: Exception) {
+                mainHandler.post { callback(null, e.message ?: "تعذّرت قراءة معلومات الملف") }
+            }
+        }
+    }
+
+    /** يتحقق من وجود الملف في مجلد التنزيلات، بما فيه الملفات التي لم ينشئها التطبيق. */
+    fun isAlreadyInDownloads(context: Context, fileName: String): Boolean =
+        isFileNamePresentInDownload(context.applicationContext, sanitizeFileName(fileName))
+
+    /** يضيف الملف إلى قائمة التنزيلات بحالة متوقفة دون إنشاء ملف فعلي أو بدء الاتصال. */
+    fun addToQueue(context: Context, preview: DownloadPreview): Boolean {
+        val app = context.applicationContext
+        ensureLoaded(app)
+        if (isFileNamePresentInDownload(app, preview.fileName)) {
+            toast(app, "الملف موجود بالتنزيلات")
+            return false
+        }
+        if (downloadList.any { it.url == preview.url && it.state != DownloadState.ERROR }) {
+            toast(app, "الملف موجود في قائمة التنزيلات")
+            return false
+        }
+        val ext = preview.fileName.substringAfterLast('.', "bin").lowercase()
+        val item = DownloadItem(
+            id = System.currentTimeMillis(), url = preview.url, fileName = preview.fileName,
+            extension = ext, state = DownloadState.PAUSED,
+            status = "مضاف إلى قائمة التنزيلات", totalBytes = preview.sizeBytes,
+            userAgent = preview.userAgent, referer = preview.referer
+        )
+        downloadList.add(0, item)
+        DownloadHistory.add(app, preview.url)
+        notifyChanged(app, forceSave = true)
+        toast(app, "تمت إضافة الملف إلى قائمة التنزيلات دون بدء التنزيل")
+        return true
+    }
+
     fun startNewDownload(
         context: Context,
         url: String,
