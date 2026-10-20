@@ -16,13 +16,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Locate and extract ZIP
+      - name: Locate and extract ZIP (or use already extracted project)
         shell: bash
         run: |
           set -euo pipefail
+          if [ -f ./build.gradle ] && [ -f ./src/main/AndroidManifest.xml ]; then
+            echo "Android project is already extracted; continuing to build."
+            exit 0
+          fi
           ZIP_FILE="$(find . -maxdepth 5 -type f -iname '*.zip' -not -path './.git/*' | head -n 1)"
           if [ -z "${ZIP_FILE}" ]; then
-            echo "No ZIP archive found in repository (searched up to five directory levels)." >&2
+            echo "No ZIP found and no extracted Android project (build.gradle/AndroidManifest.xml)." >&2
             exit 1
           fi
           echo "Using archive: ${ZIP_FILE}"
@@ -38,8 +42,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          # The GitHub App token cannot push workflow files without the separate workflows permission.
-          # Keep workflow files already managed in the repository; commit app source and resources only.
           git reset -- .github/workflows
           if git diff --cached --quiet; then
             echo "No extracted source changes to commit."
@@ -54,20 +56,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build debug APK
         shell: bash
         run: |
           set -euo pipefail
           if [ -x ./gradlew ]; then
-            ./gradlew assembleDebug
+            ./gradlew --no-daemon assembleDebug
           elif [ -f ./gradlew ]; then
             chmod +x ./gradlew
-            ./gradlew assembleDebug
+            ./gradlew --no-daemon assembleDebug
           else
-            gradle assembleDebug
+            gradle --no-daemon assembleDebug
           fi
 
       - name: Upload APK artifact
@@ -76,5 +82,5 @@ jobs:
         with:
           name: android-debug-apk
           path: '**/build/outputs/apk/debug/*.apk'
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
