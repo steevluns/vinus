@@ -32,6 +32,9 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.ProxyController
+import androidx.webkit.ProxyConfig
+import androidx.webkit.WebViewFeature
 import android.webkit.WebChromeClient
 import android.widget.Button
 import android.widget.EditText
@@ -202,6 +205,7 @@ class BrowserActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        restoreSavedProxy()
         setContentView(R.layout.activity_browser)
 
         webViewContainer = findViewById(R.id.webViewContainer)
@@ -1805,6 +1809,7 @@ class BrowserActivity : Activity() {
             "ترجمة إلى العربية",
             "الأذونات",
             "تغيير الموقع",
+            "البروكسي / VPN",
             "البحث",
             if (nightMode) "إيقاف الوضع الليلي" else "تفعيل الوضع الليلي"
         )
@@ -1822,11 +1827,114 @@ class BrowserActivity : Activity() {
                     6 -> runTranslate()
                     7 -> showPermissionsDialog()
                     8 -> showSiteCountryDialog()
-                    9 -> showSearchProviderDialog()
-                    10 -> toggleNightMode()
+                    9 -> showProxyVpnDialog()
+                    10 -> showSearchProviderDialog()
+                    11 -> toggleNightMode()
                 }
             }
             .show()
+    }
+
+    private fun showProxyVpnDialog() {
+        val prefs = settingsPrefs()
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 8, 24, 0)
+        }
+        val enabled = android.widget.CheckBox(this).apply {
+            text = "استخدام بروكسي للمتصفح"
+            isChecked = prefs.getBoolean("proxyEnabled", false)
+        }
+        val host = EditText(this).apply {
+            hint = "عنوان الخادم (مثال: 1.2.3.4)"
+            setSingleLine(true)
+            setText(prefs.getString("proxyHost", "") ?: "")
+        }
+        val port = EditText(this).apply {
+            hint = "المنفذ (مثال: 8080)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setSingleLine(true)
+            setText(prefs.getString("proxyPort", "") ?: "")
+        }
+        val note = TextView(this).apply {
+            text = "البروكسي يمرر اتصالات صفحات WebView فقط. أدخل خادمًا موثوقًا موجودًا في الدولة المطلوبة. لا توجد خوادم مضمّنة في التطبيق."
+            textSize = 13f
+            setPadding(0, 12, 0, 12)
+        }
+        val vpnInfo = TextView(this).apply {
+            text = "VPN: يحتاج إلى ملف إعداد أو خادم VPN فعلي (مثل WireGuard/OpenVPN). لم يتم تفعيل VPN تلقائيًا لأن التطبيق لا يملك خادمًا أو ملف اتصال."
+            textSize = 13f
+            setPadding(0, 8, 0, 8)
+        }
+        layout.addView(enabled)
+        layout.addView(host)
+        layout.addView(port)
+        layout.addView(note)
+        layout.addView(vpnInfo)
+        AlertDialog.Builder(this)
+            .setTitle("البروكسي / VPN")
+            .setView(layout)
+            .setPositiveButton("حفظ وتطبيق") { _, _ ->
+                val hostValue = host.text.toString().trim()
+                val portValue = port.text.toString().trim()
+                if (enabled.isChecked && (hostValue.isBlank() || portValue.toIntOrNull() !in 1..65535)) {
+                    Toast.makeText(this, "أدخل عنوان بروكسي ومنفذًا صحيحًا", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                prefs.edit()
+                    .putBoolean("proxyEnabled", enabled.isChecked)
+                    .putString("proxyHost", hostValue)
+                    .putString("proxyPort", portValue)
+                    .apply()
+                applyWebViewProxy(enabled.isChecked, hostValue, portValue.toIntOrNull() ?: 0)
+            }
+            .setNeutralButton("إيقاف البروكسي") { _, _ ->
+                prefs.edit().putBoolean("proxyEnabled", false).apply()
+                applyWebViewProxy(false, "", 0)
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
+
+    private fun applyWebViewProxy(enabled: Boolean, host: String, port: Int) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            Toast.makeText(this, "إصدار Android System WebView لا يدعم إعداد البروكسي من التطبيق", Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            if (enabled) {
+                val config = ProxyConfig.Builder().addProxyRule("$host:$port").build()
+                ProxyController.getInstance().setProxyOverride(
+                    config,
+                    java.util.concurrent.Executor { command -> command.run() }
+                ) {
+                    runOnUiThread {
+                        tabs.filter { !it.isHome }.forEach { it.webView.reload() }
+                        Toast.makeText(this, "تم تطبيق البروكسي على صفحات المتصفح", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } else {
+                ProxyController.getInstance().clearProxyOverride(
+                    java.util.concurrent.Executor { command -> command.run() }
+                ) {
+                    runOnUiThread {
+                        tabs.filter { !it.isHome }.forEach { it.webView.reload() }
+                        Toast.makeText(this, "تم إيقاف البروكسي", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "تعذّر تطبيق البروكسي: ${e.message ?: "خطأ غير معروف"}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun restoreSavedProxy() {
+        val prefs = settingsPrefs()
+        if (prefs.getBoolean("proxyEnabled", false)) {
+            val host = prefs.getString("proxyHost", "") ?: ""
+            val port = prefs.getString("proxyPort", "")?.toIntOrNull() ?: 0
+            if (host.isNotBlank() && port in 1..65535) applyWebViewProxy(true, host, port)
+        }
     }
 
     private fun showSearchProviderDialog() {
