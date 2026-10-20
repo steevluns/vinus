@@ -50,7 +50,7 @@ object AdBlocker {
     )
 
     private val REMOVED_LIST_IDS = arrayOf(
-        "fanboy_enhanced_tracking", "adguard_base", "adguard_ads", "adguard_mobile_ads", "nextdns_cname", "ubo_unbreak", "ubo_resource_abuse",
+        "adguard_base", "adguard_ads", "adguard_mobile_ads", "nextdns_cname", "ubo_unbreak", "ubo_resource_abuse",
         "pgl", "pgl_list", "nocoin", "no_coin", "peter", "peter_lowe", "peter_lowe_ads_tracking",
         "ublock_filters", "ublock_filters_ads", "ublock_origin", "ublock-origin", "ubo",
         "malware", "malware_domains", "phishing", "phishing_domains", "risk", "suspicious",
