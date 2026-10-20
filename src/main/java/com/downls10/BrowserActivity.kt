@@ -909,12 +909,8 @@ class BrowserActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 if (request.isForMainFrame && looksLikeDirectFileUrl(url)) {
-                    DownloadsRepository.startNewDownload(
-                        this@BrowserActivity,
-                        url,
-                        showToast = true,
-                        userAgent = view.settings.userAgentString,
-                        referer = view.url
+                    requestDownloadWithOptions(
+                        url, userAgent = view.settings.userAgentString, referer = view.url
                     )
                     return true
                 }
@@ -922,9 +918,9 @@ class BrowserActivity : Activity() {
                     val known = DownloadsRepository.downloadList.find { it.url == url }
                     if (known != null) {
                         // رابط تنزيل معروف: كان يُتجاهل بصمت، الآن تظهر رسالة «الملف موجود: الاسم» أو يُستأنف التنزيل
-                        DownloadsRepository.startNewDownload(
-                            this@BrowserActivity, url, showToast = true, suggestedFileName = known.fileName,
-                            userAgent = view.settings.userAgentString, referer = view.url
+                        requestDownloadWithOptions(
+                            url, userAgent = view.settings.userAgentString, referer = view.url,
+                            suggestedFileName = known.fileName
                         )
                         return true
                     }
@@ -1142,14 +1138,9 @@ class BrowserActivity : Activity() {
             if (url.startsWith("blob:", ignoreCase = true)) {
                 blobBridge.start(webView, url, nameFromHeader, mimeType)
             } else {
-                DownloadsRepository.startNewDownload(
-                    this,
-                    url,
-                    showToast = true,
-                    suggestedFileName = nameFromHeader,
-                    userAgent = userAgent,
-                    referer = webView.url,
-                    mimeType = mimeType
+                requestDownloadWithOptions(
+                    url, userAgent = userAgent, referer = webView.url,
+                    suggestedFileName = nameFromHeader, mimeType = mimeType
                 )
             }
         }
@@ -1917,6 +1908,53 @@ class BrowserActivity : Activity() {
     private fun requestAndroidPermIfNeeded(permission: String) {
         if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(permission), ANDROID_PERM_CODE)
+        }
+    }
+
+    private fun formatDownloadSize(bytes: Long): String {
+        if (bytes <= 0L) return "غير معروف"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        var value = bytes.toDouble()
+        var unit = 0
+        while (value >= 1024 && unit < units.lastIndex) { value /= 1024.0; unit++ }
+        return if (unit == 0) "${bytes} ${units[unit]}" else String.format(Locale.US, "%.2f %s", value, units[unit])
+    }
+
+    /** يعرض معلومات الملف ويترك قرار الإضافة أو بدء التنزيل للمستخدم. */
+    private fun requestDownloadWithOptions(
+        url: String,
+        userAgent: String? = null,
+        referer: String? = null,
+        suggestedFileName: String? = null,
+        mimeType: String? = null
+    ) {
+        DownloadsRepository.previewDownload(this, url, userAgent, referer, suggestedFileName, mimeType) { preview, error ->
+            if (isFinishing || isDestroyed) return@previewDownload
+            if (preview == null) {
+                Toast.makeText(this, error ?: "تعذّر قراءة معلومات الملف", Toast.LENGTH_LONG).show()
+                return@previewDownload
+            }
+            if (DownloadsRepository.isAlreadyInDownloads(this, preview.fileName)) {
+                AlertDialog.Builder(this)
+                    .setMessage("الملف موجود بالتنزيلات")
+                    .setPositiveButton("موافق", null)
+                    .show()
+                return@previewDownload
+            }
+            val extension = preview.fileName.substringAfterLast('.', "غير معروف")
+            val details = "اسم الملف: ${preview.fileName}\nالحجم: ${formatDownloadSize(preview.sizeBytes)}\nالامتداد: ${extension}"
+            AlertDialog.Builder(this)
+                .setTitle("تنزيل ملف")
+                .setMessage(details)
+                .setNeutralButton("إضافة") { _, _ -> DownloadsRepository.addToQueue(this, preview) }
+                .setPositiveButton("تنزيل") { _, _ ->
+                    DownloadsRepository.startNewDownload(
+                        this, preview.url, showToast = true, suggestedFileName = preview.fileName,
+                        userAgent = preview.userAgent, referer = preview.referer, mimeType = preview.mimeType
+                    )
+                }
+                .setNegativeButton("إلغاء", null)
+                .show()
         }
     }
 
