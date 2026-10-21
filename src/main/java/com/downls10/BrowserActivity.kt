@@ -908,6 +908,23 @@ class BrowserActivity : Activity() {
             false
         }
 
+        // اعترض الضغط المطوّل على الصور داخل المواقع، بدل قائمة النسخ الافتراضية في WebView.
+        webView.setOnLongClickListener { view ->
+            val hit = (view as? WebView)?.hitTestResult
+            if (hit?.type == WebView.HitTestResult.IMAGE_TYPE ||
+                hit?.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+                val imageUrl = hit.extra?.trim().orEmpty()
+                if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                    showWebImageMenu(imageUrl, view as WebView)
+                } else {
+                    Toast.makeText(this, "تعذر فتح رابط الصورة هذا", Toast.LENGTH_SHORT).show()
+                }
+                true
+            } else {
+                false
+            }
+        }
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView,
@@ -1156,6 +1173,83 @@ class BrowserActivity : Activity() {
                 )
             }
         }
+    }
+
+    /** قائمة إجراءات الصور التي تظهر عند الضغط المطوّل داخل صفحة الويب. */
+    private fun showWebImageMenu(imageUrl: String, sourceWebView: WebView) {
+        AlertDialog.Builder(this)
+            .setItems(arrayOf("تنزيل الصورة", "فتح الصورة")) { dialog, which ->
+                when (which) {
+                    0 -> {
+                        val name = Uri.parse(imageUrl).lastPathSegment
+                            ?.let { Uri.decode(it) }
+                            ?.takeIf { it.isNotBlank() }
+                        requestDownloadWithOptions(
+                            imageUrl,
+                            userAgent = sourceWebView.settings.userAgentString,
+                            referer = sourceWebView.url,
+                            suggestedFileName = name
+                        )
+                    }
+                    1 -> openImageViewer(imageUrl, sourceWebView)
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
+
+    /** عارض صورة مستقل بملء الشاشة؛ WebView يدعم التكبير والتصغير بإيماءة الإصبع. */
+    private fun openImageViewer(imageUrl: String, sourceWebView: WebView) {
+        val viewer = WebView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            settings.javaScriptEnabled = false
+            settings.domStorageEnabled = false
+            settings.loadsImagesAutomatically = true
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
+            settings.setSupportZoom(true)
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            settings.userAgentString = sourceWebView.settings.userAgentString
+        }
+
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(viewer, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+        }
+
+        val closeButton = TextView(this).apply {
+            text = "X"
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#99000000"))
+            contentDescription = "إغلاق الصورة"
+            setPadding(16, 8, 16, 8)
+        }
+        val closeParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.RIGHT
+        ).apply {
+            topMargin = (12 * resources.displayMetrics.density).toInt()
+            rightMargin = (12 * resources.displayMetrics.density).toInt()
+        }
+        root.addView(closeButton, closeParams)
+
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        closeButton.setOnClickListener { dialog.dismiss() }
+        dialog.setOnDismissListener {
+            try { viewer.stopLoading() } catch (_: Exception) { }
+            try { viewer.destroy() } catch (_: Exception) { }
+        }
+        dialog.setContentView(root)
+        dialog.show()
+        viewer.loadUrl(imageUrl)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
