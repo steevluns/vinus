@@ -75,7 +75,7 @@ class DownloadManagerEngine {
     private val activeSources = ConcurrentHashMap<Long, DownloadSource>()
 
     private val bufferSize = 256 * 1024
-    private val maxConsecutiveFailures = 12
+    private val maxConsecutiveFailures = 5
 
     private val defaultUserAgent =
         "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36"
@@ -144,8 +144,8 @@ class DownloadManagerEngine {
         while (true) {
             val conn = URL(currentUrl).openConnection() as HttpURLConnection
             // مهلات أقصر تمنع بقاء المهمة ظاهرياً على «جار الاتصال بالخادم» لدقائق.
-            conn.connectTimeout = 20000
-            conn.readTimeout = 45000
+            conn.connectTimeout = 12000
+            conn.readTimeout = 20000
             conn.instanceFollowRedirects = false
             // بدون ضغط gzip حتى يكون حجم الملف وتقدّم التنزيل ومواضع الاستئناف دقيقة.
             conn.setRequestProperty("Accept-Encoding", "identity")
@@ -355,6 +355,17 @@ class DownloadManagerEngine {
                         uriLength(uriTarget!!.first, uriTarget.second)
                     }
 
+                    // Publish connection state immediately instead of leaving the row visually frozen.
+                    mainHandler.post {
+                        if (!stopped()) onProgress(
+                            if (existingLength > 0L && item.totalBytes > 0L)
+                                ((existingLength * 100L) / item.totalBytes).toInt().coerceIn(0, 99) else 0,
+                            if (failures > 0) "إعادة المحاولة ($failures/5)..." else "جار الاتصال بالخادم...",
+                            existingLength,
+                            item.totalBytes
+                        )
+                    }
+
                     val src = when {
                         isFtp(item.url) -> openFtpSource(item, existingLength)
                         LinkResolver.needsRemoteResolution(item.url) -> openRemoteSource(item, existingLength)
@@ -431,9 +442,24 @@ class DownloadManagerEngine {
                         e !is SSLHandshakeException
                     if (retryable && failures < maxConsecutiveFailures) {
                         retry = true
+                        mainHandler.post {
+                            if (!stopped()) onProgress(
+                                0,
+                                "تعذّر الاتصال؛ إعادة المحاولة ${failures + 1}/$maxConsecutiveFailures...",
+                                item.downloadedBytes,
+                                item.totalBytes
+                            )
+                        }
                     } else {
                         item.state = DownloadState.ERROR
-                        mainHandler.post { onError(e.message ?: "فشل التحميل") }
+                        val message = when (e) {
+                            is java.net.SocketTimeoutException -> "انتهت مهلة الاتصال بالخادم. تحقق من الشبكة أو جرّب رابط تنزيل مباشر."
+                            is javax.net.ssl.SSLException -> "فشل الاتصال الآمن بالموقع (TLS/SSL): ${e.message ?: "رفض الخادم الاتصال"}"
+                            is java.net.UnknownHostException -> "تعذّر العثور على الخادم. تحقق من الإنترنت أو من صحة الرابط."
+                            is java.net.ConnectException -> "تعذّر الاتصال بالخادم: ${e.message ?: "رفض الاتصال"}"
+                            else -> e.message?.takeIf { it.isNotBlank() } ?: "فشل التنزيل بسبب خطأ غير معروف."
+                        }
+                        mainHandler.post { onError(message) }
                     }
                 } finally {
                     try { fileOutput?.close() } catch (_: Exception) { }
