@@ -15,15 +15,15 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Find and extract ZIP files
+      - name: Extract ZIP contents directly into repository root
         shell: bash
         run: |
           set -euo pipefail
+
           mapfile -d '' archives < <(
             find . -type f -name '*.zip' \
               -not -path './.git/*' \
               -not -path './.github/*' \
-              -not -path './extracted/*' \
               -print0
           )
 
@@ -32,35 +32,35 @@ jobs:
             exit 1
           fi
 
-          mkdir -p extracted
-          for archive in "${archives[@]}"; do
-            name="$(basename "$archive" .zip)"
-            destination="extracted/$name"
-            mkdir -p "$destination"
-            echo "Extracting $archive into $destination"
-            python3 - "$archive" "$destination" <<'PYTHON'
-          import pathlib, sys, zipfile
-          archive = pathlib.Path(sys.argv[1])
-          destination = pathlib.Path(sys.argv[2]).resolve()
-          with zipfile.ZipFile(archive) as zf:
-              for item in zf.infolist():
-                  target = (destination / item.filename).resolve()
-                  if target != destination and destination not in target.parents:
-                      raise SystemExit(f"Unsafe ZIP entry path: {item.filename}")
-              zf.extractall(destination)
-          PYTHON
-          done
+          python3 - "${archives[@]}" <<'PYTHON'
+          import pathlib
+          import sys
+          import zipfile
 
-      - name: Commit extracted files to this branch
+          root = pathlib.Path.cwd().resolve()
+          for archive_name in sys.argv[1:]:
+              archive = pathlib.Path(archive_name).resolve()
+              print(f"Extracting {archive.name} directly into repository root")
+              with zipfile.ZipFile(archive) as zf:
+                  for item in zf.infolist():
+                      target = (root / item.filename).resolve()
+                      if target != root and root not in target.parents:
+                          raise SystemExit(f"Unsafe ZIP entry path: {item.filename}")
+                  zf.extractall(root)
+          PYTHON
+
+      - name: Commit extracted files
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add extracted
+          git config user.email "41898282+users.noreply.github.com"
+          git add -A
+          # Do not add the source archives or GitHub workflow files to the extraction commit.
+          git reset -- '*.zip' '.github/workflows/*' || true
           if git diff --cached --quiet; then
             echo "No extracted-file changes to commit."
             exit 0
           fi
-          git commit -m "Extract project ZIP files"
+          git commit -m "Extract ZIP contents into repository root"
           git push origin "HEAD:${GITHUB_REF_NAME}"
