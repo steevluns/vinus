@@ -2772,7 +2772,7 @@ class BrowserActivity : Activity() {
                     gravity = Gravity.CENTER_VERTICAL
                 }
                 val statusText = TextView(this).apply {
-                    text = "${AdBlocker.ruleCount(this@BrowserActivity, def.id)} قاعدة - ${AdBlocker.lastUpdateText(this@BrowserActivity, def.id)}"
+                    text = "${AdBlocker.ruleCount(this@BrowserActivity, def.id)} قاعدة"
                     setTextColor(Color.LTGRAY)
                     textSize = 11f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
