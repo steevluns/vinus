@@ -402,7 +402,20 @@ class DownloadManagerEngine {
                     checkDiskSpace(totalSize, startOffset)
 
                     if (saveDir != null) {
-                        val outputFile = File(saveDir, item.fileName)
+                        // Create the download directory before opening the file. On Android,
+                        // RandomAccessFile does not create missing parent directories (ENOENT).
+                        if (!saveDir.exists() && !saveDir.mkdirs()) {
+                            throw NonRetryableDownloadException("تعذّر إنشاء مجلد التنزيل: ${saveDir.absolutePath}")
+                        }
+                        if (!saveDir.isDirectory) {
+                            throw NonRetryableDownloadException("مسار التنزيل ليس مجلدًا: ${saveDir.absolutePath}")
+                        }
+                        val safeName = item.fileName
+                            .replace('/', '_')
+                            .replace('\\\\', '_')
+                            .trim()
+                            .ifBlank { "download_${item.id}" }
+                        val outputFile = File(saveDir, safeName)
                         fileOutput = RandomAccessFile(outputFile, "rw")
                         if (startOffset == 0L) fileOutput.setLength(0L) else fileOutput.seek(startOffset)
                     } else {
