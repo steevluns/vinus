@@ -35,6 +35,9 @@ object AdBlocker {
 
     val LISTS = listOf(
         BlockListDef("stevenblack", "StevenBlack", "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", ListFormat.HOSTS, ListCategory.AD),
+        BlockListDef("hagezi_multi_pro", "HaGeZi Multi Pro", "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt", ListFormat.HOSTS, ListCategory.AD),
+        BlockListDef("oisd_big", "OISD Big", "https://big.oisd.nl/dnsmasq", ListFormat.HOSTS, ListCategory.AD),
+        BlockListDef("1hosts_pro", "1Hosts Pro", "https://o0.pages.dev/Pro/hosts.txt", ListFormat.HOSTS, ListCategory.AD),
         BlockListDef("porn", "حجب المواقع الإباحية", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
     )
 
