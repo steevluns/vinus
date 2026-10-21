@@ -1912,6 +1912,7 @@ class BrowserActivity : Activity() {
      * The .conf file and its private key are kept local and are never written to source code.
      */
     private fun openFastestVpn() {
+        DownLS10WireGuard.initialize(this)
         if (DownLS10WireGuard.hasConfig()) {
             val state = if (DownLS10WireGuard.isConnected()) "متصل حاليًا" else "غير متصل"
             AlertDialog.Builder(this)
