@@ -161,9 +161,19 @@ class DownloadManagerEngine {
             if (existingLength > 0 && (!needsHtml || confirmedFile)) {
                 conn.setRequestProperty("Range", "bytes=$existingLength-")
             }
-            conn.connect()
+            try {
+                conn.connect()
+            } catch (e: Exception) {
+                conn.disconnect()
+                throw e
+            }
 
-            val code = conn.responseCode
+            val code = try {
+                conn.responseCode
+            } catch (e: Exception) {
+                conn.disconnect()
+                throw e
+            }
             if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
                 val location = conn.getHeaderField("Location")
                 conn.disconnect()
@@ -180,8 +190,20 @@ class DownloadManagerEngine {
                 val isHtml = contentType.startsWith("text/html", ignoreCase = true) &&
                     conn.getHeaderField("Content-Disposition") == null
                 if (isHtml) {
+                    // Read a bounded landing page; readText() may wait for an entire large response.
                     val html = try {
-                        conn.inputStream.bufferedReader().use { it.readText() }
+                        conn.inputStream.use { input ->
+                            val out = java.io.ByteArrayOutputStream()
+                            val buffer = ByteArray(8192)
+                            var remaining = 400_000
+                            while (remaining > 0) {
+                                val n = input.read(buffer, 0, minOf(buffer.size, remaining))
+                                if (n <= 0) break
+                                out.write(buffer, 0, n)
+                                remaining -= n
+                            }
+                            out.toString(Charsets.UTF_8.name())
+                        }
                     } catch (e: Exception) {
                         ""
                     }
