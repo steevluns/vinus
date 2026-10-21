@@ -145,7 +145,7 @@ class DownloadManagerEngine {
             val conn = URL(currentUrl).openConnection() as HttpURLConnection
             // مهلات أقصر تمنع بقاء المهمة ظاهرياً على «جار الاتصال بالخادم» لدقائق.
             conn.connectTimeout = 12000
-            conn.readTimeout = 20000
+            conn.readTimeout = 300000
             conn.instanceFollowRedirects = false
             // بدون ضغط gzip حتى يكون حجم الملف وتقدّم التنزيل ومواضع الاستئناف دقيقة.
             conn.setRequestProperty("Accept-Encoding", "identity")
