@@ -1853,7 +1853,6 @@ class BrowserActivity : Activity() {
             "ترجمة إلى العربية",
             "الأذونات",
             "تغيير الموقع",
-            "البروكسي / VPN",
             "البحث",
             if (nightMode) "إيقاف الوضع الليلي" else "تفعيل الوضع الليلي"
         )
@@ -1871,9 +1870,8 @@ class BrowserActivity : Activity() {
                     6 -> runTranslate()
                     7 -> showPermissionsDialog()
                     8 -> showSiteCountryDialog()
-                    9 -> showProxyVpnDialog()
-                    10 -> showSearchProviderDialog()
-                    11 -> toggleNightMode()
+                    9 -> showSearchProviderDialog()
+                    10 -> toggleNightMode()
                 }
             }
             .show()
