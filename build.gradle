@@ -17,8 +17,8 @@ android {
 
     compileOptions {
         coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
@@ -67,5 +67,5 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     // WireGuard userspace tunnel engine; configuration is imported locally, never committed.
-    implementation 'com.wireguard.android:tunnel:1.0.20230706'
+    implementation 'com.wireguard.android:tunnel:1.0.20260102'
 }
