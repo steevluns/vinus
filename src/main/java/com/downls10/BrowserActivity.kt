@@ -97,6 +97,8 @@ class BrowserActivity : Activity() {
         // محركات الفيديو مدمجة داخل خيار "بحث فيديو" ولا تظهر في واجهة اختيار البحث.
         // يتم تمريرها إلى SearXNG كـ bang modifiers ليجمع نتائجها في صفحة واحدة.
         private const val VIDEO_SEARCH_ENGINE_PREFIX = "!gov !biv !brvid !yt !ptb !dm !od !qwv !ddv !kgv "
+        const val VPN_CONFIG_REQUEST = 42061
+        const val VPN_PERMISSION_REQUEST = 42062
     }
 
     private lateinit var webViewContainer: FrameLayout
@@ -1909,11 +1911,6 @@ class BrowserActivity : Activity() {
      * Starts the embedded WireGuard tunnel using a configuration selected by the user.
      * The .conf file and its private key are kept local and are never written to source code.
      */
-    private companion object {
-        const val VPN_CONFIG_REQUEST = 42061
-        const val VPN_PERMISSION_REQUEST = 42062
-    }
-
     private fun openFastestVpn() {
         if (DownLS10WireGuard.hasConfig()) {
             val state = if (DownLS10WireGuard.isConnected()) "متصل حاليًا" else "غير متصل"
