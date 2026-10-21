@@ -2,6 +2,15 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/بناء.yml'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - 'src/**'
 
 permissions:
   contents: read
@@ -20,28 +29,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.2
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.2'
 
-      - name: Build APK
+      - name: Check Android project files
         shell: bash
         run: |
           set -euo pipefail
+          test -f settings.gradle || { echo "ERROR: settings.gradle is missing."; exit 1; }
+          test -f build.gradle || { echo "ERROR: build.gradle is missing."; exit 1; }
+          test -f src/main/AndroidManifest.xml || { echo "ERROR: src/main/AndroidManifest.xml is missing."; exit 1; }
 
-          if [ ! -f "./gradlew" ]; then
-            echo "ERROR: Gradle wrapper (gradlew) was not found in the repository root."
-            echo "Ensure the project contains gradlew and gradle/wrapper files."
-            exit 1
-          fi
-
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+      - name: Build Debug APK
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-debug-apk
-          path: |
-            **/build/outputs/apk/**/*.apk
+          path: '**/build/outputs/apk/**/*.apk'
           if-no-files-found: error
           retention-days: 14
