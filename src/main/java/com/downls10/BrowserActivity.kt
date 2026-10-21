@@ -1160,6 +1160,28 @@ class BrowserActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == VPN_CONFIG_REQUEST) {
+            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+                try {
+                    contentResolver.takePersistableUriPermission(data.data!!, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (_: Exception) { /* Some document providers do not offer persistable grants. */ }
+                try {
+                    DownLS10WireGuard.importConfig(this, data.data!!)
+                    val permission = android.net.VpnService.prepare(this)
+                    if (permission != null) startActivityForResult(permission, VPN_PERMISSION_REQUEST)
+                    else connectEmbeddedVpn()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "ملف WireGuard غير صالح: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+            return
+        }
+        if (requestCode == VPN_PERMISSION_REQUEST) {
+            if (resultCode == Activity.RESULT_OK) connectEmbeddedVpn()
+            else Toast.makeText(this, "يجب السماح بإذن VPN للاتصال", Toast.LENGTH_LONG).show()
+            return
+        }
         if (requestCode == FILE_CHOOSER_CODE) {
             val results: Array<Uri>? = if (resultCode == Activity.RESULT_OK && data?.data != null) arrayOf(data.data!!) else null
             filePathCallback?.onReceiveValue(results)
@@ -1790,27 +1812,65 @@ class BrowserActivity : Activity() {
     }
 
     /**
-     * يفتح Proton VPN حتى يختار التطبيق خادمًا سريعًا متاحًا.
-     * لا يمكن للمتصفح تشغيل اتصال VPN داخل تطبيق آخر دون تكامل رسمي منه وموافقة Android.
+     * Starts the embedded WireGuard tunnel using a configuration selected by the user.
+     * The .conf file and its private key are kept local and are never written to source code.
      */
+    private companion object {
+        const val VPN_CONFIG_REQUEST = 42061
+        const val VPN_PERMISSION_REQUEST = 42062
+    }
+
     private fun openFastestVpn() {
-        AlertDialog.Builder(this)
-            .setTitle("الاتصال الأسرع عبر VPN")
-            .setMessage("سيفتح Proton VPN. اضغط «الاتصال السريع / Fastest country» داخله لإجراء الاتصال. في الخطة المجانية قد يختار دولة مختلفة عن الدولة التي اخترتها في المتصفح.")
-            .setPositiveButton("فتح Proton VPN") { _, _ ->
-                val launchIntent = packageManager.getLaunchIntentForPackage("ch.protonvpn.android")
-                if (launchIntent != null) {
-                    try {
-                        startActivity(launchIntent)
-                    } catch (_: Exception) {
-                        openProtonVpnDownloadPage()
+        if (DownLS10WireGuard.hasConfig()) {
+            val state = if (DownLS10WireGuard.isConnected()) "متصل حاليًا" else "غير متصل"
+            AlertDialog.Builder(this)
+                .setTitle("VPN داخل DownLS10")
+                .setMessage("الحالة: $state")
+                .setPositiveButton(if (DownLS10WireGuard.isConnected()) "قطع الاتصال" else "اتصال") { _, _ ->
+                    if (DownLS10WireGuard.isConnected()) {
+                        try {
+                            DownLS10WireGuard.disconnect()
+                            Toast.makeText(this, "تم قطع اتصال VPN", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "تعذّر قطع الاتصال: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    } else {
+                        val permission = android.net.VpnService.prepare(this)
+                        if (permission != null) {
+                            startActivityForResult(permission, VPN_PERMISSION_REQUEST)
+                        } else {
+                            connectEmbeddedVpn()
+                        }
                     }
-                } else {
-                    openProtonVpnDownloadPage()
                 }
-            }
-            .setNegativeButton("إلغاء", null)
-            .show()
+                .setNeutralButton("استيراد ملف .conf") { _, _ -> chooseWireGuardConfig() }
+                .setNegativeButton("إغلاق", null)
+                .show()
+        } else {
+            AlertDialog.Builder(this)
+                .setTitle("إعداد VPN داخل DownLS10")
+                .setMessage("اختر ملف WireGuard .conf الذي نزّلته من حساب Proton VPN. سيُحفظ الإعداد محليًا على الجهاز فقط.")
+                .setPositiveButton("اختيار ملف الإعداد") { _, _ -> chooseWireGuardConfig() }
+                .setNegativeButton("إلغاء", null)
+                .show()
+        }
+    }
+
+    private fun chooseWireGuardConfig() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/plain"
+        }
+        startActivityForResult(intent, VPN_CONFIG_REQUEST)
+    }
+
+    private fun connectEmbeddedVpn() {
+        try {
+            DownLS10WireGuard.connect(this)
+            Toast.makeText(this, "تم طلب اتصال WireGuard", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "فشل اتصال VPN: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun openProtonVpnDownloadPage() {
