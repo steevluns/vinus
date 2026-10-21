@@ -1949,9 +1949,11 @@ class BrowserActivity : Activity() {
     }
 
     private fun chooseWireGuardConfig() {
+        // بعض مديري الملفات لا يصنّفون ملفات .conf على أنها text/plain،
+        // لذلك نسمح بكل الأنواع ثم نتحقق من صحة إعداد WireGuard عند الاستيراد.
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/plain"
+            type = "*/*"
         }
         startActivityForResult(intent, VPN_CONFIG_REQUEST)
     }
