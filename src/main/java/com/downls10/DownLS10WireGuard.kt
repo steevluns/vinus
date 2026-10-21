@@ -5,31 +5,55 @@ import android.net.Uri
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.config.Config
+import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 /**
  * Local WireGuard tunnel wrapper.
- *
- * Configurations are read from a user-selected URI and are never embedded in source control.
- * The Activity must call VpnService.prepare(context) and obtain system approval before start().
+ * Configuration is stored only in the app-private files directory and never in source control.
  */
 object DownLS10WireGuard {
+    private const val CONFIG_FILE = "wireguard.conf"
     private var backend: GoBackend? = null
     private var activeTunnel: Tunnel? = null
     private var activeConfig: Config? = null
 
     @Synchronized
     fun initialize(context: Context) {
-        if (backend == null) backend = GoBackend(context.applicationContext)
+        val appContext = context.applicationContext
+        if (backend == null) backend = GoBackend(appContext)
+        if (activeTunnel == null) {
+            activeTunnel = object : Tunnel {
+                override fun getName(): String = "DownLS10"
+                override fun onStateChange(newState: Tunnel.State) = Unit
+            }
+        }
+        // Restore the user's imported configuration after the app process is restarted.
+        if (activeConfig == null) {
+            val file = appContext.getFileStreamPath(CONFIG_FILE)
+            if (file.isFile) {
+                activeConfig = runCatching {
+                    file.inputStream().use { Config.parse(it) }
+                }.getOrNull()
+            }
+        }
     }
 
     @Synchronized
     fun importConfig(context: Context, uri: Uri) {
-        val config = context.contentResolver.openInputStream(uri).use { stream: InputStream? ->
+        val appContext = context.applicationContext
+        val bytes = appContext.contentResolver.openInputStream(uri).use { stream: InputStream? ->
             requireNotNull(stream) { "Cannot open WireGuard configuration" }
-            Config.parse(stream)
+            stream.readBytes()
         }
-        activeConfig = config
+        // Validate before replacing the previously saved configuration.
+        val parsed = ByteArrayInputStream(bytes).use { Config.parse(it) }
+        appContext.openFileOutput(CONFIG_FILE, Context.MODE_PRIVATE).use { it.write(bytes) }
+        activeConfig = parsed
+        ensureTunnel()
+    }
+
+    private fun ensureTunnel() {
         if (activeTunnel == null) {
             activeTunnel = object : Tunnel {
                 override fun getName(): String = "DownLS10"
