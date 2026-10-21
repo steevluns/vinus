@@ -1764,7 +1764,7 @@ class BrowserActivity : Activity() {
     }
 
     private fun showSiteCountryDialog() {
-        val options = listOf("⚡  الاتصال الأسرع (VPN)") +
+        val options = listOf("🔒  VPN — الاتصال الأسرع") +
             siteCountries.map { country ->
                 (if (selectedSiteCountry == country.id) "✓  " else "") + country.flag + "  " + country.label
             } + listOf((if (selectedSiteCountry == "default") "✓  " else "") + "🌐  افتراضي (بدون تغيير)")
