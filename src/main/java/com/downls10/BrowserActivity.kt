@@ -32,9 +32,6 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.webkit.ProxyController
-import androidx.webkit.ProxyConfig
-import androidx.webkit.WebViewFeature
 import android.webkit.WebChromeClient
 import android.widget.Button
 import android.widget.EditText
@@ -112,10 +109,6 @@ class BrowserActivity : Activity() {
 
     private var hideMedia = false
     private var nightMode = false
-    private var selectedSiteCountry: String
-        get() = settingsPrefs().getString("siteCountry", "default") ?: "default"
-        set(value) { settingsPrefs().edit().putString("siteCountry", value).apply() }
-    private var btnLocationFlag: Button? = null
     private var mobileUA: String = ""
     private val desktopUA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
@@ -205,7 +198,6 @@ class BrowserActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        restoreSavedProxy()
         setContentView(R.layout.activity_browser)
 
         webViewContainer = findViewById(R.id.webViewContainer)
@@ -227,9 +219,6 @@ class BrowserActivity : Activity() {
         }
         progressBar = findViewById(R.id.progressBar)
         val btnBookmarkStar = findViewById<Button>(R.id.btnBookmarkStar)
-        btnLocationFlag = findViewById(R.id.btnLocationFlag)
-        updateLocationFlag()
-        btnLocationFlag?.setOnClickListener { showSiteCountryDialog() }
         val btnForward = findViewById<Button>(R.id.btnForward)
         val btnDownloads = findViewById<Button>(R.id.btnDownloads)
         btnTabs = findViewById(R.id.btnTabs)
@@ -908,6 +897,23 @@ class BrowserActivity : Activity() {
             false
         }
 
+        // اعترض الضغط المطوّل على الصور داخل المواقع، بدل قائمة النسخ الافتراضية في WebView.
+        webView.setOnLongClickListener { view ->
+            val hit = (view as? WebView)?.hitTestResult
+            if (hit?.type == WebView.HitTestResult.IMAGE_TYPE ||
+                hit?.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+                val imageUrl = hit.extra?.trim().orEmpty()
+                if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+                    showWebImageMenu(imageUrl, view as WebView)
+                } else {
+                    Toast.makeText(this, "تعذر فتح رابط الصورة هذا", Toast.LENGTH_SHORT).show()
+                }
+                true
+            } else {
+                false
+            }
+        }
+
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView,
@@ -989,7 +995,6 @@ class BrowserActivity : Activity() {
                 if (isActiveTab(view)) {
                     if (hideMedia) applyHideMediaJs(view)
                 }
-                applySiteCountryToPage(view)
 
                 if (isSearchResultsPage(url)) {
                     // الحالة مبنية على سجل دائم، لذلك تبقى الألوان بعد الرجوع وإعادة فتح التطبيق.
@@ -1158,8 +1163,86 @@ class BrowserActivity : Activity() {
         }
     }
 
+    /** قائمة إجراءات الصور التي تظهر عند الضغط المطوّل داخل صفحة الويب. */
+    private fun showWebImageMenu(imageUrl: String, sourceWebView: WebView) {
+        AlertDialog.Builder(this)
+            .setItems(arrayOf("تنزيل الصورة", "فتح الصورة")) { dialog, which ->
+                when (which) {
+                    0 -> {
+                        val name = Uri.parse(imageUrl).lastPathSegment
+                            ?.let { Uri.decode(it) }
+                            ?.takeIf { it.isNotBlank() }
+                        requestDownloadWithOptions(
+                            imageUrl,
+                            userAgent = sourceWebView.settings.userAgentString,
+                            referer = sourceWebView.url,
+                            suggestedFileName = name
+                        )
+                    }
+                    1 -> openImageViewer(imageUrl, sourceWebView)
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
+    }
+
+    /** عارض صورة مستقل بملء الشاشة؛ WebView يدعم التكبير والتصغير بإيماءة الإصبع. */
+    private fun openImageViewer(imageUrl: String, sourceWebView: WebView) {
+        val viewer = WebView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            settings.javaScriptEnabled = false
+            settings.domStorageEnabled = false
+            settings.loadsImagesAutomatically = true
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
+            settings.setSupportZoom(true)
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            settings.userAgentString = sourceWebView.settings.userAgentString
+        }
+
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(Color.BLACK)
+            addView(viewer, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+        }
+
+        val closeButton = TextView(this).apply {
+            text = "X"
+            textSize = 20f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.parseColor("#99000000"))
+            contentDescription = "إغلاق الصورة"
+            setPadding(16, 8, 16, 8)
+        }
+        val closeParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.RIGHT
+        ).apply {
+            topMargin = (12 * resources.displayMetrics.density).toInt()
+            rightMargin = (12 * resources.displayMetrics.density).toInt()
+        }
+        root.addView(closeButton, closeParams)
+
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        closeButton.setOnClickListener { dialog.dismiss() }
+        dialog.setOnDismissListener {
+            try { viewer.stopLoading() } catch (_: Exception) { }
+            try { viewer.destroy() } catch (_: Exception) { }
+        }
+        dialog.setContentView(root)
+        dialog.show()
+        viewer.loadUrl(imageUrl)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+
         if (requestCode == FILE_CHOOSER_CODE) {
             val results: Array<Uri>? = if (resultCode == Activity.RESULT_OK && data?.data != null) arrayOf(data.data!!) else null
             filePathCallback?.onReceiveValue(results)
@@ -1739,109 +1822,6 @@ class BrowserActivity : Activity() {
 
     // ---------------- قائمة ☰ ----------------
 
-    private data class SiteCountry(val id: String, val label: String, val flag: String, val language: String, val timeZone: String, val latitude: Double, val longitude: Double)
-
-    private val siteCountries = listOf(
-        SiteCountry("us", "الولايات المتحدة", "🇺🇸", "en-US", "America/New_York", 40.7128, -74.0060),
-        SiteCountry("de", "ألمانيا", "🇩🇪", "de-DE", "Europe/Berlin", 52.5200, 13.4050),
-        SiteCountry("ru", "روسيا", "🇷🇺", "ru-RU", "Europe/Moscow", 55.7558, 37.6173),
-        SiteCountry("fr", "فرنسا", "🇫🇷", "fr-FR", "Europe/Paris", 48.8566, 2.3522),
-        SiteCountry("jp", "اليابان", "🇯🇵", "ja-JP", "Asia/Tokyo", 35.6762, 139.6503),
-        SiteCountry("cn", "الصين", "🇨🇳", "zh-CN", "Asia/Shanghai", 39.9042, 116.4074),
-        SiteCountry("sg", "سنغافورة", "🇸🇬", "en-SG", "Asia/Singapore", 1.3521, 103.8198),
-        SiteCountry("in", "الهند", "🇮🇳", "hi-IN", "Asia/Kolkata", 28.6139, 77.2090),
-        SiteCountry("br", "البرازيل", "🇧🇷", "pt-BR", "America/Sao_Paulo", -23.5505, -46.6333),
-        SiteCountry("za", "جنوب أفريقيا", "🇿🇦", "en-ZA", "Africa/Johannesburg", -25.7479, 28.2293)
-    )
-
-    private fun updateLocationFlag() {
-        val country = siteCountries.firstOrNull { it.id == selectedSiteCountry }
-        btnLocationFlag?.apply {
-            text = country?.flag ?: ""
-            visibility = if (country == null) View.GONE else View.VISIBLE
-            contentDescription = country?.let { "موقع التصفح: ${it.label}" } ?: "الموقع الافتراضي"
-        }
-    }
-
-    private fun showSiteCountryDialog() {
-        val options = listOf("🔒  VPN — الاتصال الأسرع") +
-            siteCountries.map { country ->
-                (if (selectedSiteCountry == country.id) "✓  " else "") + country.flag + "  " + country.label
-            } + listOf((if (selectedSiteCountry == "default") "✓  " else "") + "🌐  افتراضي (بدون تغيير)")
-        AlertDialog.Builder(this).setTitle("تغيير موقع التصفح").setItems(options.toTypedArray()) { dialog, which ->
-            dialog.dismiss()
-            when {
-                which == 0 -> openFastestVpn()
-                which <= siteCountries.size -> {
-                    selectedSiteCountry = siteCountries[which - 1].id
-                    updateLocationFlag()
-                    tabs.filter { !it.isHome }.forEach { it.webView.reload() }
-                    val label = siteCountries.firstOrNull { it.id == selectedSiteCountry }?.label ?: "الافتراضي"
-                    Toast.makeText(this, "تم اختيار $label", Toast.LENGTH_SHORT).show()
-                }
-                else -> {
-                    selectedSiteCountry = "default"
-                    updateLocationFlag()
-                    tabs.filter { !it.isHome }.forEach { it.webView.reload() }
-                    Toast.makeText(this, "تم اختيار الموقع الافتراضي", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }.setNegativeButton("إلغاء", null).show()
-    }
-
-    /**
-     * يفتح Proton VPN حتى يختار التطبيق خادمًا سريعًا متاحًا.
-     * لا يمكن للمتصفح تشغيل اتصال VPN داخل تطبيق آخر دون تكامل رسمي منه وموافقة Android.
-     */
-    private fun openFastestVpn() {
-        AlertDialog.Builder(this)
-            .setTitle("الاتصال الأسرع عبر VPN")
-            .setMessage("سيفتح Proton VPN. اضغط «الاتصال السريع / Fastest country» داخله لإجراء الاتصال. في الخطة المجانية قد يختار دولة مختلفة عن الدولة التي اخترتها في المتصفح.")
-            .setPositiveButton("فتح Proton VPN") { _, _ ->
-                val launchIntent = packageManager.getLaunchIntentForPackage("ch.protonvpn.android")
-                if (launchIntent != null) {
-                    try {
-                        startActivity(launchIntent)
-                    } catch (_: Exception) {
-                        openProtonVpnDownloadPage()
-                    }
-                } else {
-                    openProtonVpnDownloadPage()
-                }
-            }
-            .setNegativeButton("إلغاء", null)
-            .show()
-    }
-
-    private fun openProtonVpnDownloadPage() {
-        try {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://protonvpn.com/download-android/")))
-        } catch (_: Exception) {
-            Toast.makeText(this, "تعذّر فتح صفحة Proton VPN", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    /** يغيّر إشارات المنطقة داخل صفحات الويب فقط؛ لا يغيّر عنوان IP الفعلي. */
-    private fun applySiteCountryToPage(webView: WebView) {
-        val country = siteCountries.firstOrNull { it.id == selectedSiteCountry }
-        if (country == null) {
-            webView.evaluateJavascript("try{delete window.__downls10Country}catch(e){}", null)
-            return
-        }
-        val language = org.json.JSONObject.quote(country.language)
-        val timezone = org.json.JSONObject.quote(country.timeZone)
-        val js = """
-          (function(){try{
-            var c={language:$language,timezone:$timezone,lat:${country.latitude},lon:${country.longitude}};
-            window.__downls10Country=c;
-            try{Object.defineProperty(navigator,"language",{configurable:true,get:function(){return c.language}})}catch(e){}
-            try{Object.defineProperty(navigator,"languages",{configurable:true,get:function(){return [c.language,c.language.split("-")[0]]}})}catch(e){}
-            try{var O=Intl.DateTimeFormat;function F(l,o){o=Object.assign({},o||{});if(!o.timeZone)o.timeZone=c.timezone;return new O(l||c.language,o)}F.prototype=O.prototype;Object.setPrototypeOf(F,O);F.supportedLocalesOf=O.supportedLocalesOf.bind(O);Intl.DateTimeFormat=F}catch(e){}
-            try{if(navigator.geolocation)Object.defineProperty(navigator,"geolocation",{configurable:true,value:{getCurrentPosition:function(ok){if(ok)setTimeout(function(){ok({coords:{latitude:c.lat,longitude:c.lon,accuracy:10000,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()})},0)},watchPosition:function(ok){var id=setTimeout(function(){if(ok)ok({coords:{latitude:c.lat,longitude:c.lon,accuracy:10000,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:Date.now()})},0);return id},clearWatch:function(id){clearTimeout(id)}}})}catch(e){}
-          }catch(e){}})();
-        """.trimIndent()
-        webView.evaluateJavascript(js, null)
-    }
     private fun showBrowserMenu() {
         val options = arrayOf(
             if (hideMedia) "إظهار الوسائط" else "إخفاء الوسائط بالكامل",
@@ -1852,7 +1832,6 @@ class BrowserActivity : Activity() {
             "السجل",
             "ترجمة إلى العربية",
             "الأذونات",
-            "تغيير الموقع",
             "البحث",
             if (nightMode) "إيقاف الوضع الليلي" else "تفعيل الوضع الليلي"
         )
@@ -1869,115 +1848,11 @@ class BrowserActivity : Activity() {
                     5 -> showHistoryDialog()
                     6 -> runTranslate()
                     7 -> showPermissionsDialog()
-                    8 -> showSiteCountryDialog()
-                    9 -> showSearchProviderDialog()
-                    10 -> toggleNightMode()
+                    8 -> showSearchProviderDialog()
+                    9 -> toggleNightMode()
                 }
             }
             .show()
-    }
-
-    private fun showProxyVpnDialog() {
-        val prefs = settingsPrefs()
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(24, 8, 24, 0)
-        }
-        val enabled = android.widget.CheckBox(this).apply {
-            text = "استخدام بروكسي للمتصفح"
-            isChecked = prefs.getBoolean("proxyEnabled", false)
-        }
-        val host = EditText(this).apply {
-            hint = "عنوان الخادم (مثال: 1.2.3.4)"
-            setSingleLine(true)
-            setText(prefs.getString("proxyHost", "") ?: "")
-        }
-        val port = EditText(this).apply {
-            hint = "المنفذ (مثال: 8080)"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setSingleLine(true)
-            setText(prefs.getString("proxyPort", "") ?: "")
-        }
-        val note = TextView(this).apply {
-            text = "البروكسي يمرر اتصالات صفحات WebView فقط. أدخل خادمًا موثوقًا موجودًا في الدولة المطلوبة. لا توجد خوادم مضمّنة في التطبيق."
-            textSize = 13f
-            setPadding(0, 12, 0, 12)
-        }
-        val vpnInfo = TextView(this).apply {
-            text = "VPN: يحتاج إلى ملف إعداد أو خادم VPN فعلي (مثل WireGuard/OpenVPN). لم يتم تفعيل VPN تلقائيًا لأن التطبيق لا يملك خادمًا أو ملف اتصال."
-            textSize = 13f
-            setPadding(0, 8, 0, 8)
-        }
-        layout.addView(enabled)
-        layout.addView(host)
-        layout.addView(port)
-        layout.addView(note)
-        layout.addView(vpnInfo)
-        AlertDialog.Builder(this)
-            .setTitle("البروكسي / VPN")
-            .setView(layout)
-            .setPositiveButton("حفظ وتطبيق") { _, _ ->
-                val hostValue = host.text.toString().trim()
-                val portValue = port.text.toString().trim()
-                val parsedPort = portValue.toIntOrNull()
-                if (enabled.isChecked && (hostValue.isBlank() || parsedPort == null || parsedPort !in 1..65535)) {
-                    Toast.makeText(this, "أدخل عنوان بروكسي ومنفذًا صحيحًا", Toast.LENGTH_LONG).show()
-                    return@setPositiveButton
-                }
-                prefs.edit()
-                    .putBoolean("proxyEnabled", enabled.isChecked)
-                    .putString("proxyHost", hostValue)
-                    .putString("proxyPort", portValue)
-                    .apply()
-                applyWebViewProxy(enabled.isChecked, hostValue, portValue.toIntOrNull() ?: 0)
-            }
-            .setNeutralButton("إيقاف البروكسي") { _, _ ->
-                prefs.edit().putBoolean("proxyEnabled", false).apply()
-                applyWebViewProxy(false, "", 0)
-            }
-            .setNegativeButton("إلغاء", null)
-            .show()
-    }
-
-    private fun applyWebViewProxy(enabled: Boolean, host: String, port: Int) {
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-            Toast.makeText(this, "إصدار Android System WebView لا يدعم إعداد البروكسي من التطبيق", Toast.LENGTH_LONG).show()
-            return
-        }
-        try {
-            if (enabled) {
-                val config = ProxyConfig.Builder().addProxyRule("$host:$port").build()
-                ProxyController.getInstance().setProxyOverride(
-                    config,
-                    java.util.concurrent.Executor { command -> command.run() }
-                ) {
-                    runOnUiThread {
-                        tabs.filter { !it.isHome }.forEach { it.webView.reload() }
-                        Toast.makeText(this, "تم تطبيق البروكسي على صفحات المتصفح", Toast.LENGTH_LONG).show()
-                    }
-                }
-            } else {
-                ProxyController.getInstance().clearProxyOverride(
-                    java.util.concurrent.Executor { command -> command.run() }
-                ) {
-                    runOnUiThread {
-                        tabs.filter { !it.isHome }.forEach { it.webView.reload() }
-                        Toast.makeText(this, "تم إيقاف البروكسي", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this, "تعذّر تطبيق البروكسي: ${e.message ?: "خطأ غير معروف"}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun restoreSavedProxy() {
-        val prefs = settingsPrefs()
-        if (prefs.getBoolean("proxyEnabled", false)) {
-            val host = prefs.getString("proxyHost", "") ?: ""
-            val port = prefs.getString("proxyPort", "")?.toIntOrNull() ?: 0
-            if (host.isNotBlank() && port in 1..65535) applyWebViewProxy(true, host, port)
-        }
     }
 
     private fun showSearchProviderDialog() {
@@ -2620,7 +2495,7 @@ class BrowserActivity : Activity() {
                     gravity = Gravity.CENTER_VERTICAL
                 }
                 val statusText = TextView(this).apply {
-                    text = "${AdBlocker.ruleCount(this@BrowserActivity, def.id)} قاعدة - ${AdBlocker.lastUpdateText(this@BrowserActivity, def.id)}"
+                    text = "${AdBlocker.ruleCount(this@BrowserActivity, def.id)} قاعدة"
                     setTextColor(Color.LTGRAY)
                     textSize = 11f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)

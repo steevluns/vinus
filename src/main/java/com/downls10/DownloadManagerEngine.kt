@@ -75,7 +75,7 @@ class DownloadManagerEngine {
     private val activeSources = ConcurrentHashMap<Long, DownloadSource>()
 
     private val bufferSize = 256 * 1024
-    private val maxConsecutiveFailures = 12
+    private val maxConsecutiveFailures = 5
 
     private val defaultUserAgent =
         "Mozilla/5.0 (Linux; Android) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36"
@@ -144,8 +144,8 @@ class DownloadManagerEngine {
         while (true) {
             val conn = URL(currentUrl).openConnection() as HttpURLConnection
             // مهلات أقصر تمنع بقاء المهمة ظاهرياً على «جار الاتصال بالخادم» لدقائق.
-            conn.connectTimeout = 20000
-            conn.readTimeout = 45000
+            conn.connectTimeout = 12000
+            conn.readTimeout = 300000
             conn.instanceFollowRedirects = false
             // بدون ضغط gzip حتى يكون حجم الملف وتقدّم التنزيل ومواضع الاستئناف دقيقة.
             conn.setRequestProperty("Accept-Encoding", "identity")
@@ -161,9 +161,19 @@ class DownloadManagerEngine {
             if (existingLength > 0 && (!needsHtml || confirmedFile)) {
                 conn.setRequestProperty("Range", "bytes=$existingLength-")
             }
-            conn.connect()
+            try {
+                conn.connect()
+            } catch (e: Exception) {
+                conn.disconnect()
+                throw e
+            }
 
-            val code = conn.responseCode
+            val code = try {
+                conn.responseCode
+            } catch (e: Exception) {
+                conn.disconnect()
+                throw e
+            }
             if (code == 301 || code == 302 || code == 303 || code == 307 || code == 308) {
                 val location = conn.getHeaderField("Location")
                 conn.disconnect()
@@ -180,8 +190,20 @@ class DownloadManagerEngine {
                 val isHtml = contentType.startsWith("text/html", ignoreCase = true) &&
                     conn.getHeaderField("Content-Disposition") == null
                 if (isHtml) {
+                    // Read a bounded landing page; readText() may wait for an entire large response.
                     val html = try {
-                        conn.inputStream.bufferedReader().use { it.readText() }
+                        conn.inputStream.use { input ->
+                            val out = java.io.ByteArrayOutputStream()
+                            val buffer = ByteArray(8192)
+                            var remaining = 400_000
+                            while (remaining > 0) {
+                                val n = input.read(buffer, 0, minOf(buffer.size, remaining))
+                                if (n <= 0) break
+                                out.write(buffer, 0, n)
+                                remaining -= n
+                            }
+                            out.toString(Charsets.UTF_8.name())
+                        }
                     } catch (e: Exception) {
                         ""
                     }
@@ -355,6 +377,17 @@ class DownloadManagerEngine {
                         uriLength(uriTarget!!.first, uriTarget.second)
                     }
 
+                    // Publish connection state immediately instead of leaving the row visually frozen.
+                    mainHandler.post {
+                        if (!stopped()) onProgress(
+                            if (existingLength > 0L && item.totalBytes > 0L)
+                                ((existingLength * 100L) / item.totalBytes).toInt().coerceIn(0, 99) else 0,
+                            if (failures > 0) "إعادة المحاولة ($failures/5)..." else "جار الاتصال بالخادم...",
+                            existingLength,
+                            item.totalBytes
+                        )
+                    }
+
                     val src = when {
                         isFtp(item.url) -> openFtpSource(item, existingLength)
                         LinkResolver.needsRemoteResolution(item.url) -> openRemoteSource(item, existingLength)
@@ -369,7 +402,20 @@ class DownloadManagerEngine {
                     checkDiskSpace(totalSize, startOffset)
 
                     if (saveDir != null) {
-                        val outputFile = File(saveDir, item.fileName)
+                        // Create the download directory before opening the file. On Android,
+                        // RandomAccessFile does not create missing parent directories (ENOENT).
+                        if (!saveDir.exists() && !saveDir.mkdirs()) {
+                            throw NonRetryableDownloadException("تعذّر إنشاء مجلد التنزيل: ${saveDir.absolutePath}")
+                        }
+                        if (!saveDir.isDirectory) {
+                            throw NonRetryableDownloadException("مسار التنزيل ليس مجلدًا: ${saveDir.absolutePath}")
+                        }
+                        val safeName = item.fileName
+                            .replace('/', '_')
+                            .replace('\\\\', '_')
+                            .trim()
+                            .ifBlank { "download_${item.id}" }
+                        val outputFile = File(saveDir, safeName)
                         fileOutput = RandomAccessFile(outputFile, "rw")
                         if (startOffset == 0L) fileOutput.setLength(0L) else fileOutput.seek(startOffset)
                     } else {
@@ -431,9 +477,24 @@ class DownloadManagerEngine {
                         e !is SSLHandshakeException
                     if (retryable && failures < maxConsecutiveFailures) {
                         retry = true
+                        mainHandler.post {
+                            if (!stopped()) onProgress(
+                                0,
+                                "تعذّر الاتصال؛ إعادة المحاولة ${failures + 1}/$maxConsecutiveFailures...",
+                                item.downloadedBytes,
+                                item.totalBytes
+                            )
+                        }
                     } else {
                         item.state = DownloadState.ERROR
-                        mainHandler.post { onError(e.message ?: "فشل التحميل") }
+                        val message = when (e) {
+                            is java.net.SocketTimeoutException -> "انتهت مهلة الاتصال بالخادم. تحقق من الشبكة أو جرّب رابط تنزيل مباشر."
+                            is javax.net.ssl.SSLException -> "فشل الاتصال الآمن بالموقع (TLS/SSL): ${e.message ?: "رفض الخادم الاتصال"}"
+                            is java.net.UnknownHostException -> "تعذّر العثور على الخادم. تحقق من الإنترنت أو من صحة الرابط."
+                            is java.net.ConnectException -> "تعذّر الاتصال بالخادم: ${e.message ?: "رفض الاتصال"}"
+                            else -> e.message?.takeIf { it.isNotBlank() } ?: "فشل التنزيل بسبب خطأ غير معروف."
+                        }
+                        mainHandler.post { onError(message) }
                     }
                 } finally {
                     try { fileOutput?.close() } catch (_: Exception) { }
