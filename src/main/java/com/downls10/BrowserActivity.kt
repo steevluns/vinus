@@ -2359,7 +2359,20 @@ class BrowserActivity : Activity() {
                         // بينما يجب أن تتبع إعداد الوضع الليلي داخل DownLS10.
                         var currentHost = String(location.hostname || '').toLowerCase();
                         if (currentHost === 'searx.ononoki.org') {
-                            setInverted(true);
+                            // استخدم ألوانًا داكنة حقيقية لصفحات SearXNG (بحث الويب والفيديو)
+                            // بدل قلب ألوان الصفحة كلها؛ الصور المصغّرة والفيديوهات تبقى بألوانها الأصلية.
+                            var darkStyle = document.getElementById(ID);
+                            if (!darkStyle) darkStyle = styleEl();
+                            darkStyle.textContent =
+                                'html,body{background:#121212!important;color:#e8e8e8!important;color-scheme:dark!important;}' +
+                                'body *{border-color:#3a3a3a!important;}' +
+                                'a,a:visited{color:#8ab4f8!important;}' +
+                                'input,textarea,select,button{background-color:#242424!important;color:#f1f1f1!important;border-color:#555!important;}' +
+                                'article,.result,.result article,.panel,.card,.category,.filters,.search_filters,.tab-pane,.well,.alert,.infobox,.answer,.suggestions,.result_header,.engines,.preferences_back{background-color:#1e1e1e!important;color:#e8e8e8!important;}' +
+                                'header,footer,nav,aside{background-color:#171717!important;color:#e8e8e8!important;}' +
+                                'img,video,canvas,svg{filter:none!important;}';
+                            window.__downls10NightInverted = false;
+                            window.__downls10NightDark = true;
                             return;
                         }
                         var d = detectDark();
