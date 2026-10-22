@@ -87,14 +87,27 @@ class DownloadAdapter(
         return view
     }
 
-    /** يعرض الحجم بوحدة مناسبة (KB / MB / GB) حتى للملفات الكبيرة جداً. */
+    /** يعرض الحجم الحقيقي من البايت حتى الوحدات الكبيرة، دون تحويل الملفات الصغيرة إلى 0 KB. */
     private fun formatBytes(bytes: Long): String {
-        if (bytes < 1024L * 1024L) return (bytes / 1024L).toString() + " KB"
-        val mb = bytes / (1024.0 * 1024.0)
-        if (mb < 1024.0) return String.format(java.util.Locale.US, "%.1f MB", mb)
-        return String.format(java.util.Locale.US, "%.2f GB", mb / 1024.0)
-    }
+        if (bytes < 0L) return "؟"
+        if (bytes < 1024L) return "$bytes B"
 
+        val units = arrayOf("KB", "MB", "GB", "TB", "PB", "EB")
+        var value = bytes.toDouble()
+        var unitIndex = -1
+        do {
+            value /= 1024.0
+            unitIndex++
+        } while (value >= 1024.0 && unitIndex < units.lastIndex)
+
+        return if (value >= 100.0) {
+            String.format(java.util.Locale.US, "%.0f %s", value, units[unitIndex])
+        } else if (value >= 10.0) {
+            String.format(java.util.Locale.US, "%.1f %s", value, units[unitIndex])
+        } else {
+            String.format(java.util.Locale.US, "%.2f %s", value, units[unitIndex])
+        }
+    }
     private fun getIconForExtension(ext: String): String {
         return when (ext.lowercase()) {
             "mp4", "mkv", "avi" -> "🎬"
