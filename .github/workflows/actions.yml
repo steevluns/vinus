@@ -26,15 +26,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Generate Gradle wrapper
+      - name: Build debug APK with Gradle 8.2
         uses: gradle/gradle-build-action@v3
         with:
           gradle-version: '8.2'
-          arguments: wrapper --gradle-version 8.2
-
-
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+          arguments: assembleDebug --stacktrace
 
       - name: Publish APK artifact
         uses: actions/upload-artifact@v4
