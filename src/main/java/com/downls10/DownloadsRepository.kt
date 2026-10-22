@@ -183,7 +183,7 @@ object DownloadsRepository {
                     val remoteName = resolveFileName(
                         suggestedFileName?.takeIf { it.isNotBlank() } ?: link.fileName, null, link.directUrl, mimeType
                     )
-                    mainHandler.post { showDownloadDetails(appContext, cleanUrl, remoteName, null, userAgent, referer) }
+                    mainHandler.post { showDownloadDetails(context, cleanUrl, remoteName, null, userAgent, referer) }
                 } catch (e: Exception) {
                     toast(appContext, "فشل تنزيل الملف: " + (e.message ?: "تعذّر قراءة الرابط"))
                 }
@@ -194,7 +194,7 @@ object DownloadsRepository {
         if (scheme == "ftp") {
             // FTP لا توجد فيه ترويسات: الاسم من مسار الرابط
             val ftpName = resolveFileName(suggestedFileName?.takeIf { it.isNotBlank() }, null, cleanUrl, mimeType)
-            showDownloadDetails(appContext, cleanUrl, ftpName, null, userAgent, referer)
+            showDownloadDetails(context, cleanUrl, ftpName, null, userAgent, referer)
             return
         }
 
@@ -204,7 +204,7 @@ object DownloadsRepository {
         probeExecutor.execute {
             val info = downloadEngine.probe(cleanUrl, userAgent, referer)
             val name = resolveFileName(hint, info, cleanUrl, mimeType)
-            mainHandler.post { showDownloadDetails(appContext, cleanUrl, name, info, userAgent, referer) }
+            mainHandler.post { showDownloadDetails(context, cleanUrl, name, info, userAgent, referer) }
         }
     }
 
