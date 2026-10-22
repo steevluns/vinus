@@ -402,7 +402,7 @@ class DownloadManagerEngine {
                         val elapsed = now - lastTime
                         // أرسل أول تقدم فور وصول أول دفعة، ثم حدّث كل ثانية تقريباً؛
                         // وإلا قد تبقى الواجهة على 0 KB حتى انتهاء التنزيلات القصيرة.
-                        if (lastReportedBytes == startOffset || elapsed >= 1000L) {
+                        if (lastReportedBytes == startOffset || elapsed >= 3000L) {
                             val speedKb = if (elapsed > 0L) (bytesSinceLast * 1000L / elapsed) / 1024L else 0L
                             val speedText = if (speedKb >= 1024) "${speedKb / 1024} MB/s" else "$speedKb KB/s"
                             val progress = if (totalSize > 0) ((totalRead * 100) / totalSize).toInt().coerceIn(0, 100) else 0
