@@ -298,7 +298,7 @@ object DownloadsRepository {
             return
         }
 
-        // إذا كان نفس اسم الملف موجوداً فعلياً في Download، لا ننشئ نسخة ثانية.
+        // إذا كان نفس اسم الملف موجوداً فعلياً في مجلد DownLS10، لا ننشئ نسخة ثانية.
         val knownInList = downloadList.any { it.fileName == fileName && isFilePresent(appContext, it) }
         if (knownInList || isFileNamePresentInDownload(appContext, fileName)) {
             toast(appContext, "الملف موجود: $fileName")
@@ -320,10 +320,10 @@ object DownloadsRepository {
         if (startImmediately && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val uri = createPendingDownload(appContext, item.fileName)
             if (uri == null) {
-                toast(appContext, "تعذّر إنشاء ملف التنزيل داخل Download")
+                toast(appContext, "تعذّر إنشاء ملف التنزيل داخل DownLS10")
                 return
             }
-            // إذا كان في Download ملف بنفس الاسم لا يستطيع التطبيق رؤيته، يعيد النظام تسمية الملف الجديد تلقائيًا
+            // إذا كان في DownLS10 ملف بنفس الاسم لا يستطيع التطبيق رؤيته، يعيد النظام تسمية الملف الجديد تلقائيًا
             // إلى «الاسم (1).امتداد». نكتشف ذلك ونلغي التنزيل بدل إنشاء نسخة مكررة.
             val actualName = queryDisplayName(appContext.contentResolver, uri)
             if (actualName != null && isAutoRenamedCopy(fileName, actualName)) {
@@ -443,7 +443,7 @@ object DownloadsRepository {
         return result.get()
     }
 
-    /** يفتح ملفاً محلياً في Download ويسجّله في قائمة التنزيلات. يمكن استدعاؤه من أي خيط. */
+    /** يحفظ ملفاً محلياً داخل DownLS10 ويسجّله في قائمة التنزيلات. يمكن استدعاؤه من أي خيط. */
     fun openLocalSink(context: Context, rawName: String?, mime: String?, totalBytes: Long, label: String): LocalSink? {
         val appContext = context.applicationContext
         return runOnMainBlocking { openLocalSinkOnMain(appContext, rawName, mime, totalBytes, label) }
@@ -565,7 +565,7 @@ object DownloadsRepository {
     /** رسالة تظهر 3 ثوانٍ (للاستخدام من الملفات الأخرى). */
     fun showMessage(context: Context, message: String) = toast(context, message)
 
-    /** ينزّل رابط data: (نص أو base64) ويحفظه في Download. */
+    /** ينزّل رابط data: (نص أو base64) ويحفظه في DownLS10. */
     fun saveDataUrl(context: Context, dataUrl: String, suggestedName: String?, mimeHint: String?) {
         val appContext = context.applicationContext
         ensureLoaded(appContext)
@@ -605,7 +605,7 @@ object DownloadsRepository {
                 ?: createPendingDownload(appContext, item.fileName)?.also { item.localUri = it.toString() }
             if (uri == null) {
                 item.state = DownloadState.ERROR
-                item.status = "فشل: تعذّر إنشاء ملف Download"
+                item.status = "فشل: تعذّر إنشاء ملف داخل DownLS10"
                 notifyChanged(appContext, forceSave = true)
                 return
             }
@@ -702,7 +702,7 @@ object DownloadsRepository {
         notifyChanged(appContext, forceSave = true)
     }
 
-    /** يتحقق من وجود الملف فعلياً في Download، وليس فقط وجود السجل. */
+    /** يتحقق من وجود الملف فعلياً في مجلد DownLS10، وليس فقط وجود السجل. */
     fun isFilePresent(context: Context, item: DownloadItem): Boolean {
         if (item.state != DownloadState.COMPLETED) return false
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
