@@ -1765,7 +1765,8 @@ class BrowserActivity : Activity() {
         val encoded = Uri.encode(query)
         return when (selectedSearchProvider()) {
             SEARCH_SEARXNG -> SEARXNG_SEARCH_BASE + Uri.encode(SEARXNG_ENGINE_PREFIX + query)
-            // بحث الفيديو يستخدم صفحة نتائج الفيديو المجمعة؛ تبقى إعدادات SearXNG وGoogle كما هي.
+            // يجمع SearXNG نتائج الفيديو من محركات الفيديو المفعّلة لديه في صفحة واحدة.
+            // قائمة الـ22 اسمًا محفوظة داخليًا ولا تظهر للمستخدم ولا تطلب اختيار محرك.
             SEARCH_VIDEO -> "https://searx.ononoki.org/search?categories=videos&q=" + encoded
             else -> "https://www.google.com/search?q=" + encoded
         }
@@ -1848,35 +1849,11 @@ class BrowserActivity : Activity() {
                 val provider = providers[which].first
                 saveSearchProvider(provider)
                 dialog.dismiss()
-                if (provider == SEARCH_VIDEO) showVideoSearchEnginesDialog()
             }
             .setNegativeButton("إغلاق", null)
             .show()
     }
 
-    private fun showVideoSearchEnginesDialog() {
-        val prefs = settingsPrefs()
-        val saved = prefs.getStringSet(VIDEO_SEARCH_ENGINES_KEY, null)
-        val selected = saved?.toMutableSet() ?: VIDEO_SEARCH_ENGINES.toSet()
-        val labels = VIDEO_SEARCH_ENGINES.map { engine ->
-            if (selected.contains(engine)) "$engine    ✅" else engine
-        }.toTypedArray()
-
-        AlertDialog.Builder(this)
-            .setTitle("محركات بحث الفيديو (22)")
-            .setItems(labels) { _, which ->
-                val engine = VIDEO_SEARCH_ENGINES[which]
-                if (!selected.add(engine)) selected.remove(engine)
-                prefs.edit().putStringSet(VIDEO_SEARCH_ENGINES_KEY, selected.toSet()).apply()
-                showVideoSearchEnginesDialog()
-            }
-            .setPositiveButton("تم", null)
-            .setNeutralButton("تحديد الكل") { _, _ ->
-                prefs.edit().putStringSet(VIDEO_SEARCH_ENGINES_KEY, VIDEO_SEARCH_ENGINES.toSet()).apply()
-            }
-            .setNegativeButton("إغلاق", null)
-            .show()
-    }
 
     private fun showPermissionsDialog() {
         fun rows() = listOf(
