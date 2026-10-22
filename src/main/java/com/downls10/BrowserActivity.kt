@@ -1765,18 +1765,16 @@ class BrowserActivity : Activity() {
         val encoded = Uri.encode(query)
         return when (selectedSearchProvider()) {
             SEARCH_SEARXNG -> SEARXNG_SEARCH_BASE + Uri.encode(SEARXNG_ENGINE_PREFIX + query)
-            // يطلب بحث الفيديو جمع النتائج من مجموعة كبيرة من محركات الفيديو عبر SearXNG.
-            // المواقع التي لا يوفرها الخادم كمحركات SearXNG لن تظهر نتائجها تلقائياً.
+            // بحث فيديو: اطلب نتائج من 22 محرك/مصدر فيديو عبر أوامر SearXNG.
+            // تظل قائمة المحركات مخفية، ولا يتغير مسار بحث SearXNG العادي أو Google.
             SEARCH_VIDEO -> {
-                val videoEngines = listOf(
-                    "google_videos", "bing_videos", "yahoo", "duckduckgo", "brave",
-                    "yandex", "mojeek", "youtube", "dailymotion", "vimeo",
-                    "internet_archive", "peertube", "rumble", "twitch", "facebook",
-                    "tiktok", "instagram", "reddit", "odysee", "bilibili",
-                    "metacafe", "qwant"
-                ).joinToString(",")
-                "https://searx.ononoki.org/search?categories=videos&engines=" +
-                    Uri.encode(videoEngines) + "&q=" + encoded
+                val videoEngineBangs = listOf(
+                    "!biv", "!brvid", "!ddv", "!gov", "!qwv", "!dm", "!od",
+                    "!ptb", "!ppd", "!ru", "!sep", "!vm", "!wcv", "!yt",
+                    "!mvw", "!sevid", "!in", "!nico", "!nvrv", "!acf", "!iq", "!sogouv"
+                ).joinToString(" ")
+                "https://searx.ononoki.org/search?q=" +
+                    Uri.encode("$videoEngineBangs $query")
             }
             else -> "https://www.google.com/search?q=" + encoded
         }
