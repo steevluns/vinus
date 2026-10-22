@@ -610,7 +610,7 @@ object DownloadsRepository {
                 }
             )
         } else {
-            val saveDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val saveDir = downloadDirectory()
             if (!saveDir.exists()) saveDir.mkdirs()
             downloadEngine.downloadFile(
                 item = item,
@@ -662,7 +662,7 @@ object DownloadsRepository {
                     runCatching { appContext.contentResolver.delete(Uri.parse(uriString), null, null) }
                 }
             } else {
-                val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), item.fileName)
+                val file = File(downloadDirectory(), item.fileName)
                 if (file.exists()) file.delete()
             }
         }
@@ -683,7 +683,7 @@ object DownloadsRepository {
                 findDownloadUriByName(context.contentResolver, item.fileName) != null
             }
         } else {
-            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), item.fileName).exists()
+            File(downloadDirectory(), item.fileName).exists()
         }
     }
 
@@ -813,10 +813,10 @@ object DownloadsRepository {
     private fun isFileNamePresentInDownload(context: Context, fileName: String): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             findDownloadUriByName(context.contentResolver, fileName) != null ||
-                File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName).exists()
+                File(downloadDirectory(), fileName).exists()
         } else {
             File(
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                downloadDirectory(),
                 fileName
             ).exists()
         }
