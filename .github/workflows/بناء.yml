@@ -52,3 +52,5 @@ jobs:
           path: '**/build/outputs/apk/**/*.apk'
           if-no-files-found: error
           retention-days: 14
+
+# Build trigger: user requested a fresh Android APK build.
