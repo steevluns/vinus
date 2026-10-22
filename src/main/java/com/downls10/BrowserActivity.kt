@@ -942,7 +942,7 @@ class BrowserActivity : Activity() {
                 // نحفظ الحالة فور بدء التنقل أيضًا حتى لا نفقد آخر خطوة إذا أُغلق التطبيق
                 // قبل onPageFinished.
                 persistTabs()
-                if (nightMode) applyNightModeJs(view)
+                if (nightMode) { applyNightModeJs(view); applySearxngNightModeJs(view) }
                 if (isActiveTab(view)) editUrl.setText(url)
             }
 
@@ -973,7 +973,8 @@ class BrowserActivity : Activity() {
                 tabs.find { it.webView == view }?.title = resolvedTitle
                 if (nightMode) {
                     applyNightModeJs(view)
-                    mainHandler.postDelayed({ if (nightMode) applyNightModeJs(view) }, 500)
+                    applySearxngNightModeJs(view)
+                    mainHandler.postDelayed({ if (nightMode) { applyNightModeJs(view); applySearxngNightModeJs(view) } }, 500)
                     // نحفظ حكم الصفحة (داكنة/فاتحة) لتُعالج أسرع في الزيارات القادمة
                     mainHandler.postDelayed({ if (nightMode) recordNightResult(view) }, 2200)
                 }
@@ -1010,6 +1011,7 @@ class BrowserActivity : Activity() {
             override fun onProgressChanged(view: WebView, newProgress: Int) {
                 if (nightMode && newProgress in 15..95 && System.currentTimeMillis() - lastNightInject > 250) {
                     applyNightModeJs(view)
+                    applySearxngNightModeJs(view)
                 }
                 if (isActiveTab(view)) {
                     progressBar.progress = newProgress
@@ -1207,6 +1209,38 @@ class BrowserActivity : Activity() {
 
     private fun visitedSiteColor(url: String?, unvisitedColor: Int = Color.CYAN): Int {
         return if (isVisitedSite(url)) Color.parseColor("#808080") else unvisitedColor
+    }
+
+    /**
+     * يجبر صفحة SearXNG المستخدمة لبحث الويب والفيديو على ألوان داكنة واضحة.
+     * بعض نسخ SearXNG لا تتبع تفضيل الوضع الليلي في WebView، لذلك لا نعتمد على
+     * خوارزمية اكتشاف ألوان الصفحة وحدها.
+     */
+    private fun applySearxngNightModeJs(webView: WebView) {
+        if (!nightMode) return
+        val host = try { Uri.parse(webView.url ?: "").host?.lowercase(Locale.US) } catch (_: Exception) { null }
+        if (host != "searx.ononoki.org") return
+        val js = """
+            (function() {
+              try {
+                var id = '__downls10_searx_dark__';
+                var css = [
+                  'html,body{background:#121212!important;color:#e8e8e8!important;color-scheme:dark!important;}',
+                  'body *{border-color:#383838!important;}',
+                  'article.result,.result,.result-default,.result-videos,.result-videos article,.panel,.card,.well,.category{background-color:#1e1e1e!important;color:#e8e8e8!important;}',
+                  'a,a:visited,.result a,.result h3 a{color:#8ab4f8!important;}',
+                  'p,span,small, time, .content, .url, .engines, .result-content, .suggestion{color:#d0d0d0!important;}',
+                  'input,textarea,select{background:#292929!important;color:#f1f1f1!important;border-color:#555!important;}',
+                  'header,nav,footer,.tabs,.categories,.search_box,.search-bar{background:#171717!important;color:#e8e8e8!important;}',
+                  'img,video,svg{filter:none!important;}'
+                ].join('');
+                var style = document.getElementById(id);
+                if (!style) { style = document.createElement('style'); style.id = id; (document.head || document.documentElement).appendChild(style); }
+                if (style.textContent !== css) style.textContent = css;
+              } catch(e) {}
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
     }
 
     private fun isSearchResultsPage(url: String?): Boolean {
