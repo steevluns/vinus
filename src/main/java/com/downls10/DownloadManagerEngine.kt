@@ -380,6 +380,7 @@ class DownloadManagerEngine {
                     var lastTime = System.currentTimeMillis()
                     var bytesSinceLast = 0L
                     var madeProgress = false
+                    var lastReportedBytes = startOffset
                     while (true) {
                         if (stopped()) return@execute
                         val count = input.read(data)
@@ -399,11 +400,14 @@ class DownloadManagerEngine {
 
                         val now = System.currentTimeMillis()
                         val elapsed = now - lastTime
-                        if (elapsed >= 3000) {
-                            val speedKb = (bytesSinceLast * 1000L / elapsed) / 1024L
+                        // أرسل أول تقدم فور وصول أول دفعة، ثم حدّث كل ثانية تقريباً؛
+                        // وإلا قد تبقى الواجهة على 0 KB حتى انتهاء التنزيلات القصيرة.
+                        if (lastReportedBytes == startOffset || elapsed >= 1000L) {
+                            val speedKb = if (elapsed > 0L) (bytesSinceLast * 1000L / elapsed) / 1024L else 0L
                             val speedText = if (speedKb >= 1024) "${speedKb / 1024} MB/s" else "$speedKb KB/s"
                             val progress = if (totalSize > 0) ((totalRead * 100) / totalSize).toInt().coerceIn(0, 100) else 0
                             mainHandler.post { onProgress(progress, speedText, totalRead, totalSize) }
+                            lastReportedBytes = totalRead
                             lastTime = now
                             bytesSinceLast = 0L
                         }
@@ -415,7 +419,11 @@ class DownloadManagerEngine {
                     }
 
                     item.downloadedBytes = totalRead
+                    // حدّث الواجهة حتى لو كان الملف صغيراً ولم يصل مؤقت التقدم إلى ثانية.
+                    val finalProgress = if (totalSize > 0L) 100 else 100
+                    mainHandler.post { onProgress(finalProgress, "0 KB/s", totalRead, totalRead) }
                     item.state = DownloadState.COMPLETED
+                    activeTasks[item.id] = false
                     completedOk = true   // نستدعي onComplete بعد إغلاق الملف في finally
 
                 } catch (e: Exception) {
@@ -429,6 +437,7 @@ class DownloadManagerEngine {
                         retry = true
                     } else {
                         item.state = DownloadState.ERROR
+                        activeTasks[item.id] = false
                         mainHandler.post { onError(e.message ?: "فشل التحميل") }
                     }
                 } finally {
