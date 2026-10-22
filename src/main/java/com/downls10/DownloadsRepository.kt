@@ -36,8 +36,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * يدير التنزيلات وسجل روابطها بشكل دائم.
- * Android 10+: يحفظ مباشرة في مجلد Download عبر MediaStore.
- * Android 9 وأقدم: يحفظ في مجلد Download العام.
+ * يحفظ جميع التنزيلات في /sdcard/DownLS10/ باستخدام MediaStore أو نظام الملفات حسب إصدار Android.
  */
 object DownloadsRepository {
 
@@ -50,6 +49,9 @@ object DownloadsRepository {
     private var lastSaveTime = 0L
     private const val SAVE_THROTTLE_MS = 1500L
     private const val DEFAULT_CONCURRENT_DOWNLOADS = 8
+    private const val DOWNLOAD_FOLDER = "DownLS10"
+
+    private fun downloadDirectory(): File = File(Environment.getExternalStorageDirectory(), DOWNLOAD_FOLDER).also { if (!it.exists()) it.mkdirs() }
 
     fun ensureLoaded(context: Context) {
         val prefs = context.applicationContext.getSharedPreferences("main_prefs", Context.MODE_PRIVATE)
@@ -452,7 +454,7 @@ object DownloadsRepository {
                 item.localUri = created.toString()
                 output = appContext.contentResolver.openOutputStream(created, "w")
             } else {
-                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val dir = downloadDirectory()
                 if (!dir.exists()) dir.mkdirs()
                 val target = File(dir, name)
                 file = target
@@ -695,7 +697,7 @@ object DownloadsRepository {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, type)
                 if (includeRelativePath) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, DOWNLOAD_FOLDER + "/")
                 }
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
@@ -738,8 +740,8 @@ object DownloadsRepository {
         return resolver.query(
             collection,
             arrayOf(MediaStore.MediaColumns._ID),
-            "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-            arrayOf(fileName),
+            "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
+            arrayOf(fileName, DOWNLOAD_FOLDER + "/"),
             null
         )?.use { cursor ->
             if (cursor.moveToFirst()) {
