@@ -1,5 +1,5 @@
 # Builds the DownLS10 debug APK and publishes it as a downloadable Actions artifact.
-name: Build DownLS10 APK
+name: Actions
 
 on:
   push:
