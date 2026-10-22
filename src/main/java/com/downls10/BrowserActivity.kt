@@ -89,6 +89,14 @@ class BrowserActivity : Activity() {
         private const val SEARCH_VIDEO = "video"
         private const val SEARXNG_SEARCH_BASE = "https://searx.ononoki.org/search?q="
         private const val SEARXNG_ENGINE_PREFIX = "!ddg !br !qw !yh "
+        private val VIDEO_SEARCH_ENGINES = listOf(
+            "Google Videos", "Bing Videos", "Yahoo Videos", "DuckDuckGo Videos",
+            "Brave Search Videos", "Yandex Videos", "SearXNG Videos", "Mojeek",
+            "YouTube", "Dailymotion", "Vimeo", "Internet Archive", "PeerTube",
+            "Rumble", "Twitch", "Facebook Watch", "TikTok", "Instagram",
+            "Reddit Videos", "Odysee", "Bilibili", "Metacafe"
+        )
+        private const val VIDEO_SEARCH_ENGINES_KEY = "videoSearchEngines"
         // بحث الفيديو يجمع النتائج المتاحة من محركات الفيديو المفعّلة في SearXNG.
     }
 
@@ -1757,7 +1765,7 @@ class BrowserActivity : Activity() {
         val encoded = Uri.encode(query)
         return when (selectedSearchProvider()) {
             SEARCH_SEARXNG -> SEARXNG_SEARCH_BASE + Uri.encode(SEARXNG_ENGINE_PREFIX + query)
-            // لا نطلب من المستخدم اختيار محرك؛ يعرض SearXNG نتائج الفيديو المتاحة مجتمعةً في صفحة واحدة.
+            // بحث الفيديو يستخدم صفحة نتائج الفيديو المجمعة؛ تبقى إعدادات SearXNG وGoogle كما هي.
             SEARCH_VIDEO -> "https://searx.ononoki.org/search?categories=videos&q=" + encoded
             else -> "https://www.google.com/search?q=" + encoded
         }
@@ -1837,8 +1845,34 @@ class BrowserActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("البحث")
             .setItems(items) { dialog, which ->
-                saveSearchProvider(providers[which].first)
+                val provider = providers[which].first
+                saveSearchProvider(provider)
                 dialog.dismiss()
+                if (provider == SEARCH_VIDEO) showVideoSearchEnginesDialog()
+            }
+            .setNegativeButton("إغلاق", null)
+            .show()
+    }
+
+    private fun showVideoSearchEnginesDialog() {
+        val prefs = settingsPrefs()
+        val saved = prefs.getStringSet(VIDEO_SEARCH_ENGINES_KEY, null)
+        val selected = saved?.toMutableSet() ?: VIDEO_SEARCH_ENGINES.toSet()
+        val labels = VIDEO_SEARCH_ENGINES.map { engine ->
+            if (selected.contains(engine)) "$engine    ✅" else engine
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("محركات بحث الفيديو (22)")
+            .setItems(labels) { _, which ->
+                val engine = VIDEO_SEARCH_ENGINES[which]
+                if (!selected.add(engine)) selected.remove(engine)
+                prefs.edit().putStringSet(VIDEO_SEARCH_ENGINES_KEY, selected.toSet()).apply()
+                showVideoSearchEnginesDialog()
+            }
+            .setPositiveButton("تم", null)
+            .setNeutralButton("تحديد الكل") { _, _ ->
+                prefs.edit().putStringSet(VIDEO_SEARCH_ENGINES_KEY, VIDEO_SEARCH_ENGINES.toSet()).apply()
             }
             .setNegativeButton("إغلاق", null)
             .show()
