@@ -1225,22 +1225,37 @@ class BrowserActivity : Activity() {
               try {
                 var id = '__downls10_searx_dark__';
                 var css = [
-                  'html,body{background:#121212!important;color:#e8e8e8!important;color-scheme:dark!important;}',
-                  'body{background-color:#121212!important;}',
+                  'html,html body,body{background:#121212!important;background-color:#121212!important;color:#e8e8e8!important;color-scheme:dark!important;}',
+                  'body,body main,body #main_results,body #results,body .container,body .container-fluid,body .main,body .main_results,body .results,body .tab-content{background:#121212!important;color:#e8e8e8!important;}',
                   'body *{border-color:#383838!important;scrollbar-color:#555 #171717!important;}',
-                  '.container,.container-fluid,#main_results,#results,.results,.main,.main_results{background:#121212!important;color:#e8e8e8!important;}',
-                  'article.result,.result,.result-default,.result-videos,.result-videos article,.result-videos .result,.result-videos .content,.result-videos .metadata,.result-videos .video,.panel,.card,.well,.category{background-color:#1e1e1e!important;color:#e8e8e8!important;}',
-                  '.result-videos .title,.result-videos .content,.result-videos .metadata,.result-videos .url,.result-videos p,.result-videos span{color:#d6d6d6!important;}',
-                  'a,a:visited,.result a,.result h3 a,.result-videos a{color:#8ab4f8!important;}',
-                  'p,span,small,time,.content,.url,.engines,.result-content,.suggestion,.metadata{color:#d0d0d0!important;}',
-                  'h1,h2,h3,h4,h5,label,strong{color:#eeeeee!important;}',
-                  'input,textarea,select{background:#292929!important;color:#f1f1f1!important;border-color:#555!important;}',
-                  'header,nav,footer,.tabs,.categories,.search_box,.search-bar,.preferences{background:#171717!important;color:#e8e8e8!important;}',
-                  'img,video,svg{filter:none!important;}'
+                  'article,article.result,.result,.result-default,.result-videos,.result-videos article,.result-videos .result,.result-videos .content,.result-videos .metadata,.result-videos .video,.panel,.card,.well,.category,.result-item,.result-content{background-color:#1e1e1e!important;color:#e8e8e8!important;}',
+                  '.result-videos,.result-videos *,.category-videos,.category-videos *{color:#e8e8e8!important;}',
+                  '.result-videos .title,.result-videos .content,.result-videos .metadata,.result-videos .url,.result-videos p,.result-videos span,.result-videos small,.result-videos time{color:#d6d6d6!important;}',
+                  'a,a:visited,.result a,.result h3 a,.result-videos a,.result-videos a:visited{color:#8ab4f8!important;}',
+                  'p,span,small,time,.content,.url,.engines,.result-content,.suggestion,.metadata,label{color:#d0d0d0!important;}',
+                  'h1,h2,h3,h4,h5,strong{color:#eeeeee!important;}',
+                  'input,textarea,select,button{background:#292929!important;color:#f1f1f1!important;border-color:#555!important;}',
+                  'header,nav,footer,.tabs,.categories,.search_box,.search-bar,.preferences,.result_header{background:#171717!important;color:#e8e8e8!important;}',
+                  '.result-videos img,.result img,video,svg{filter:none!important;}'
                 ].join('');
-                var style = document.getElementById(id);
-                if (!style) { style = document.createElement('style'); style.id = id; (document.head || document.documentElement).appendChild(style); }
-                if (style.textContent !== css) style.textContent = css;
+                function apply() {
+                  var style = document.getElementById(id);
+                  if (!style) { style = document.createElement('style'); style.id = id; (document.head || document.documentElement).appendChild(style); }
+                  if (style.textContent !== css) style.textContent = css;
+                  document.documentElement.style.setProperty('background-color', '#121212', 'important');
+                  if (document.body) {
+                    document.body.style.setProperty('background-color', '#121212', 'important');
+                    document.body.style.setProperty('color', '#e8e8e8', 'important');
+                  }
+                }
+                apply();
+                if (!window.__downls10SearxDarkObserver && document.documentElement) {
+                  window.__downls10SearxDarkObserver = new MutationObserver(function(){ apply(); });
+                  window.__downls10SearxDarkObserver.observe(document.documentElement, {childList:true,subtree:true});
+                }
+                if (!window.__downls10SearxDarkTimer) {
+                  window.__downls10SearxDarkTimer = setInterval(apply, 900);
+                }
               } catch(e) {}
             })();
         """.trimIndent()
