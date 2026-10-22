@@ -199,8 +199,10 @@ object DownloadsRepository {
         // نفسه يحتوي اسم ملف مختلفًا.
         val hint = suggestedFileName?.takeIf { it.isNotBlank() } ?: nameFromUrlIfReliable(cleanUrl)
         probeExecutor.execute {
-            val info = downloadEngine.probe(cleanUrl, userAgent, referer)
-            val name = resolveFileName(hint, info, cleanUrl, mimeType)
+            // لا تسمح لفشل استكشاف الترويسات أو اسم الملف بإسقاط طلب التنزيل بصمت.
+            val info = runCatching { downloadEngine.probe(cleanUrl, userAgent, referer) }.getOrNull()
+            val name = runCatching { resolveFileName(hint, info, cleanUrl, mimeType) }
+                .getOrElse { "file_${System.currentTimeMillis()}.bin" }
             mainHandler.post { beginNewDownload(appContext, cleanUrl, name, userAgent, referer) }
         }
     }
@@ -686,7 +688,11 @@ object DownloadsRepository {
     }
 
     /** مجلد التنزيلات المطلوب في جذر التخزين الخارجي. */
-    private fun downloadDirectory(): File = File(Environment.getExternalStorageDirectory(), "DownLS10")
+    private fun downloadDirectory(): File {
+        val dir = File(Environment.getExternalStorageDirectory(), "DownLS10")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
 
     private fun createPendingDownload(context: Context, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
@@ -698,6 +704,7 @@ object DownloadsRepository {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, type)
                 if (includeRelativePath) {
+                    // المسار النسبي مطلوب كي تُحفظ ملفات Android 10+ داخل /sdcard/DownLS10/.
                     put(MediaStore.MediaColumns.RELATIVE_PATH, "DownLS10/")
                 }
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
