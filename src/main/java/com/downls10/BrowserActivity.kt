@@ -2204,7 +2204,20 @@ class BrowserActivity : Activity() {
         tabs.forEach { tab ->
             tab.webView.setBackgroundColor(if (nightMode) Color.BLACK else Color.WHITE)
             if (!tab.isHome) {
-                if (nightMode) applyNightModeJs(tab.webView) else removeNightModeJs(tab.webView)
+                if (nightMode) {
+                    applyNightModeJs(tab.webView)
+                    // طبّق CSS الخاص بـ SearXNG أيضاً عند تفعيل الوضع الليلي يدوياً،
+                    // وليس فقط بعد اكتمال تحميل الصفحة.
+                    applySearxngNightModeJs(tab.webView)
+                    mainHandler.postDelayed({
+                        if (nightMode && !isFinishing && !isDestroyed) {
+                            applyNightModeJs(tab.webView)
+                            applySearxngNightModeJs(tab.webView)
+                        }
+                    }, 350)
+                } else {
+                    removeNightModeJs(tab.webView)
+                }
             }
         }
         Toast.makeText(this, if (nightMode) "الوضع الليلي مفعّل (ثابت دائماً)" else "تم إيقاف الوضع الليلي", Toast.LENGTH_SHORT).show()
