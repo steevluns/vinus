@@ -337,6 +337,11 @@ class BrowserActivity : Activity() {
         val btnDownloads = findViewById<Button>(R.id.btnDownloads)
         btnTabs = findViewById(R.id.btnTabs)
         val btnBrowserMenu = findViewById<Button>(R.id.btnBrowserMenu)
+        val btnReload = findViewById<Button>(R.id.btnReload)
+        btnReload.setOnClickListener {
+            val tab = currentTab()
+            if (!tab.isHome) tab.webView.reload()
+        }
 
         CookieManager.getInstance().setAcceptCookie(true)
         DownloadsRepository.ensureLoaded(this)
