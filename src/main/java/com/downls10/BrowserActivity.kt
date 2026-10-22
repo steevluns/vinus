@@ -223,6 +223,7 @@ class BrowserActivity : Activity() {
         }
         progressBar = findViewById(R.id.progressBar)
         val btnBookmarkStar = findViewById<Button>(R.id.btnBookmarkStar)
+        val btnRefreshPage = findViewById<Button>(R.id.btnRefreshPage)
         val btnForward = findViewById<Button>(R.id.btnForward)
         val btnDownloads = findViewById<Button>(R.id.btnDownloads)
         btnTabs = findViewById(R.id.btnTabs)
@@ -245,6 +246,10 @@ class BrowserActivity : Activity() {
         }
 
         btnBookmarkStar.setOnClickListener { addCurrentPageToBookmarks() }
+        btnRefreshPage.setOnClickListener {
+            val tab = currentTab()
+            if (!tab.isHome) tab.webView.reload()
+        }
         btnForward.setOnClickListener {
             val tab = currentTab()
             if (!tab.isHome && tab.webView.canGoForward()) {
