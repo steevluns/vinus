@@ -734,20 +734,15 @@ object DownloadsRepository {
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
 
-        // بعض أجهزة Android 10/ROMs لا تتعامل مع مسار MediaStore واحد بشكل ثابت.
-        // نجرب مجموعتي Downloads و Files، مع وبدون RELATIVE_PATH، ثم المسار القديم
-        // الخاص بـ Downloads، حتى لا يفشل إنشاء الملف بعد موافقة المستخدم على التنزيل.
+        // يجب أن تبقى كل محاولة داخل /sdcard/DownLS10/؛ لا نستخدم أي محاولة
+        // تسقط RELATIVE_PATH لأنها قد تحفظ الملف في مجلد Downloads أو مسار آخر.
         val attempts = listOf<() -> Uri?>(
             { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values(mime)) },
             { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values("application/octet-stream")) },
             { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values(mime)) },
             { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values("application/octet-stream")) },
             { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime)) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream")) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime, includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream", includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values(mime, includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values("application/octet-stream", includeRelativePath = false)) }
+            { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream")) }
         )
 
         for (attempt in attempts) {
