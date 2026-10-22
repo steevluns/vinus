@@ -312,7 +312,9 @@ object DownloadsRepository {
             fileName = fileName,
             extension = ext,
             userAgent = userAgent,
-            referer = referer
+            referer = referer,
+            state = if (startImmediately) DownloadState.DOWNLOADING else DownloadState.PAUSED,
+            status = if (startImmediately) "في الانتظار..." else "مضاف ولم يبدأ"
         )
 
         if (startImmediately && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
