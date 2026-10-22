@@ -148,6 +148,8 @@ class DownloadManagerEngine {
             conn.instanceFollowRedirects = false
             // بدون ضغط gzip حتى يكون حجم الملف وتقدّم التنزيل ومواضع الاستئناف دقيقة
             conn.setRequestProperty("Accept-Encoding", "identity")
+            conn.setRequestProperty("Accept", "*/*")
+            conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9,ar;q=0.8")
             conn.setRequestProperty("User-Agent", if (!ua.isNullOrBlank()) ua else defaultUserAgent)
             val cookies = try { CookieManager.getInstance().getCookie(currentUrl) } catch (e: Exception) { null }
             if (!cookies.isNullOrBlank()) conn.setRequestProperty("Cookie", cookies)
@@ -312,7 +314,7 @@ class DownloadManagerEngine {
         if (totalSize <= 0L) return
         val needed = totalSize - startOffset
         val available = try {
-            StatFs(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).path).availableBytes
+            StatFs(Environment.getExternalStorageDirectory().path).availableBytes
         } catch (e: Exception) {
             Long.MAX_VALUE
         }
@@ -358,6 +360,7 @@ class DownloadManagerEngine {
                     }
                     source = src
                     activeSources[item.id] = src
+                    if (stopped()) return@execute
                     val startOffset = src.startOffset
                     val totalSize = src.totalSize
                     item.totalBytes = totalSize
@@ -455,6 +458,7 @@ class DownloadManagerEngine {
         activeTasks[id] = false
         // إغلاق الاتصال يفك read() فوراً بدل انتظار مهلة الشبكة.
         activeSources.remove(id)?.close()
+        generations[id] = (generations[id] ?: 0) + 1
     }
 
     fun cancelDownload(id: Long, saveDir: File, fileName: String, deleteFileOnDisk: Boolean) {
