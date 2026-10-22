@@ -1787,8 +1787,9 @@ class BrowserActivity : Activity() {
                         text = getItem(position)
                         setTextColor(Color.WHITE)
                         textSize = 15f
-                        maxLines = 1
-                        ellipsize = android.text.TextUtils.TruncateAt.END
+                        // عرض اقتراح البحث كاملًا حتى لو احتاج أكثر من سطر.
+                        maxLines = 4
+                        ellipsize = null
                         setPadding(6, 8, 6, 8)
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     }
@@ -1811,7 +1812,8 @@ class BrowserActivity : Activity() {
                 }
             }
         }
-        suggestionsPopup = PopupWindow(list, editUrl.width.coerceAtLeast(250), (items.size * 42).coerceAtMost(260), false).apply {
+        val rowHeight = (items.size * 54).coerceAtMost(360)
+        suggestionsPopup = PopupWindow(list, editUrl.width.coerceAtLeast(250), rowHeight, false).apply {
             isOutsideTouchable = true
             isFocusable = false
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF202020.toInt()))
