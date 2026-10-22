@@ -1765,9 +1765,19 @@ class BrowserActivity : Activity() {
         val encoded = Uri.encode(query)
         return when (selectedSearchProvider()) {
             SEARCH_SEARXNG -> SEARXNG_SEARCH_BASE + Uri.encode(SEARXNG_ENGINE_PREFIX + query)
-            // يجمع SearXNG نتائج الفيديو من محركات الفيديو المفعّلة لديه في صفحة واحدة.
-            // قائمة الـ22 اسمًا محفوظة داخليًا ولا تظهر للمستخدم ولا تطلب اختيار محرك.
-            SEARCH_VIDEO -> "https://searx.ononoki.org/search?categories=videos&q=" + encoded
+            // يطلب بحث الفيديو جمع النتائج من مجموعة كبيرة من محركات الفيديو عبر SearXNG.
+            // المواقع التي لا يوفرها الخادم كمحركات SearXNG لن تظهر نتائجها تلقائياً.
+            SEARCH_VIDEO -> {
+                val videoEngines = listOf(
+                    "google_videos", "bing_videos", "yahoo", "duckduckgo", "brave",
+                    "yandex", "mojeek", "youtube", "dailymotion", "vimeo",
+                    "internet_archive", "peertube", "rumble", "twitch", "facebook",
+                    "tiktok", "instagram", "reddit", "odysee", "bilibili",
+                    "metacafe", "qwant"
+                ).joinToString(",")
+                "https://searx.ononoki.org/search?categories=videos&engines=" +
+                    Uri.encode(videoEngines) + "&q=" + encoded
+            }
             else -> "https://www.google.com/search?q=" + encoded
         }
     }
