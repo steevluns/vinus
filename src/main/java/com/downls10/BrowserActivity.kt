@@ -1792,10 +1792,11 @@ class BrowserActivity : Activity() {
                         text = getItem(position)
                         setTextColor(Color.WHITE)
                         textSize = 15f
-                        // عرض اقتراح البحث كاملًا حتى لو احتاج أكثر من سطر.
-                        maxLines = 4
+                        // كل اقتراح يأخذ عرض الصف كاملًا، ويلتف إلى أسطر عند طول النص بدل قصّه.
+                        maxLines = 5
                         ellipsize = null
-                        setPadding(6, 8, 6, 8)
+                        isSingleLine = false
+                        setPadding(8, 8, 6, 8)
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     }
                     label.setOnClickListener {
@@ -1817,8 +1818,11 @@ class BrowserActivity : Activity() {
                 }
             }
         }
-        val rowHeight = (items.size * 54).coerceAtMost(360)
-        suggestionsPopup = PopupWindow(list, editUrl.width.coerceAtLeast(250), rowHeight, false).apply {
+        // اعرض خمسة اقتراحات في القائمة، بعرض شريط البحث الكامل بما فيه مساحة زر التحديث.
+        val visibleCount = minOf(5, items.size)
+        val rowHeight = (visibleCount * 64).coerceAtMost(420)
+        val popupWidth = findViewById<View>(R.id.addressBar).width.coerceAtLeast(resources.displayMetrics.widthPixels)
+        suggestionsPopup = PopupWindow(list, popupWidth, rowHeight, false).apply {
             isOutsideTouchable = true
             isFocusable = false
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF202020.toInt()))
