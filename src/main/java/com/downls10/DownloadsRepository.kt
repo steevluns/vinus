@@ -734,13 +734,11 @@ object DownloadsRepository {
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
 
-        // يجب أن تبقى كل محاولة داخل /sdcard/DownLS10/؛ لا نستخدم أي محاولة
-        // تسقط RELATIVE_PATH لأنها قد تحفظ الملف في مجلد Downloads أو مسار آخر.
+        // استخدم MediaStore.Files مع RELATIVE_PATH صريح "DownLS10/" كي يكون
+        // المجلد في جذر التخزين: /sdcard/DownLS10/ وليس Download أو Downloads.
+        // لا نستخدم MediaStore.Downloads ولا نحاول إنشاء ملف بدون RELATIVE_PATH،
+        // لأن ذلك قد يضعه في مجلد Download الافتراضي.
         val attempts = listOf<() -> Uri?>(
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values(mime)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values("application/octet-stream")) },
-            { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values(mime)) },
-            { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values("application/octet-stream")) },
             { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime)) },
             { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream")) }
         )
