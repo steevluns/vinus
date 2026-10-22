@@ -1219,7 +1219,11 @@ class BrowserActivity : Activity() {
     private fun applySearxngNightModeJs(webView: WebView) {
         if (!nightMode) return
         val host = try { Uri.parse(webView.url ?: "").host?.lowercase(Locale.US) } catch (_: Exception) { null }
-        if (host != "searx.ononoki.org") return
+        val currentUrl = webView.url
+        val isSearxng = host == "searx.ononoki.org"
+        val isSearchPage = isSearchResultsPage(currentUrl)
+        // Apply explicit dark colors to all search modes, including the separate video-search engine.
+        if (!isSearxng && !isSearchPage) return
         val js = """
             (function() {
               try {
