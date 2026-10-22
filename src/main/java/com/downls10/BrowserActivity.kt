@@ -128,6 +128,7 @@ class BrowserActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     private var imageViewerDialog: Dialog? = null
+    private var lastImageActionShownAt: Long = 0L
 
     private inner class ImageActionBridge {
         @JavascriptInterface
@@ -142,6 +143,19 @@ class BrowserActivity : Activity() {
 
     private fun installImageLongPress(webView: WebView) {
         webView.addJavascriptInterface(imageActionBridge, "DownLS10ImageActions")
+        // Native WebView fallback: بعض المواقع تمنع أحداث اللمس أو تغيّر DOM،
+        // لذا نستخدم نتيجة hit-test لإظهار نفس القائمة عند الضغط المطوّل على الصورة.
+        webView.setOnLongClickListener {
+            val hit = webView.hitTestResult
+            val imageType = hit.type == WebView.HitTestResult.IMAGE_TYPE ||
+                hit.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+            if (imageType && !hit.extra.isNullOrBlank()) {
+                showImageActions(hit.extra)
+                true
+            } else {
+                false
+            }
+        }
         val script = """
             (function(){
               if (window.__downls10ImageLongPressInstalled) return;
@@ -170,6 +184,10 @@ class BrowserActivity : Activity() {
     }
 
     private fun showImageActions(imageUrl: String) {
+        // تجنّب ظهور نافذتين إذا وصل حدث الضغط المطوّل من JavaScript وWebView معًا.
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastImageActionShownAt < 900L) return
+        lastImageActionShownAt = now
         val options = arrayOf("تنزيل الصورة", "فتح الصورة")
         AlertDialog.Builder(this).setItems(options) { dialog, which ->
             when (which) {
