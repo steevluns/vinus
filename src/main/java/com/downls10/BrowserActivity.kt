@@ -1818,11 +1818,18 @@ class BrowserActivity : Activity() {
                 }
             }
         }
-        // اعرض خمسة اقتراحات في القائمة، بعرض شريط البحث الكامل بما فيه مساحة زر التحديث.
+        // اعرض خمسة اقتراحات كاملة بعرض الشاشة؛ يلتف النص الطويل بدل قصّه.
+        val density = resources.displayMetrics.density
         val visibleCount = minOf(5, items.size)
-        val rowHeight = (visibleCount * 64).coerceAtMost(420)
-        val popupWidth = findViewById<View>(R.id.addressBar).width.coerceAtLeast(resources.displayMetrics.widthPixels)
-        suggestionsPopup = PopupWindow(list, popupWidth, rowHeight, false).apply {
+        val desiredHeight = (visibleCount * 56 * density).toInt()
+        val maxHeight = (resources.displayMetrics.heightPixels * 0.55f).toInt()
+        val popupHeight = desiredHeight.coerceAtMost(maxHeight).coerceAtLeast((48 * density).toInt())
+        val screenWidth = resources.displayMetrics.widthPixels
+        val popupWidth = findViewById<View>(R.id.addressBar).width
+            .coerceAtLeast(screenWidth)
+            .coerceAtMost(screenWidth)
+        list.isVerticalScrollBarEnabled = true
+        suggestionsPopup = PopupWindow(list, popupWidth, popupHeight, false).apply {
             isOutsideTouchable = true
             isFocusable = false
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF202020.toInt()))
