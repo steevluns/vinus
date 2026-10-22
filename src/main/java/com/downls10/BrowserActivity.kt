@@ -2355,6 +2355,13 @@ class BrowserActivity : Activity() {
                     }
                     function run() {
                         if (window.__downls10NightOff) return;
+                        // فرض الوضع الليلي لمحرك SearXNG لأن صفحة النتائج لا تعلن دائماً عن سمة داكنة،
+                        // بينما يجب أن تتبع إعداد الوضع الليلي داخل DownLS10.
+                        var currentHost = String(location.hostname || '').toLowerCase();
+                        if (currentHost === 'searx.ononoki.org') {
+                            setInverted(true);
+                            return;
+                        }
                         var d = detectDark();
                         if (d === null) {
                             // لم نستطع الحكم بعد (الصفحة لم تُرسم): نستخدم المحفوظ لهذا الموقع، وإلا نفترضها فاتحة
