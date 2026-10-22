@@ -5,7 +5,7 @@
     android:background="#000000"
     android:layoutDirection="rtl">
 
-    <!-- شريط العنوان -->
+    <!-- الصف العلوي: شريط البحث وزر تحديث الصفحة -->
     <LinearLayout
         android:id="@+id/addressBar"
         android:layout_width="match_parent"
@@ -21,7 +21,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="#1E1E1E"
-            android:hint="اكتب رابط..."
+            android:hint="اكتب رابط... أو ابحث..."
             android:textColorHint="#888888"
             android:imeOptions="actionGo"
             android:inputType="textUri"
@@ -32,10 +32,32 @@
             android:textSize="15sp" />
 
         <Button
+            android:id="@+id/btnRefreshPage"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="4dp"
+            android:background="?android:attr/selectableItemBackground"
+            android:contentDescription="تحديث الصفحة"
+            android:text="⟳"
+            android:textColor="#FFFFFF"
+            android:textSize="25sp" />
+    </LinearLayout>
+
+    <!-- الصف السفلي: بقية أزرار المتصفح -->
+    <LinearLayout
+        android:id="@+id/browserActions"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_below="@id/addressBar"
+        android:background="#121212"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <Button
             android:id="@+id/btnBookmarkStar"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:layout_marginStart="2dp"
             android:background="?android:attr/selectableItemBackground"
             android:text="★"
             android:textColor="#808080"
@@ -88,7 +110,7 @@
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
         android:layout_height="3dp"
-        android:layout_below="@id/addressBar"
+        android:layout_below="@id/browserActions"
         android:max="100" />
 
     <FrameLayout
