@@ -1226,12 +1226,16 @@ class BrowserActivity : Activity() {
                 var id = '__downls10_searx_dark__';
                 var css = [
                   'html,body{background:#121212!important;color:#e8e8e8!important;color-scheme:dark!important;}',
-                  'body *{border-color:#383838!important;}',
-                  'article.result,.result,.result-default,.result-videos,.result-videos article,.panel,.card,.well,.category{background-color:#1e1e1e!important;color:#e8e8e8!important;}',
-                  'a,a:visited,.result a,.result h3 a{color:#8ab4f8!important;}',
-                  'p,span,small, time, .content, .url, .engines, .result-content, .suggestion{color:#d0d0d0!important;}',
+                  'body{background-color:#121212!important;}',
+                  'body *{border-color:#383838!important;scrollbar-color:#555 #171717!important;}',
+                  '.container,.container-fluid,#main_results,#results,.results,.main,.main_results{background:#121212!important;color:#e8e8e8!important;}',
+                  'article.result,.result,.result-default,.result-videos,.result-videos article,.result-videos .result,.result-videos .content,.result-videos .metadata,.result-videos .video,.panel,.card,.well,.category{background-color:#1e1e1e!important;color:#e8e8e8!important;}',
+                  '.result-videos .title,.result-videos .content,.result-videos .metadata,.result-videos .url,.result-videos p,.result-videos span{color:#d6d6d6!important;}',
+                  'a,a:visited,.result a,.result h3 a,.result-videos a{color:#8ab4f8!important;}',
+                  'p,span,small,time,.content,.url,.engines,.result-content,.suggestion,.metadata{color:#d0d0d0!important;}',
+                  'h1,h2,h3,h4,h5,label,strong{color:#eeeeee!important;}',
                   'input,textarea,select{background:#292929!important;color:#f1f1f1!important;border-color:#555!important;}',
-                  'header,nav,footer,.tabs,.categories,.search_box,.search-bar{background:#171717!important;color:#e8e8e8!important;}',
+                  'header,nav,footer,.tabs,.categories,.search_box,.search-bar,.preferences{background:#171717!important;color:#e8e8e8!important;}',
                   'img,video,svg{filter:none!important;}'
                 ].join('');
                 var style = document.getElementById(id);
