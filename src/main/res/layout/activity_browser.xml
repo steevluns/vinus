@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- شريط العنوان -->
+    <!-- شريط المتصفح: يبدأ أعلى الشاشة مباشرةً بعد إزالة عنوان التطبيق -->
     <LinearLayout
         android:id="@+id/addressBar"
         android:layout_width="match_parent"
