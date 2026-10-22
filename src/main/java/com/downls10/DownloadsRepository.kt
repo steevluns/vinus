@@ -36,8 +36,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * يدير التنزيلات وسجل روابطها بشكل دائم.
- * Android 10+: يحفظ مباشرة في مجلد Download عبر MediaStore.
- * Android 9 وأقدم: يحفظ في مجلد Download العام.
+ * يحفظ الملفات داخل مجلد DownLS10 في جذر التخزين: /sdcard/DownLS10/.
+ * Android 10+: يستخدم MediaStore مع RELATIVE_PATH، والإصدارات الأقدم تنشئ المجلد مباشرة.
  */
 object DownloadsRepository {
 
@@ -452,7 +452,7 @@ object DownloadsRepository {
                 item.localUri = created.toString()
                 output = appContext.contentResolver.openOutputStream(created, "w")
             } else {
-                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val dir = downloadDirectory()
                 if (!dir.exists()) dir.mkdirs()
                 val target = File(dir, name)
                 file = target
@@ -685,6 +685,9 @@ object DownloadsRepository {
         }
     }
 
+    /** مجلد التنزيلات المطلوب في جذر التخزين الخارجي. */
+    private fun downloadDirectory(): File = File(Environment.getExternalStorageDirectory(), "DownLS10")
+
     private fun createPendingDownload(context: Context, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         val resolver = context.contentResolver
@@ -695,7 +698,7 @@ object DownloadsRepository {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                 put(MediaStore.MediaColumns.MIME_TYPE, type)
                 if (includeRelativePath) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "DownLS10/")
                 }
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
