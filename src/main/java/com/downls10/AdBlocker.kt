@@ -41,13 +41,13 @@ object AdBlocker {
         ),
         BlockListDef(
             "hagezi_multi_normal", "HaGeZi Multi NORMAL",
-            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt",
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists-legacy/main/hosts/multi.txt",
             ListFormat.HOSTS, ListCategory.AD
         ),
         BlockListDef(
             "oisd_big", "OISD Big",
-            "https://big.oisd.nl/hosts",
-            ListFormat.HOSTS, ListCategory.AD
+            "https://big.oisd.nl/",
+            ListFormat.ABP, ListCategory.AD
         ),
         BlockListDef(
             "porn", "حجب المواقع الإباحية",
