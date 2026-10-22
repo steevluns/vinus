@@ -40,6 +40,16 @@ object AdBlocker {
             ListFormat.HOSTS, ListCategory.AD
         ),
         BlockListDef(
+            "hagezi_multi_normal", "HaGeZi Multi NORMAL",
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/multi.txt",
+            ListFormat.HOSTS, ListCategory.AD
+        ),
+        BlockListDef(
+            "oisd_big", "OISD Big",
+            "https://big.oisd.nl/hosts",
+            ListFormat.HOSTS, ListCategory.AD
+        ),
+        BlockListDef(
             "porn", "حجب المواقع الإباحية",
             "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts",
             ListFormat.HOSTS, ListCategory.PORN
