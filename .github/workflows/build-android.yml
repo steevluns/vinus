@@ -31,8 +31,11 @@ jobs:
         with:
           gradle-version: '8.2'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/platform-tools" || true
+          ls "$ANDROID_HOME"
 
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
