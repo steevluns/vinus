@@ -713,10 +713,6 @@ object DownloadsRepository {
             { resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values("application/octet-stream")) },
             { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime)) },
             { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream")) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values(mime, includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Files.getContentUri("external"), values("application/octet-stream", includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values(mime, includeRelativePath = false)) },
-            { resolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values("application/octet-stream", includeRelativePath = false)) }
         )
 
         for (attempt in attempts) {
@@ -737,12 +733,12 @@ object DownloadsRepository {
 
     private fun findDownloadUriByName(resolver: ContentResolver, fileName: String): Uri? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val collection = MediaStore.Files.getContentUri("external")
         return resolver.query(
             collection,
             arrayOf(MediaStore.MediaColumns._ID),
-            "${MediaStore.MediaColumns.DISPLAY_NAME} = ?",
-            arrayOf(fileName),
+            "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND ${MediaStore.MediaColumns.RELATIVE_PATH} = ?",
+            arrayOf(fileName, "DownLS10/"),
             null
         )?.use { cursor ->
             if (cursor.moveToFirst()) {
