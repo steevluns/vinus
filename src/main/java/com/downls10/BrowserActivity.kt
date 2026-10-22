@@ -1732,7 +1732,7 @@ class BrowserActivity : Activity() {
                             val json = connection.inputStream.bufferedReader().use { it.readText() }
                             val arr = org.json.JSONArray(json)
                             val values = arr.optJSONArray(1) ?: org.json.JSONArray()
-                            (0 until values.length()).mapNotNull { values.optString(it).takeIf { v -> v.isNotBlank() } }.distinct().take(8)
+                            (0 until values.length()).mapNotNull { values.optString(it).takeIf { v -> v.isNotBlank() } }.distinct().take(5)
                         } finally { connection.disconnect() }
                     } catch (_: Exception) { emptyList<String>() }
                     mainHandler.post {
@@ -1762,15 +1762,16 @@ class BrowserActivity : Activity() {
                     val row = LinearLayout(this@BrowserActivity).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
-                        setPadding(8, 2, 8, 2)
+                        setPadding(4, 2, 4, 2)
                         setBackgroundColor(0xFF202020.toInt())
                     }
                     val label = TextView(this@BrowserActivity).apply {
                         text = getItem(position)
                         setTextColor(Color.WHITE)
                         textSize = 15f
-                        maxLines = 2
-                        setPadding(8, 10, 8, 10)
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                        setPadding(6, 8, 6, 8)
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     }
                     label.setOnClickListener {
@@ -1778,18 +1779,21 @@ class BrowserActivity : Activity() {
                         suggestionsPopup?.dismiss(); loadFromAddressBar(); hideKeyboard()
                     }
                     val insert = Button(this@BrowserActivity).apply {
-                        text = "➜"; setTextColor(Color.LTGRAY); textSize = 18f
+                        text = "➜"; setTextColor(Color.LTGRAY); textSize = 12f
+                        minWidth = 0; minimumWidth = 0
+                        minHeight = 0; minimumHeight = 0
+                        setPadding(4, 0, 4, 0)
                         setOnClickListener {
                             editUrl.setText(getItem(position)); editUrl.setSelection(editUrl.text.length)
                             suggestionsPopup?.dismiss()
                         }
                     }
-                    row.addView(label); row.addView(insert)
+                    row.addView(label); row.addView(insert, LinearLayout.LayoutParams(36, 34))
                     return row
                 }
             }
         }
-        suggestionsPopup = PopupWindow(list, editUrl.width.coerceAtLeast(250), (items.size * 52).coerceAtMost(320), false).apply {
+        suggestionsPopup = PopupWindow(list, editUrl.width.coerceAtLeast(250), (items.size * 42).coerceAtMost(260), false).apply {
             isOutsideTouchable = true
             isFocusable = false
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF202020.toInt()))
