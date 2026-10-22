@@ -33,6 +33,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
+import android.webkit.JavascriptInterface
+import android.app.Dialog
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -124,6 +126,100 @@ class BrowserActivity : Activity() {
     private var lastConfirmedSafetyUrl: String? = null
     private val bgExecutor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var imageViewerDialog: Dialog? = null
+
+    private inner class ImageActionBridge {
+        @JavascriptInterface
+        fun onImageLongPress(imageUrl: String) {
+            runOnUiThread {
+                if (isFinishing || isDestroyed || imageUrl.isBlank()) return@runOnUiThread
+                showImageActions(imageUrl)
+            }
+        }
+    }
+    private val imageActionBridge = ImageActionBridge()
+
+    private fun installImageLongPress(webView: WebView) {
+        webView.addJavascriptInterface(imageActionBridge, "DownLS10ImageActions")
+        val script = """
+            (function(){
+              if (window.__downls10ImageLongPressInstalled) return;
+              window.__downls10ImageLongPressInstalled = true;
+              var timer = null, startX = 0, startY = 0, target = null;
+              document.addEventListener('touchstart', function(e) {
+                var t = e.touches && e.touches[0]; if (!t) return;
+                var el = e.target;
+                while (el && el.tagName !== 'IMG') el = el.parentElement;
+                if (!el || !el.src) return;
+                target = el; startX = t.clientX; startY = t.clientY; clearTimeout(timer);
+                timer = setTimeout(function() {
+                  if (target && target.src && window.DownLS10ImageActions)
+                    window.DownLS10ImageActions.onImageLongPress(target.currentSrc || target.src);
+                }, 650);
+              }, {passive:true, capture:true});
+              document.addEventListener('touchmove', function(e) {
+                var t = e.touches && e.touches[0];
+                if (t && (Math.abs(t.clientX-startX)>12 || Math.abs(t.clientY-startY)>12)) { clearTimeout(timer); target=null; }
+              }, {passive:true, capture:true});
+              ['touchend','touchcancel'].forEach(function(n){document.addEventListener(n,function(){clearTimeout(timer); target=null;},{passive:true,capture:true});});
+              document.addEventListener('contextmenu', function(e){if(e.target&&e.target.closest&&e.target.closest('img'))e.preventDefault();}, true);
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+    }
+
+    private fun showImageActions(imageUrl: String) {
+        val options = arrayOf("تنزيل الصورة", "فتح الصورة")
+        AlertDialog.Builder(this).setItems(options) { dialog, which ->
+            when (which) {
+                0 -> {
+                    val tab = currentTab()
+                    DownloadsRepository.startNewDownload(this, imageUrl, showToast = true,
+                        userAgent = tab.webView.settings.userAgentString, referer = tab.webView.url, mimeType = null)
+                }
+                1 -> openImageViewer(imageUrl)
+            }
+            dialog.dismiss()
+        }.show()
+    }
+
+    private fun openImageViewer(imageUrl: String) {
+        imageViewerDialog?.dismiss()
+        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val imageWebView = WebView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            settings.javaScriptEnabled = false
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            settings.setSupportZoom(true)
+            webViewClient = object : WebViewClient() {}
+        }
+        root.addView(imageWebView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val close = Button(this).apply {
+            text = "✕"; textSize = 22f; setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#99000000"))
+            setOnClickListener { dialog.dismiss() }
+        }
+        root.addView(close, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.TOP or Gravity.RIGHT).apply {
+            topMargin = dp(12); rightMargin = dp(12)
+        })
+        dialog.setContentView(root)
+        dialog.setOnDismissListener {
+            try { imageWebView.stopLoading(); imageWebView.destroy() } catch (_: Exception) {}
+            if (imageViewerDialog === dialog) imageViewerDialog = null
+        }
+        imageViewerDialog = dialog
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        imageWebView.loadUrl(imageUrl)
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
 
     private val PREFS = "browser_settings"
     private fun settingsPrefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -954,6 +1050,7 @@ class BrowserActivity : Activity() {
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                installImageLongPress(view)
                 tabs.find { it.webView == view }?.let { t ->
                     t.pageLoading = false
                     // صفحة جديدة عادية (بدون استعادة جارية): سجّل موضعها الحالي
