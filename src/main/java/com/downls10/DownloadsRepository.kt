@@ -2,6 +2,7 @@ package com.downls10
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.Application
 import android.content.ContentResolver
 import android.content.ContentUris
@@ -182,7 +183,7 @@ object DownloadsRepository {
                     val remoteName = resolveFileName(
                         suggestedFileName?.takeIf { it.isNotBlank() } ?: link.fileName, null, link.directUrl, mimeType
                     )
-                    mainHandler.post { beginNewDownload(appContext, cleanUrl, remoteName, userAgent, referer) }
+                    mainHandler.post { showDownloadDetails(appContext, cleanUrl, remoteName, null, userAgent, referer) }
                 } catch (e: Exception) {
                     toast(appContext, "فشل تنزيل الملف: " + (e.message ?: "تعذّر قراءة الرابط"))
                 }
@@ -193,7 +194,7 @@ object DownloadsRepository {
         if (scheme == "ftp") {
             // FTP لا توجد فيه ترويسات: الاسم من مسار الرابط
             val ftpName = resolveFileName(suggestedFileName?.takeIf { it.isNotBlank() }, null, cleanUrl, mimeType)
-            beginNewDownload(appContext, cleanUrl, ftpName, userAgent, referer)
+            showDownloadDetails(appContext, cleanUrl, ftpName, null, userAgent, referer)
             return
         }
 
@@ -203,7 +204,7 @@ object DownloadsRepository {
         probeExecutor.execute {
             val info = downloadEngine.probe(cleanUrl, userAgent, referer)
             val name = resolveFileName(hint, info, cleanUrl, mimeType)
-            mainHandler.post { beginNewDownload(appContext, cleanUrl, name, userAgent, referer) }
+            mainHandler.post { showDownloadDetails(appContext, cleanUrl, name, info, userAgent, referer) }
         }
     }
 
@@ -258,13 +259,38 @@ object DownloadsRepository {
             .forEach { resumeDownload(context, it) }
     }
 
-    /** ينشئ عنصر التنزيل ويبدأه بعد أن أصبح اسم الملف معروفاً. يعمل على الخيط الرئيسي. */
+    private fun formatDownloadSize(bytes: Long?): String {
+        if (bytes == null || bytes < 0L) return "غير معروف"
+        if (bytes == 0L) return "0 بايت"
+        val units = arrayOf("بايت", "KB", "MB", "GB", "TB")
+        var value = bytes.toDouble()
+        var unit = 0
+        while (value >= 1024.0 && unit < units.lastIndex) { value /= 1024.0; unit++ }
+        return String.format(java.util.Locale.US, if (unit == 0) "%.0f %s" else "%.2f %s", value, units[unit])
+    }
+
+    private fun showDownloadDetails(context: Context, cleanUrl: String, fileName: String, info: ProbeInfo?, userAgent: String?, referer: String?) {
+        if (context !is Activity || context.isFinishing || context.isDestroyed) {
+            beginNewDownload(context, cleanUrl, fileName, userAgent, referer, true)
+            return
+        }
+        val extension = fileName.substringAfterLast(".", "").takeIf { it.isNotBlank() }?.let { ".$it" } ?: "بدون امتداد"
+        val size = formatDownloadSize(info?.contentLength?.takeIf { it >= 0L })
+        val details = "اسم الملف: $fileName\nالحجم: $size\nالامتداد: $extension"
+        AlertDialog.Builder(context).setTitle("تفاصيل التنزيل").setMessage(details)
+            .setNegativeButton("إضافة") { dialog, _ -> beginNewDownload(context.applicationContext, cleanUrl, fileName, userAgent, referer, false); dialog.dismiss() }
+            .setPositiveButton("تنزيل") { dialog, _ -> beginNewDownload(context.applicationContext, cleanUrl, fileName, userAgent, referer, true); dialog.dismiss() }
+            .setNeutralButton("إلغاء", null).show()
+    }
+
+    /** ينشئ عنصر التنزيل ويمكن إضافته دون بدء الشبكة. */
     private fun beginNewDownload(
         appContext: Context,
         cleanUrl: String,
         fileName: String,
         userAgent: String?,
-        referer: String?
+        referer: String?,
+        startImmediately: Boolean = true
     ) {
         // ضغطتَ على الرابط مرتين أثناء الاستكشاف
         if (downloadList.any { it.url == cleanUrl && it.state == DownloadState.DOWNLOADING }) {
@@ -289,7 +315,7 @@ object DownloadsRepository {
             referer = referer
         )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (startImmediately && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val uri = createPendingDownload(appContext, item.fileName)
             if (uri == null) {
                 toast(appContext, "تعذّر إنشاء ملف التنزيل داخل Download")
@@ -308,8 +334,12 @@ object DownloadsRepository {
 
         downloadList.add(0, item)
         notifyChanged(appContext, forceSave = true)
-        toast(appContext, "بدأ تنزيل الملف: ${item.fileName}")
-        executeDownload(appContext, item)
+        if (startImmediately) {
+            toast(appContext, "بدأ تنزيل الملف: ${item.fileName}")
+            executeDownload(appContext, item)
+        } else {
+            toast(appContext, "أُضيف إلى قائمة التنزيلات دون بدء التنزيل")
+        }
     }
 
     // ---------------- تحديد اسم الملف ونوعه ----------------
