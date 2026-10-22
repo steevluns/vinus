@@ -149,8 +149,9 @@ class BrowserActivity : Activity() {
             val hit = webView.hitTestResult
             val imageType = hit.type == WebView.HitTestResult.IMAGE_TYPE ||
                 hit.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
-            if (imageType && !hit.extra.isNullOrBlank()) {
-                showImageActions(hit.extra)
+            val imageUrl = hit.extra
+            if (imageType && !imageUrl.isNullOrBlank()) {
+                showImageActions(imageUrl)
                 true
             } else {
                 false
