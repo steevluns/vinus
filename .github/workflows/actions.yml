@@ -27,11 +27,13 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Build debug APK
-        uses: gradle/gradle-build-action@v3
+      - name: Set up Gradle 8.2
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.2'
-          arguments: --no-daemon assembleDebug --stacktrace
+
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
