@@ -84,16 +84,37 @@ class BrowserActivity : Activity() {
     companion object {
         const val EXTRA_OPEN_URL = "extra_open_url"
         private const val SEARCH_PROVIDER_KEY = "searchProvider"
+        private const val SEARCH_VIDEO_ENGINE_KEY = "videoSearchEngine"
         private const val SEARCH_SEARXNG = "searxng"
         private const val SEARCH_GOOGLE = "google"
         private const val SEARCH_VIDEO = "video"
         private const val SEARXNG_SEARCH_BASE = "https://searx.ononoki.org/search?q="
-        // SearXNG bang modifiers explicitly select non-Bing web engines.
-        // SearXNG's ! syntax is inclusive, so Bing is not selected here.
         private const val SEARXNG_ENGINE_PREFIX = "!ddg !br !qw !yh "
-        // محركات الفيديو مدمجة داخل خيار "بحث فيديو" ولا تظهر في واجهة اختيار البحث.
-        // يتم تمريرها إلى SearXNG كـ bang modifiers ليجمع نتائجها في صفحة واحدة.
-        private const val VIDEO_SEARCH_ENGINE_PREFIX = "!gov !biv !brvid !yt !ptb !dm !od !qwv !ddv !kgv "
+        // قائمة محركات ومواقع بحث الفيديو؛ تُفتح من خيار «بحث فيديو».
+        private val VIDEO_SEARCH_ENGINES = listOf(
+            "google" to "Google Videos",
+            "bing" to "Bing Videos",
+            "yahoo" to "Yahoo Videos",
+            "duckduckgo" to "DuckDuckGo Videos",
+            "brave" to "Brave Search Videos",
+            "yandex" to "Yandex Videos",
+            "searxng" to "SearXNG Videos",
+            "mojeek" to "Mojeek",
+            "youtube" to "YouTube",
+            "dailymotion" to "Dailymotion",
+            "vimeo" to "Vimeo",
+            "archive" to "Internet Archive",
+            "peertube" to "PeerTube",
+            "rumble" to "Rumble",
+            "twitch" to "Twitch",
+            "facebook" to "Facebook Watch",
+            "tiktok" to "TikTok",
+            "instagram" to "Instagram",
+            "reddit" to "Reddit Videos",
+            "odysee" to "Odysee",
+            "bilibili" to "Bilibili",
+            "metacafe" to "Metacafe / video search"
+        )
     }
 
     private lateinit var webViewContainer: FrameLayout
@@ -1759,9 +1780,36 @@ class BrowserActivity : Activity() {
 
     private fun buildSearchUrl(query: String): String {
         val encoded = Uri.encode(query)
+        if (selectedSearchProvider() == SEARCH_VIDEO) {
+            val engine = settingsPrefs().getString(SEARCH_VIDEO_ENGINE_KEY, "searxng") ?: "searxng"
+            return when (engine) {
+                "google" -> "https://www.google.com/search?tbm=vid&q=$encoded"
+                "bing" -> "https://www.bing.com/videos/search?q=$encoded"
+                "yahoo" -> "https://video.search.yahoo.com/search/video?p=$encoded"
+                "duckduckgo" -> "https://duckduckgo.com/?q=$encoded&iax=videos&ia=videos"
+                "brave" -> "https://search.brave.com/videos?q=$encoded"
+                "yandex" -> "https://yandex.com/video/search?text=$encoded"
+                "searxng" -> "https://searx.ononoki.org/search?categories=videos&q=$encoded"
+                "mojeek" -> "https://www.mojeek.com/search?q=$encoded"
+                "youtube" -> "https://www.youtube.com/results?search_query=$encoded"
+                "dailymotion" -> "https://www.dailymotion.com/search/$encoded"
+                "vimeo" -> "https://vimeo.com/search?q=$encoded"
+                "archive" -> "https://archive.org/search?query=$encoded&mediatype=movies"
+                "peertube" -> "https://search.joinpeertube.org/search?search=$encoded"
+                "rumble" -> "https://rumble.com/search/video?q=$encoded"
+                "twitch" -> "https://www.twitch.tv/search?term=$encoded"
+                "facebook" -> "https://www.facebook.com/watch/search/?q=$encoded"
+                "tiktok" -> "https://www.tiktok.com/search?q=$encoded"
+                "instagram" -> "https://www.instagram.com/explore/search/keyword/?q=$encoded"
+                "reddit" -> "https://www.reddit.com/search/?q=$encoded&type=video"
+                "odysee" -> "https://odysee.com/$/search?q=$encoded"
+                "bilibili" -> "https://search.bilibili.com/all?keyword=$encoded"
+                "metacafe" -> "https://www.google.com/search?tbm=vid&q=site%3Ametacafe.com%20$encoded"
+                else -> "https://searx.ononoki.org/search?categories=videos&q=$encoded"
+            }
+        }
         return when (selectedSearchProvider()) {
             SEARCH_SEARXNG -> SEARXNG_SEARCH_BASE + Uri.encode(SEARXNG_ENGINE_PREFIX + query)
-            SEARCH_VIDEO -> SEARXNG_SEARCH_BASE + Uri.encode(VIDEO_SEARCH_ENGINE_PREFIX + query)
             else -> "https://www.google.com/search?q=" + encoded
         }
     }
@@ -1843,6 +1891,22 @@ class BrowserActivity : Activity() {
                 val provider = providers[which].first
                 saveSearchProvider(provider)
                 dialog.dismiss()
+                if (provider == SEARCH_VIDEO) showVideoSearchEngineDialog()
+            }
+            .setNegativeButton("إغلاق", null)
+            .show()
+    }
+
+    private fun showVideoSearchEngineDialog() {
+        val selectedEngine = settingsPrefs().getString(SEARCH_VIDEO_ENGINE_KEY, "searxng") ?: "searxng"
+        val items = VIDEO_SEARCH_ENGINES.map { (id, label) ->
+            if (id == selectedEngine) "$label    ✅" else label
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("محرك بحث الفيديو")
+            .setItems(items) { _, which ->
+                settingsPrefs().edit().putString(SEARCH_VIDEO_ENGINE_KEY, VIDEO_SEARCH_ENGINES[which].first).apply()
             }
             .setNegativeButton("إغلاق", null)
             .show()
