@@ -203,6 +203,7 @@ class BrowserActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_browser)
+        title = ""
 
         webViewContainer = findViewById(R.id.webViewContainer)
         editUrl = findViewById(R.id.editUrl)
@@ -227,6 +228,7 @@ class BrowserActivity : Activity() {
         val btnDownloads = findViewById<Button>(R.id.btnDownloads)
         btnTabs = findViewById(R.id.btnTabs)
         val btnBrowserMenu = findViewById<Button>(R.id.btnBrowserMenu)
+        val btnReload = findViewById<Button>(R.id.btnReload)
 
         CookieManager.getInstance().setAcceptCookie(true)
         DownloadsRepository.ensureLoaded(this)
@@ -256,6 +258,9 @@ class BrowserActivity : Activity() {
         btnTabs.setOnClickListener { showTabsDialog() }
         btnDownloads.setOnClickListener { openDownLS10() }
         btnBrowserMenu.setOnClickListener { showBrowserMenu() }
+        btnReload.setOnClickListener {
+            currentTab().webView.reload()
+        }
         setupGoogleSuggestions()
 
         if (savedInstanceState != null && savedInstanceState.getInt("tabCount", -1) >= 0) {
@@ -913,10 +918,9 @@ class BrowserActivity : Activity() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
                 if (request.isForMainFrame && looksLikeDirectFileUrl(url)) {
-                    DownloadsRepository.startNewDownload(
-                        this@BrowserActivity,
+                    confirmDownload(
                         url,
-                        showToast = true,
+                        suggestedFileName = null,
                         userAgent = view.settings.userAgentString,
                         referer = view.url
                     )
@@ -926,9 +930,11 @@ class BrowserActivity : Activity() {
                     val known = DownloadsRepository.downloadList.find { it.url == url }
                     if (known != null) {
                         // رابط تنزيل معروف: كان يُتجاهل بصمت، الآن تظهر رسالة «الملف موجود: الاسم» أو يُستأنف التنزيل
-                        DownloadsRepository.startNewDownload(
-                            this@BrowserActivity, url, showToast = true, suggestedFileName = known.fileName,
-                            userAgent = view.settings.userAgentString, referer = view.url
+                        confirmDownload(
+                            url,
+                            suggestedFileName = known.fileName,
+                            userAgent = view.settings.userAgentString,
+                            referer = view.url
                         )
                         return true
                     }
@@ -1148,10 +1154,8 @@ class BrowserActivity : Activity() {
             if (url.startsWith("blob:", ignoreCase = true)) {
                 blobBridge.start(webView, url, nameFromHeader, mimeType)
             } else {
-                DownloadsRepository.startNewDownload(
-                    this,
+                confirmDownload(
                     url,
-                    showToast = true,
                     suggestedFileName = nameFromHeader,
                     userAgent = userAgent,
                     referer = webView.url,
@@ -1511,24 +1515,62 @@ class BrowserActivity : Activity() {
     /** يلتقط روابط الملفات المباشرة حتى لو كان WebView يستطيع عرض نوع الملف داخله. */
     private fun looksLikeDirectFileUrl(rawUrl: String): Boolean {
         val uri = try { Uri.parse(rawUrl) } catch (_: Exception) { return false }
+        val scheme = uri.scheme?.lowercase(Locale.US) ?: return false
+        if (scheme != "http" && scheme != "https") return false
         val path = uri.path?.lowercase(Locale.US) ?: return false
         val ext = path.substringAfterLast('.', "")
-        if (ext.isBlank() || ext.length > 10 || !ext.all { it.isLetterOrDigit() }) return false
-        // صفحات الويب الديناميكية/العادية لا تُعامل كملفات.
+        if (ext.length > 10 || !ext.all { it.isLetterOrDigit() }) return false
+        // صفحات الويب الديناميكية لا تُحمل كملف، بل تُفتح في المتصفح.
         val webPageExtensions = setOf("html", "htm", "php", "asp", "aspx", "jsp", "cgi", "do", "action", "ashx", "axd", "pl")
-        if (ext in webPageExtensions) return false
-        // الامتدادات المعروفة للملفات التي يجب أن تنزل إلى Download.
-        val fileExtensions = setOf(
-            "apk", "aab", "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "iso",
-            "pdf", "epub", "mobi", "azw", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-            "txt", "csv", "json", "xml", "rtf", "odt", "ods", "odp",
-            "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg", "ico", "tif", "tiff",
-            "mp3", "wav", "ogg", "m4a", "flac", "aac",
-            "mp4", "mkv", "avi", "mov", "webm", "3gp", "m4v",
-            "srt", "ass", "vtt", "torrent", "bin", "dmg", "deb", "rpm", "msi", "exe",
-            "jar", "war", "class", "db", "sqlite", "sql", "bak", "dat", "log"
-        )
-        return ext in fileExtensions
+        return ext !in webPageExtensions
+    }
+
+    /** يعرض حوار تأكيد التنزيل مع اسم الملف وحجمه وامتداده، ثم ينفذ الإجراء المختار من المستخدم. */
+    private fun confirmDownload(
+        url: String,
+        suggestedFileName: String?,
+        userAgent: String?,
+        referer: String?,
+        mimeType: String?,
+        showToast: Boolean = true
+    ) {
+        DownloadsRepository.probeAndConfirm(
+            this@BrowserActivity,
+            url,
+            suggestedFileName,
+            userAgent,
+            referer,
+            mimeType
+        ) { preview ->
+            val sizeText = if (preview.totalSize > 0) {
+                val mb = preview.totalSize / 1024 / 1024
+                val kb = (preview.totalSize % (1024 * 1024)) / 1024
+                if (mb > 0) "$mb ميجابايت" else if (kb > 0) "$kb كيلو بايت" else "أقل من كيلو بايت"
+            } else "حجم غير معروف"
+            val dialog = AlertDialog.Builder(this@BrowserActivity)
+            dialog.setTitle("تأكيد تنزيل الملف")
+            dialog.setMessage("الاسم: ${preview.fileName}\nالحجم: $sizeText\nالامتداد: ${preview.extension}")
+            dialog.setPositiveButton("تنزيل") { _, _ ->
+                DownloadsRepository.startNewDownload(
+                    this@BrowserActivity, url,
+                    showToast = showToast,
+                    suggestedFileName = suggestedFileName,
+                    userAgent = userAgent,
+                    referer = referer,
+                    mimeType = mimeType
+                )
+            }
+            dialog.setNeutralButton("إضافة") { _, _ ->
+                DownloadsRepository.addDownloadItemOnly(
+                    this@BrowserActivity, url, preview.fileName, userAgent, referer
+                )
+            }
+            dialog.setNegativeButton("إلغاء") { _, _ ->
+                // لا يضيف ولا ينزل
+            }
+            dialog.setCancelable(true)
+            dialog.show()
+        }
     }
 
     private fun isModApkWarningHost(host: String): Boolean {
@@ -1959,10 +2001,9 @@ class BrowserActivity : Activity() {
         // إذا كانت النافذة المنبثقة تحتوي رابط ملف مباشر، فزر «سماح» يبدأ
         // التنزيل مباشرة بدل تحميل الرابط داخل WebView ثم فقدان حدث التنزيل.
         if (isWebUrl && looksLikeDirectFileUrl(cleanUrl)) {
-            DownloadsRepository.startNewDownload(
-                this,
+            confirmDownload(
                 cleanUrl,
-                showToast = true,
+                suggestedFileName = null,
                 userAgent = currentWebView().settings.userAgentString,
                 referer = currentWebView().url
             )

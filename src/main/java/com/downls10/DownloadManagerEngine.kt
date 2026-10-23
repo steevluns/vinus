@@ -214,20 +214,8 @@ class DownloadManagerEngine {
         }
         val finalConn = conn
         val code = finalConn.responseCode
-        // لا نعتبر صفحة الخطأ/تسجيل الدخول نجاحاً لمجرد أن الخادم أعاد 200.
-        // استثناء ملفات HTML المقصودة أو الردود التي تصرّح صراحةً بأن المحتوى مرفق كملف.
-        val contentType = (finalConn.contentType ?: "").substringBefore(';').trim().lowercase()
-        val disposition = finalConn.getHeaderField("Content-Disposition") ?: ""
-        val requestedPath = try { Uri.parse(finalConn.url.toString()).path.orEmpty().lowercase() } catch (_: Exception) { "" }
-        val explicitlyHtmlFile = requestedPath.endsWith(".html") || requestedPath.endsWith(".htm") ||
-            requestedPath.endsWith(".xhtml")
-        if (code == HttpURLConnection.HTTP_OK && contentType == "text/html" &&
-            disposition.contains("attachment", ignoreCase = true).not() && !explicitlyHtmlFile) {
-            finalConn.disconnect()
-            throw NonRetryableDownloadException(
-                "الموقع أعاد صفحة ويب بدلاً من الملف. افتح صفحة التنزيل الأصلية أو استخدم رابط الملف المباشر."
-            )
-        }
+        // تُقبل أي استجابة من الخادم (بما في ذلك text/html) ويُنزَّل المحتوى كما هو،
+        // حتى يعمل التحميل من كل الروابط وكل أنواع المحتوى.
         if (code != HttpURLConnection.HTTP_OK && code != HttpURLConnection.HTTP_PARTIAL) {
             finalConn.disconnect()
             // أخطاء الخادم المؤقتة نعيد فيها المحاولة، وبقية الأخطاء (404, 403...) نهائية

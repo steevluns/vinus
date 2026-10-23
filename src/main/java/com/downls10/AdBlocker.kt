@@ -36,35 +36,26 @@ object AdBlocker {
     val LISTS = listOf(
         BlockListDef("stevenblack", "StevenBlack", "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", ListFormat.HOSTS, ListCategory.AD),
         BlockListDef(
-            "adguard_cname", "AdGuard - متتبعات الطرف الأول (CNAME)",
-            "https://raw.githubusercontent.com/AdguardTeam/cname-trackers/master/data/combined_disguised_trackers_justdomains.txt",
-            ListFormat.DOMAIN_PLAIN, ListCategory.AD,
-            fallbackUrl = "https://cdn.jsdelivr.net/gh/AdguardTeam/cname-trackers@master/data/combined_disguised_trackers_justdomains.txt"
+            "adguard_dns", "AdGuard DNS (قوي)",
+            "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/Filters.txt",
+            ListFormat.DOMAIN_PLAIN, ListCategory.AD
         ),
         BlockListDef(
-            "frogeye_firstparty", "Frogeye - تتبعات الطرف الأول",
-            "https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt",
+            "oisd", "OISD (قوي جداً)",
+            "https://cdn.jsdelivr.net/gh/oisd/ohlstdisabled@main/domains.txt",
+            ListFormat.DOMAIN_PLAIN, ListCategory.AD
+        ),
+        BlockListDef(
+            "1hosts", "1Hosts (قوي جداً)",
+            "https://1hosts.cf/hosts",
             ListFormat.HOSTS, ListCategory.AD
-        ),
-        BlockListDef(
-            "fanboy_enhanced_tracking", "Fanboy’s Enhanced Tracking List",
-            "https://fanboy.co.nz/enhancedstats.txt",
-            ListFormat.ABP, ListCategory.AD
-        ),
-        BlockListDef(
-            "adguard_ads", "AdGuard – Ads",
-            "https://filters.adtidy.org/extension/ublock/filters/2_without_easylist.txt",
-            ListFormat.ABP, ListCategory.AD
-        ),
-        BlockListDef(
-            "adguard_mobile_ads", "AdGuard – Mobile Ads",
-            "https://filters.adtidy.org/extension/ublock/filters/11.txt",
-            ListFormat.ABP, ListCategory.AD
         ),
         BlockListDef("porn", "حجب المواقع الإباحية", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
     )
 
     private val REMOVED_LIST_IDS = arrayOf(
+        "adguard_cname", "frogeye_firstparty", "fanboy_enhanced_tracking",
+        "adguard_ads", "adguard_mobile_ads",
         "adguard_base", "nextdns_cname", "ubo_unbreak", "ubo_resource_abuse",
         "pgl", "pgl_list", "nocoin", "no_coin", "peter", "peter_lowe", "peter_lowe_ads_tracking",
         "ublock_filters", "ublock_filters_ads", "ublock_origin", "ublock-origin", "ubo",

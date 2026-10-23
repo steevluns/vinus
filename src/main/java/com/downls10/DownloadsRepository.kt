@@ -205,6 +205,92 @@ object DownloadsRepository {
         }
     }
 
+    /** نتيجة تحضير معلومات الملف قبل عرضها على المستخدم (اسم، حجم، امتداد). */
+    data class DownloadPreview(
+        val fileName: String,
+        val totalSize: Long,
+        val extension: String
+    )
+
+    /** يستحضر معلومات الملف (اسم، حجم، امتداد) دون بدء التنزيل، ثم يستدعي onReady على الخيط الرئيسي. */
+    fun probeAndConfirm(
+        context: Context,
+        url: String,
+        suggestedFileName: String? = null,
+        userAgent: String? = null,
+        referer: String? = null,
+        mimeType: String? = null,
+        onReady: (DownloadPreview) -> Unit
+    ) {
+        val appContext = context.applicationContext
+        ensureLoaded(appContext)
+        var typed = url.trim()
+        if (!typed.contains("://")) typed = "https://$typed"
+        probeExecutor.execute {
+            val info = downloadEngine.probe(typed, userAgent, referer)
+            val hint = suggestedFileName?.takeIf { it.isNotBlank() } ?: nameFromUrlIfReliable(typed)
+            val name = resolveFileName(hint, info, typed, mimeType)
+            val ext = name.substringAfterLast(".", "bin")
+            val size = info?.contentLength ?: 0L
+            mainHandler.post { onReady(DownloadPreview(name, size, ext)) }
+        }
+    }
+
+    /** يضيف عنصر تنزيل إلى القائمة بحالة "في الانتظار" بدون بدء التحميل الفعلي. */
+    fun addDownloadItemOnly(
+        context: Context,
+        cleanUrl: String,
+        fileName: String,
+        userAgent: String? = null,
+        referer: String? = null
+    ): DownloadItem? {
+        val appContext = context.applicationContext
+        trackActivities(context)
+        ensureLoaded(appContext)
+
+        if (downloadList.any { it.url == cleanUrl && it.state == DownloadState.DOWNLOADING }) {
+            toast(appContext, "التنزيل قيد التنفيذ")
+            return null
+        }
+        val knownInList = downloadList.any { it.fileName == fileName && isFilePresent(appContext, it) }
+        if (knownInList || isFileNamePresentInDownload(appContext, fileName)) {
+            toast(appContext, "الملف موجود: $fileName")
+            return null
+        }
+
+        val ext = fileName.substringAfterLast(".", "bin")
+        val item = DownloadItem(
+            id = System.currentTimeMillis(),
+            url = cleanUrl,
+            fileName = fileName,
+            extension = ext,
+            userAgent = userAgent,
+            referer = referer,
+            status = "في الانتظار...",
+            state = DownloadState.PAUSED
+        )
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val uri = createPendingDownload(appContext, item.fileName)
+            if (uri == null) {
+                toast(appContext, "تعذّر إنشاء ملف التنزيل داخل Download")
+                return null
+            }
+            val actualName = queryDisplayName(appContext.contentResolver, uri)
+            if (actualName != null && isAutoRenamedCopy(fileName, actualName)) {
+                deleteUriQuietly(appContext.contentResolver, uri)
+                toast(appContext, "الملف موجود: $fileName")
+                return null
+            }
+            item.localUri = uri.toString()
+        }
+
+        downloadList.add(0, item)
+        notifyChanged(appContext, forceSave = true)
+        toast(appContext, "أضيف الملف إلى التنزيلات: ${item.fileName}")
+        return item
+    }
+
     /** روابط magnet تُسلَّم لتطبيق تورنت مثبّت على الجهاز (المدير الحالي لا يحتوي محرك BitTorrent). */
     private fun openMagnet(appContext: Context, magnet: String) {
         try {
@@ -336,10 +422,9 @@ object DownloadsRepository {
         }
     }
 
-    /** اسم من الرابط فقط إذا كان يشبه ملفاً حقيقياً (له امتداد وليس امتداد صفحة ديناميكية). */
+    /** اسم من الرابط كمرجع محتمل للملف (حتى لو لم يكن له امتداد معروف). */
     private fun nameFromUrlIfReliable(url: String): String? {
         val name = lastSegmentName(url) ?: return null
-        if (!hasUsableExtension(name)) return null
         if (extensionOf(name) in dynamicExtensions) return null
         return name
     }
