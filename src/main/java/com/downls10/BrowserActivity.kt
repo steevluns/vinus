@@ -1531,7 +1531,7 @@ class BrowserActivity : Activity() {
         suggestedFileName: String?,
         userAgent: String?,
         referer: String?,
-        mimeType: String?,
+        mimeType: String? = null,
         showToast: Boolean = true
     ) {
         DownloadsRepository.probeAndConfirm(
