@@ -33,30 +33,18 @@ data class BlockListDef(
  */
 object AdBlocker {
 
+    // قائمة حجب الإعلانات الوحيدة المعتمدة في التطبيق هي AdGuard DNS.
     val LISTS = listOf(
-        BlockListDef("stevenblack", "StevenBlack", "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", ListFormat.HOSTS, ListCategory.AD),
         BlockListDef(
             "adguard_dns", "AdGuard DNS",
             "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
             ListFormat.ABP, ListCategory.AD,
             fallbackUrl = "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/Filters/filter.txt"
-        ),
-        BlockListDef(
-            "oisd", "OISD",
-            "https://big.oisd.nl/domainswild",
-            ListFormat.ABP, ListCategory.AD,
-            fallbackUrl = "https://small.oisd.nl/domainswild"
-        ),
-        BlockListDef(
-            "1hosts", "1Hosts",
-            "https://raw.githubusercontent.com/badmojr/1Hosts/master/Lite/hosts.txt",
-            ListFormat.HOSTS, ListCategory.AD,
-            fallbackUrl = "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Lite/hosts.txt"
-        ),
-        BlockListDef("porn", "حجب المواقع الإباحية", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
+        )
     )
 
     private val REMOVED_LIST_IDS = arrayOf(
+        "stevenblack", "oisd", "1hosts", "porn",
         "adguard_cname", "frogeye_firstparty", "fanboy_enhanced_tracking",
         "adguard_ads", "adguard_mobile_ads",
         "adguard_base", "nextdns_cname", "ubo_unbreak", "ubo_resource_abuse",
