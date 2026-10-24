@@ -48,7 +48,7 @@ object AdBlocker {
             ListFormat.HOSTS, ListCategory.AD,
             fallbackUrl = "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Lite/hosts.txt"
         ),
-        BlockListDef("porn", "حجب المواقع الإباحية", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
+        BlockListDef("porn", "Porn", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
     )
 
     private val REMOVED_LIST_IDS = arrayOf(
