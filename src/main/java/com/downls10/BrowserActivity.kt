@@ -1905,8 +1905,13 @@ class BrowserActivity : Activity() {
                         text = getItem(position)
                         setTextColor(Color.WHITE)
                         textSize = 15f
-                        maxLines = 2
-                        setPadding(8, 10, 8, 10)
+                        // سطر أفقي واحد؛ تتحرك الكتابة الطويلة لإظهار كامل الاقتراح.
+                        maxLines = 1
+                        isSingleLine = true
+                        ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+                        marqueeRepeatLimit = -1
+                        isSelected = true
+                        setPadding(8, 6, 8, 6)
                         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                     }
                     label.setOnClickListener {
@@ -1914,7 +1919,18 @@ class BrowserActivity : Activity() {
                         suggestionsPopup?.dismiss(); loadFromAddressBar(); hideKeyboard()
                     }
                     val insert = Button(this@BrowserActivity).apply {
-                        text = "➜"; setTextColor(Color.LTGRAY); textSize = 18f
+                        text = "➜"
+                        setTextColor(Color.LTGRAY)
+                        textSize = 14f
+                        minWidth = 0
+                        minimumWidth = 0
+                        minHeight = 0
+                        minimumHeight = 0
+                        setPadding(8, 0, 8, 0)
+                        layoutParams = LinearLayout.LayoutParams(
+                            (48 * resources.displayMetrics.density).toInt(),
+                            (40 * resources.displayMetrics.density).toInt()
+                        )
                         setOnClickListener {
                             editUrl.setText(getItem(position)); editUrl.setSelection(editUrl.text.length)
                             suggestionsPopup?.dismiss()
@@ -1925,7 +1941,14 @@ class BrowserActivity : Activity() {
                 }
             }
         }
-        suggestionsPopup = PopupWindow(list, editUrl.width.coerceAtLeast(250), (items.size * 52).coerceAtMost(320), false).apply {
+        // إظهار خمسة اقتراحات كحد أقصى؛ عند وجود المزيد يمكن تمرير القائمة.
+        val rowHeight = (52 * resources.displayMetrics.density).toInt()
+        suggestionsPopup = PopupWindow(
+            list,
+            editUrl.width.coerceAtLeast(250),
+            (items.size.coerceAtMost(5) * rowHeight),
+            false
+        ).apply {
             isOutsideTouchable = true
             isFocusable = false
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0xFF202020.toInt()))
