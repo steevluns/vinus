@@ -15,4 +15,3 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "DownLS10"
-include(":app")
