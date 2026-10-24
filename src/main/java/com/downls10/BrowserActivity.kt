@@ -1992,7 +1992,7 @@ class BrowserActivity : Activity() {
         val options = arrayOf(
             if (hideMedia) "إظهار الوسائط" else "إخفاء الوسائط بالكامل",
             "العلامات المرجعية",
-            if (currentTab().desktopMode) "عرض الجوال (لهذا التبويب)" else "عرض سطح المكتب (لهذا التبويب)",
+            if (currentTab().desktopMode) "عرض الجوال" else "عرض سطح المكتب",
             "مانع الإعلانات وحماية التصفح",
             "تكبير/تصغير الخط",
             "السجل",
