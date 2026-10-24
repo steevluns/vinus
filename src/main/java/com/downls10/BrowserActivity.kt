@@ -2858,11 +2858,9 @@ class BrowserActivity : Activity() {
                 text = "إغلاق الكل"
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 setOnClickListener {
-                    AlertDialog.Builder(this@BrowserActivity)
-                        .setMessage("هل تريد إغلاق جميع الصفحات المفتوحة؟")
-                        .setPositiveButton("إغلاق الكل") { _, _ -> closeAllTabs(); dialog.dismiss() }
-                        .setNegativeButton("إلغاء", null)
-                        .show()
+                    // إغلاق جميع الصفحات مباشرةً دون نافذة تأكيد.
+                    closeAllTabs()
+                    dialog.dismiss()
                 }
             }
             actionsRow.addView(addBtn)
