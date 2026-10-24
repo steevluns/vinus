@@ -2172,12 +2172,14 @@ class BrowserActivity : Activity() {
         }
     }
 
-    // 0) تنزيل -> يفتح DownLS10 مباشرة
+    // فتح مدير التنزيلات بإنشاء شاشة سليمة بدل إعادة ترتيب نسخة قديمة من النشاط.
     private fun openDownLS10() {
-        val intent = Intent(this, DownLS10MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+        try {
+            startActivity(Intent(this, DownLS10MainActivity::class.java))
+        } catch (e: Exception) {
+            android.util.Log.e("DownLS10", "Failed to open download manager", e)
+            Toast.makeText(this, "تعذر فتح مدير التنزيلات", Toast.LENGTH_LONG).show()
         }
-        startActivity(intent)
     }
 
     // 1) إخفاء الوسائط بالكامل
