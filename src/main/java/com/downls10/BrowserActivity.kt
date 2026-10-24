@@ -2249,6 +2249,14 @@ class BrowserActivity : Activity() {
         fun refresh() {
             container.removeAllViews()
             val bookmarks = BrowserStorage.getBookmarks(this)
+            // عرض ست علامات كحد أقصى قبل الحاجة إلى التمرير.
+            val rowHeight = (64 * resources.displayMetrics.density).toInt()
+            scroll.layoutParams = scroll.layoutParams?.apply {
+                height = (rowHeight * bookmarks.size.coerceAtMost(6)).coerceAtLeast(rowHeight)
+            } ?: ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                (rowHeight * bookmarks.size.coerceAtMost(6)).coerceAtLeast(rowHeight)
+            )
             if (bookmarks.isEmpty()) {
                 container.addView(TextView(this).apply {
                     text = "لا توجد علامات مرجعية بعد"
@@ -2260,7 +2268,9 @@ class BrowserActivity : Activity() {
                     val row = LinearLayout(this).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, 20, 0, 20)
+                        // صفوف مدمجة لتقليل الفراغ بين العلامات المرجعية.
+                        setPadding(0, 2, 0, 2)
+                        minimumHeight = (64 * resources.displayMetrics.density).toInt()
                     }
                     val titleText = TextView(this).apply {
                         text = bookmark.title
@@ -2884,11 +2894,23 @@ class BrowserActivity : Activity() {
             actionsRow.addView(closeAllBtn)
             container.addView(actionsRow)
 
+            val rowHeight = (64 * resources.displayMetrics.density).toInt()
+            scroll.layoutParams = scroll.layoutParams?.apply {
+                height = rowHeight * tabs.size.coerceAtMost(6) +
+                    (56 * resources.displayMetrics.density).toInt()
+            } ?: ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                rowHeight * tabs.size.coerceAtMost(6) +
+                    (56 * resources.displayMetrics.density).toInt()
+            )
+
             tabs.forEachIndexed { index, tab ->
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(0, 20, 0, 20)
+                    // صفوف مدمجة: ست صفحات ظاهرة، والباقي بالتمرير.
+                    setPadding(0, 2, 0, 2)
+                    minimumHeight = (64 * resources.displayMetrics.density).toInt()
                 }
                 val label = if (tab.isHome) "الصفحة الرئيسية" else tab.title
                 val tabUrl = if (tab.isHome) null else tab.webView.url
