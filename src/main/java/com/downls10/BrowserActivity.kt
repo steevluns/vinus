@@ -2234,9 +2234,12 @@ class BrowserActivity : Activity() {
     private fun showBookmarksDialog() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 16, 24, 16)
+            setPadding(12, 6, 12, 6)
         }
-        val scroll = ScrollView(this).apply { addView(container) }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(container)
+        }
 
         val dialog = AlertDialog.Builder(this)
             .setView(scroll)
@@ -2250,7 +2253,7 @@ class BrowserActivity : Activity() {
                 container.addView(TextView(this).apply {
                     text = "لا توجد علامات مرجعية بعد"
                     setTextColor(Color.LTGRAY)
-                    setPadding(0, 16, 0, 16)
+                    setPadding(0, 6, 0, 6)
                 })
             } else {
                 bookmarks.forEach { bookmark ->
@@ -2586,7 +2589,7 @@ class BrowserActivity : Activity() {
             val globalRow = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 8, 0, 16)
+                setPadding(0, 4, 0, 6)
             }
             globalRow.addView(TextView(this).apply {
                 text = "مانع الإعلانات"
@@ -2672,7 +2675,17 @@ class BrowserActivity : Activity() {
             .setTitle("مانع الإعلانات وحماية التصفح")
             .setView(scroll)
             .setPositiveButton("إغلاق", null)
-            .show()
+            .create()
+            .also { dialog ->
+                dialog.setOnShowListener {
+                    val metrics = resources.displayMetrics
+                    dialog.window?.setLayout(
+                        (metrics.widthPixels * 0.90f).toInt(),
+                        (metrics.heightPixels * 0.72f).toInt()
+                    )
+                }
+                dialog.show()
+            }
     }
 
     // 5) تكبير/تصغير الخط
