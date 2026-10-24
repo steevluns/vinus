@@ -128,18 +128,13 @@
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
 
-        <ScrollView
+        <ListView
+            android:id="@+id/downloadFilesList"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <LinearLayout
-                android:id="@+id/downloadFilesList"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:gravity="center_horizontal" />
-
-        </ScrollView>
+            android:layout_height="match_parent"
+            android:divider="#222222"
+            android:dividerHeight="1dp"
+            android:clipToPadding="false" />
     </LinearLayout>
 
 </RelativeLayout>
