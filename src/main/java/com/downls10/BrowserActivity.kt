@@ -2293,30 +2293,16 @@ class BrowserActivity : Activity() {
                     })
                 }
             }
-
-            val actionsRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, 24, 0, 0)
-            }
-            val exportBtn = Button(this).apply {
-                text = "تصدير"
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                setOnClickListener { exportBookmarks { refresh() } }
-            }
-            val importBtn = Button(this).apply {
-                text = "استيراد"
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                setOnClickListener { importBookmarks { refresh() } }
-            }
-            actionsRow.addView(exportBtn)
-            actionsRow.addView(importBtn)
-            container.addView(actionsRow)
         }
 
+        val titleHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 4, 8, 8)
+        }
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(24, 8, 8, 8)
+            setPadding(16, 4, 0, 4)
         }
         titleRow.addView(TextView(this).apply {
             text = "العلامات المرجعية"
@@ -2338,7 +2324,25 @@ class BrowserActivity : Activity() {
                     .show()
             }
         })
-        dialog.setCustomTitle(titleRow)
+        titleHeader.addView(titleRow)
+
+        val actionsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 8, 0, 12)
+        }
+        actionsRow.addView(Button(this).apply {
+            text = "تصدير"
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener { exportBookmarks { refresh() } }
+        })
+        actionsRow.addView(Button(this).apply {
+            text = "استيراد"
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener { importBookmarks { refresh() } }
+        })
+        titleHeader.addView(actionsRow)
+
+        dialog.setCustomTitle(titleHeader)
         refresh()
         dialog.show()
     }
