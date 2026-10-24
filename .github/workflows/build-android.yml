@@ -1,4 +1,5 @@
 name: Build DownLS10 APK
+# Manual build requested
 
 on:
   workflow_dispatch:
