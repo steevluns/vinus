@@ -37,21 +37,21 @@ object AdBlocker {
         BlockListDef("stevenblack", "StevenBlack", "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", ListFormat.HOSTS, ListCategory.AD),
         BlockListDef(
             "adguard_dns", "AdGuard DNS",
-            "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/Filters.txt",
-            ListFormat.DOMAIN_PLAIN, ListCategory.AD,
-            fallbackUrl = "https://cdn.jsdelivr.net/gh/AdguardTeam/AdGuardSDNSFilter@master/Filters.txt"
+            "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
+            ListFormat.ABP, ListCategory.AD,
+            fallbackUrl = "https://raw.githubusercontent.com/AdguardTeam/AdGuardSDNSFilter/master/Filters/filter.txt"
         ),
         BlockListDef(
             "oisd", "OISD",
-            "https://cdn.jsdelivr.net/gh/oisd/ohlstdisabled@main/domains.txt",
-            ListFormat.DOMAIN_PLAIN, ListCategory.AD,
-            fallbackUrl = "https://raw.githubusercontent.com/oisd/ohlstdisabled/main/domains.txt"
+            "https://big.oisd.nl/domainswild",
+            ListFormat.ABP, ListCategory.AD,
+            fallbackUrl = "https://small.oisd.nl/domainswild"
         ),
         BlockListDef(
             "1hosts", "1Hosts",
-            "https://raw.githubusercontent.com/1hosts/1hosts/master/hosts",
+            "https://raw.githubusercontent.com/badmojr/1Hosts/master/Lite/hosts.txt",
             ListFormat.HOSTS, ListCategory.AD,
-            fallbackUrl = "https://cdn.jsdelivr.net/gh/1hosts/1hosts@master/hosts"
+            fallbackUrl = "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Lite/hosts.txt"
         ),
         BlockListDef("porn", "حجب المواقع الإباحية", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
     )
