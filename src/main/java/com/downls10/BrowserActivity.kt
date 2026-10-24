@@ -16,6 +16,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Parcel
 import android.util.Patterns
+import android.util.AttributeSet
 import android.util.Base64
 import android.view.Gravity
 import android.view.KeyEvent
@@ -863,6 +864,7 @@ class BrowserActivity : Activity() {
     // ---------------- إعداد WebView ----------------
 
     private fun setupWebView(webView: WebView) {
+        registerForContextMenu(webView)
         if (nightMode) webView.setBackgroundColor(Color.BLACK)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         val settings = webView.settings
@@ -1135,22 +1137,6 @@ class BrowserActivity : Activity() {
                         if (ok) request.grant(granted.toTypedArray()) else request.deny()
                     }
                 }
-            }
-
-            // منع القائمة الافتراضية للصور وإظهار قائمتنا المخصصة
-            override fun onCreateContextMenu(menu: android.view.ContextMenu, view: View, menuInfo: android.view.ContextMenu.ContextMenuInfo?) {
-                if (view is WebView) {
-                    val hitTest = view.getHitTestResult()
-                    if (hitTest?.type == android.webkit.WebView.HitTestResult.IMAGE_TYPE ||
-                        hitTest?.type == android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
-                        val imageUrl = hitTest.extra
-                        if (imageUrl != null && imageUrl.isNotBlank()) {
-                            showImageContextMenu(imageUrl, hitTest.type)
-                            return // منع القائمة الافتراضية
-                        }
-                    }
-                }
-                super.onCreateContextMenu(menu, view, menuInfo)
             }
 
             override fun onGeolocationPermissionsShowPrompt(
@@ -1688,7 +1674,7 @@ class BrowserActivity : Activity() {
             DownloadsRepository.startNewDownload(
                 this@BrowserActivity, url,
                 showToast = showToast,
-                suggestedFileName = suggestedFileName,
+                suggestedFileName = preview.fileName,
                 userAgent = userAgent,
                 referer = referer,
                 mimeType = mimeType
@@ -2909,6 +2895,25 @@ class BrowserActivity : Activity() {
 
         refresh()
         dialog.show()
+    }
+
+    override fun onCreateContextMenu(
+        menu: android.view.ContextMenu,
+        view: View,
+        menuInfo: android.view.ContextMenu.ContextMenuInfo?
+    ) {
+        if (view is WebView) {
+            val hitTest = view.getHitTestResult()
+            if (hitTest.type == WebView.HitTestResult.IMAGE_TYPE ||
+                hitTest.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+                val imageUrl = hitTest.extra
+                if (!imageUrl.isNullOrBlank()) {
+                    showImageContextMenu(imageUrl, hitTest.type)
+                    return
+                }
+            }
+        }
+        super.onCreateContextMenu(menu, view, menuInfo)
     }
 
     // ============= معالج الصور المخصص =============
