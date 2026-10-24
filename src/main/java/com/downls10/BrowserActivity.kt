@@ -2580,7 +2580,7 @@ class BrowserActivity : Activity() {
     private fun showAdBlockSettingsDialog() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24, 16, 24, 16)
+            setPadding(16, 4, 16, 4)
         }
         val scroll = ScrollView(this).apply { addView(container) }
 
@@ -2594,7 +2594,7 @@ class BrowserActivity : Activity() {
             globalRow.addView(TextView(this).apply {
                 text = "مانع الإعلانات"
                 setTextColor(Color.WHITE)
-                textSize = 16f
+                textSize = 14f
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             })
             globalRow.addView(Button(this).apply {
@@ -2609,7 +2609,7 @@ class BrowserActivity : Activity() {
             AdBlocker.LISTS.forEach { def ->
                 val block = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(0, 16, 0, 16)
+                    setPadding(0, 5, 0, 5)
                 }
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -2618,7 +2618,7 @@ class BrowserActivity : Activity() {
                 val nameText = TextView(this).apply {
                     text = def.displayName
                     setTextColor(Color.WHITE)
-                    textSize = 14f
+                    textSize = 13f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 val toggleBtn = Button(this).apply {
@@ -2641,7 +2641,7 @@ class BrowserActivity : Activity() {
                 val statusText = TextView(this).apply {
                     text = "${AdBlocker.ruleCount(this@BrowserActivity, def.id)} قاعدة"
                     setTextColor(Color.LTGRAY)
-                    textSize = 11f
+                    textSize = 10f
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 val updateBtn = Button(this).apply {
