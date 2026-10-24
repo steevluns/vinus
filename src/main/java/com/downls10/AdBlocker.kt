@@ -37,9 +37,10 @@ object AdBlocker {
         BlockListDef("stevenblack", "StevenBlack", "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", ListFormat.HOSTS, ListCategory.AD),
         BlockListDef(
             "oisd", "OISD",
-            "https://big.oisd.nl/domainswild",
+            // صيغة Adblock Plus الرسمية التي يستطيع المحلل الحالي قراءة قواعدها.
+            "https://big.oisd.nl/",
             ListFormat.ABP, ListCategory.AD,
-            fallbackUrl = "https://small.oisd.nl/domainswild"
+            fallbackUrl = "https://small.oisd.nl/"
         ),
         BlockListDef(
             "1hosts", "1Hosts",
