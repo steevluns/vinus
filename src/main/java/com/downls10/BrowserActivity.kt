@@ -1564,39 +1564,54 @@ class BrowserActivity : Activity() {
         webView.loadUrl(url)
     }
 
-    /** يلتقط روابط الملفات المباشرة حتى لو كان WebView يستطيع عرض نوع الملف داخله. */
+    /** يلتقط روابط الملفات المباشرة ذات الامتداد المعروف فقط، وليس صفحات البحث أو صفحات الويب. */
     private fun looksLikeDirectFileUrl(rawUrl: String): Boolean {
         val uri = try { Uri.parse(rawUrl) } catch (_: Exception) { return false }
         val scheme = uri.scheme?.lowercase(Locale.US) ?: return false
         if (scheme != "http" && scheme != "https") return false
-        val path = uri.path?.lowercase(Locale.US) ?: return false
-        val ext = path.substringAfterLast('.', "")
-        if (ext.length > 10 || !ext.all { it.isLetterOrDigit() }) return false
-        // صفحات الويب الديناميكية لا تُحمل كملف، بل تُفتح في المتصفح.
-        val webPageExtensions = setOf("html", "htm", "php", "asp", "aspx", "jsp", "cgi", "do", "action", "ashx", "axd", "pl")
-        return ext !in webPageExtensions
+
+        val path = uri.path?.lowercase(Locale.US).orEmpty()
+        val fileName = path.substringAfterLast('/')
+        // لا تعتبر المسارات بلا نقطة/امتداد ملفات؛ مثل /search أو /download-page.
+        if (fileName.isBlank() || '.' !in fileName) return false
+        val ext = fileName.substringAfterLast('.', "").substringBefore(';')
+        if (ext.isBlank() || ext.length > 10 || !ext.all { it.isLetterOrDigit() }) return false
+
+        val webPageExtensions = setOf(
+            "html", "htm", "php", "asp", "aspx", "jsp", "cgi", "do",
+            "action", "ashx", "axd", "pl"
+        )
+        val knownFileExtensions = setOf(
+            "apk", "zip", "rar", "7z", "tar", "gz", "bz2", "xz",
+            "pdf", "txt", "csv", "json", "xml", "doc", "docx", "xls", "xlsx",
+            "ppt", "pptx", "mp3", "m4a", "aac", "wav", "ogg", "flac",
+            "mp4", "m4v", "mkv", "avi", "mov", "webm", "jpg", "jpeg", "png",
+            "gif", "webp", "bmp", "svg", "iso", "img", "exe", "msi", "dmg",
+            "deb", "rpm", "torrent", "epub", "mobi"
+        )
+        return ext !in webPageExtensions && ext in knownFileExtensions
     }
 
-    /** يتحقق مما إذا كان الرابط قد يكون رابط تنزيل (أكثر شمولية) */
+    /** يتحقق مما إذا كان الرابط مسار تنزيل واضحًا؛ لا يصنّف روابط البحث العادية كتنزيل. */
     private fun mightBeDownloadUrl(rawUrl: String): Boolean {
         val uri = try { Uri.parse(rawUrl) } catch (_: Exception) { return false }
         val scheme = uri.scheme?.lowercase(Locale.US) ?: return false
         if (scheme != "http" && scheme != "https") return false
-        
-        // إذا كان يحتوي على امتداد ملف معروف، فهو بالتأكيد تنزيل
+
         if (looksLikeDirectFileUrl(rawUrl)) return true
-        
-        // فحص إضافي: معاملات استعلام شائعة للتنزيل
-        val query = uri.query?.lowercase(Locale.US) ?: ""
+
+        // افحص قيمة معاملات التنزيل نفسها بدل البحث عن كلمات قد تظهر داخل نص البحث.
         val downloadParams = setOf("download", "dl", "attachment", "file", "export")
-        if (downloadParams.any { query.contains(it) }) return true
-        
-        // فحص المسار لكلمات مفتاحية للتنزيل
-        val path = uri.path?.lowercase(Locale.US) ?: ""
-        val downloadPaths = setOf("/download", "/dl/", "/file/", "/export/", "/attachment/")
-        if (downloadPaths.any { path.contains(it) }) return true
-        
-        return false
+        for (name in uri.queryParameterNames) {
+            if (name.lowercase(Locale.US) in downloadParams) {
+                val value = uri.getQueryParameter(name)?.lowercase(Locale.US).orEmpty()
+                if (value in setOf("1", "true", "yes", "download", "attachment")) return true
+            }
+        }
+
+        val path = uri.path?.lowercase(Locale.US).orEmpty().trimEnd('/')
+        val downloadPaths = setOf("/download", "/dl", "/file", "/export", "/attachment")
+        return path in downloadPaths
     }
 
     /** يعرض حوار تأكيد التنزيل مع اسم الملف وحجمه وامتداده، ثم ينفذ الإجراء المختار من المستخدم. */
