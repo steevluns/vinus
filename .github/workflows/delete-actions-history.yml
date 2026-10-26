@@ -2,11 +2,6 @@ name: Delete All Actions History
 
 on:
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: "Type DELETE-ACTIONS to confirm"
-        required: true
-        type: string
 
 permissions:
   actions: write
@@ -14,7 +9,6 @@ permissions:
 
 jobs:
   delete-history:
-    if: ${{ inputs.confirm == 'DELETE-ACTIONS' }}
     runs-on: ubuntu-latest
 
     steps:
