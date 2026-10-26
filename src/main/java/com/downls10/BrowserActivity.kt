@@ -947,7 +947,8 @@ class BrowserActivity : Activity() {
         // ما تفتحه الصفحة من نفسها بدون ضغط يبقى محجوبًا.
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = false
-        settings.allowFileAccess = true
+        settings.allowFileAccess = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.safeBrowsingEnabled = true
         settings.blockNetworkImage = hideImages
         settings.loadsImagesAutomatically = !hideImages
 
@@ -981,6 +982,15 @@ class BrowserActivity : Activity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onReceivedSslError(
+                view: WebView,
+                handler: android.webkit.SslErrorHandler,
+                error: android.net.http.SslError
+            ) {
+                // Never allow a page with an invalid/expired certificate to continue.
+                handler.cancel()
+            }
+
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -1232,10 +1242,7 @@ class BrowserActivity : Activity() {
             }
         }
 
-        // جسر قراءة روابط blob: (محمي برمز عشوائي لكل عملية تنزيل)
-        // Build trigger: compile latest saved browser and download changes in GitHub Actions.
-        webView.addJavascriptInterface(blobBridge, "DownLS10Blob")
-
+        // The blob-download bridge is attached only during an active blob transfer.
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
             val nameFromHeader = DownloadsRepository.fileNameFromContentDispositionOrNull(contentDisposition)
             val parsedUrl = try { Uri.parse(url) } catch (_: Exception) { Uri.EMPTY }
