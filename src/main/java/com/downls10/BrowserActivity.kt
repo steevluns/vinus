@@ -1862,8 +1862,40 @@ class BrowserActivity : Activity() {
     }
 
     private fun navigateWithSafetyCheck(webView: WebView, rawUrl: String) {
+        val trimmedUrl = rawUrl.trim()
+        val lowerUrl = trimmedUrl.lowercase(Locale.US)
+
+        // لا تسمح لرابط intent:// بتجاوز فحص التصيّد/البرمجيات الخبيثة عبر فتح تطبيق خارجي مباشرة.
+        // يُسمح فقط بالرابط الاحتياطي HTTPS، ويُمرّر إلى فحص الأمان المعتاد؛ ولا ننفّذ Intent الأصلي.
+        if (lowerUrl.startsWith("intent:")) {
+            val fallbackUrl = runCatching {
+                Intent.parseUri(trimmedUrl, Intent.URI_INTENT_SCHEME)
+                    .getStringExtra("browser_fallback_url")
+                    ?.trim()
+            }.getOrNull()
+            val fallbackUri = runCatching { Uri.parse(fallbackUrl.orEmpty()) }.getOrNull()
+            if (!fallbackUrl.isNullOrBlank() &&
+                fallbackUri?.scheme.equals("https", ignoreCase = true) &&
+                !fallbackUri?.host.isNullOrBlank() &&
+                fallbackUri?.userInfo == null
+            ) {
+                Toast.makeText(
+                    this,
+                    "تم منع فتح التطبيق مباشرةً. يجري فحص رابط HTTPS الاحتياطي أولًا.",
+                    Toast.LENGTH_LONG
+                ).show()
+                navigateWithSafetyCheck(webView, fallbackUrl)
+            } else {
+                Toast.makeText(
+                    this,
+                    "تم حظر رابط intent:// لعدم وجود رابط HTTPS احتياطي آمن للفحص.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+
         // روابط magnet وftp لا يفتحها المتصفح: تذهب لمدير التنزيل
-        val lowerUrl = rawUrl.trim().lowercase()
         if (lowerUrl.startsWith("magnet:") || lowerUrl.startsWith("ftp://")) {
             DownloadsRepository.startNewDownload(this, rawUrl.trim(), showToast = true, referer = webView.url)
             return
