@@ -447,6 +447,13 @@ class BrowserActivity : Activity() {
     override fun onPause() {
         super.onPause()
         persistTabs()
+        // Keep login/session cookies, but persist pending cookie changes when the app backgrounds.
+        // Third-party cookies remain disabled per WebView below; first-party cookies stay enabled.
+        try {
+            CookieManager.getInstance().flush()
+        } catch (_: Exception) {
+            // Cookie persistence failure must not crash the browser.
+        }
     }
 
     // ---------------- إدارة التبويبات ----------------
