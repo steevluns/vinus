@@ -1,4 +1,4 @@
-name: Clean Project Keep Source Code
+name: Clean everything
 
 on:
   workflow_dispatch:
