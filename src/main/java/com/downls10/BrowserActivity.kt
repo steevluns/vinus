@@ -949,11 +949,18 @@ class BrowserActivity : Activity() {
         settings.javaScriptCanOpenWindowsAutomatically = false
         settings.allowFileAccess = false
         settings.allowContentAccess = false
+        // Never allow file-origin pages to reach other local files or network origins.
+        settings.allowFileAccessFromFileURLs = false
+        settings.allowUniversalAccessFromFileURLs = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.safeBrowsingEnabled = true
+        // Prevent remote websites from silently receiving third-party tracking cookies.
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
+        // Keep WebView remote debugging disabled in user-facing builds.
+        WebView.setWebContentsDebuggingEnabled(false)
         settings.blockNetworkImage = hideImages
         settings.loadsImagesAutomatically = !hideImages
 
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        // Third-party cookies are disabled above; first-party login cookies remain supported.
 
         // تسجيل موضع التمرير أثناء التصفح لكل رابط (يُستخدم عند الرجوع)
         webView.setOnScrollChangeListener { v, _, scrollY, _, _ ->
@@ -1216,6 +1223,12 @@ class BrowserActivity : Activity() {
             }
 
             override fun onPermissionRequest(request: PermissionRequest) {
+                // Camera/microphone access is never granted to an insecure HTTP origin.
+                if (!request.origin.scheme.equals("https", ignoreCase = true) ||
+                    request.origin.host.isNullOrBlank()) {
+                    request.deny()
+                    return
+                }
                 // نمنح فقط ما هو مسموح في إعدادات المتصفح، ونرفض الباقي
                 val granted = request.resources.filter { res ->
                     when (res) {
@@ -1248,7 +1261,10 @@ class BrowserActivity : Activity() {
             override fun onGeolocationPermissionsShowPrompt(
                 origin: String, callback: GeolocationPermissions.Callback
             ) {
-                if (!locationAllowed()) {
+                val originUri = try { Uri.parse(origin) } catch (_: Exception) { Uri.EMPTY }
+                if (!locationAllowed() ||
+                    !originUri.scheme.equals("https", ignoreCase = true) ||
+                    originUri.host.isNullOrBlank()) {
                     callback.invoke(origin, false, false)
                     return
                 }
