@@ -38,6 +38,7 @@ class BlobDownloadBridge(context: Context) {
         private const val MAX_BLOB_BYTES = 512L * 1024L * 1024L
         private const val MAX_CHUNK_BYTES = 512 * 1024
         private const val MAX_ENCODED_CHUNK_CHARS = 700_000
+        private const val TRANSFER_TIMEOUT_MS = 120_000L
     }
 
     private fun secureOrigin(rawUrl: String?): String? {
@@ -73,6 +74,13 @@ class BlobDownloadBridge(context: Context) {
         // Reject opaque origins (blob:null/...) and blobs from another origin.
         if (pageOrigin == null || blobOrigin == null || pageOrigin != blobOrigin) {
             DownloadsRepository.showMessage(appContext, "تم رفض تنزيل blob لأن مصدره غير موثوق أو تغيّر.")
+            return
+        }
+
+        // Avoid concurrent bridge sessions on the same WebView. This keeps the
+        // temporary JavaScript interface and transfer state small and predictable.
+        if (transfers.values.any { it.webView === webView }) {
+            DownloadsRepository.showMessage(appContext, "يوجد تنزيل Blob قيد التنفيذ في هذه الصفحة.")
             return
         }
 
@@ -116,13 +124,20 @@ class BlobDownloadBridge(context: Context) {
         """.trimIndent()
         webView.evaluateJavascript(js, null)
 
-        // Clean up an operation that never begins.
+        // Enforce a hard deadline for the entire transfer, including transfers
+        // that started writing but then stopped sending chunks.
         mainHandler.postDelayed({
             val t = transfers[token]
-            if (t != null && t.sink == null && transfers.remove(token, t)) {
+            if (t != null && transfers.remove(token, t)) {
+                val sink = t.sink
+                if (sink != null) {
+                    DownloadsRepository.failLocalSink(appContext, sink, "blob transfer timed out")
+                } else {
+                    DownloadsRepository.showMessage(appContext, "انتهت مهلة تنزيل Blob.")
+                }
                 detachBridgeIfIdle(t.webView)
             }
-        }, 120_000L)
+        }, TRANSFER_TIMEOUT_MS)
     }
 
     private fun detachBridgeIfIdle(webView: WebView) {
