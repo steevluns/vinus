@@ -992,6 +992,22 @@ class BrowserActivity : Activity() {
                 handler.cancel()
             }
 
+            @android.annotation.TargetApi(android.os.Build.VERSION_CODES.O)
+            override fun onSafeBrowsingHit(
+                view: WebView,
+                request: android.webkit.WebResourceRequest,
+                threatType: Int,
+                callback: android.webkit.SafeBrowsingResponse
+            ) {
+                // Never allow a URL identified by Android Safe Browsing to load.
+                callback.backToSafety(true)
+                Toast.makeText(
+                    this@BrowserActivity,
+                    "تم حظر هذا الرابط لأن التصفح الآمن صنّفه خطرًا.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -1870,36 +1886,42 @@ class BrowserActivity : Activity() {
             val match = AdBlocker.matchSafetyCategory(this, host)
             val modApkWarning = isModApkWarningHost(normalizedHost)
 
+            if (match?.category == ListCategory.MALWARE ||
+                match?.category == ListCategory.PHISHING ||
+                match?.category == ListCategory.RISK
+            ) {
+                val reason = when (match.category) {
+                    ListCategory.MALWARE -> "الموقع موجود في قائمة المواقع المصنفة ببرمجيات خبيثة."
+                    ListCategory.PHISHING -> "الموقع موجود في قائمة مواقع التصيد الاحتيالي."
+                    else -> "الموقع موجود في قائمة المواقع المشبوهة."
+                }
+                AlertDialog.Builder(this)
+                    .setTitle("تم حظر الموقع")
+                    .setMessage("⛔ $reason\\n\\nلن يتم فتحه لحماية كلمات المرور وبياناتك.")
+                    .setPositiveButton("حسنًا", null)
+                    .show()
+                return
+            }
+
             if (match != null || modApkWarning) {
                 val warningParts = mutableListOf<String>()
 
                 if (modApkWarning) {
                     warningParts.add(
-                        "⚠️ هذا الموقع من المواقع التي طلبتَ إظهار تحذير لها؛ " +
-                            "قد يحتوي على تطبيقات معدلة أو ملفات غير موثوقة. " +
-                            "يمكنك المتابعة إذا كنت تريد فتحه."
+                        "⚠️ قد ينشر هذا الموقع تطبيقات أو برامج معدّلة. " +
+                            "يمكنك فحص الملفات، لكن ذلك لا يضمن سلامتها."
                     )
                 }
 
-                if (match != null) {
-                    when (match.category) {
-                        ListCategory.PORN ->
-                            warningParts.add("⚠️ هذا الموقع موجود في قائمة المحتوى الإباحي.")
-                        ListCategory.MALWARE ->
-                            warningParts.add("⚠️ هذا الموقع موجود في قائمة المواقع المصنفة ببرمجيات خبيثة.")
-                        ListCategory.PHISHING ->
-                            warningParts.add("⚠️ هذا الموقع موجود في قائمة مواقع التصيد الاحتيالي.")
-                        ListCategory.RISK ->
-                            warningParts.add("⚠️ هذا الموقع موجود في قائمة المواقع المشبوهة.")
-                        ListCategory.AD -> Unit
-                    }
+                if (match?.category == ListCategory.PORN) {
+                    warningParts.add("⚠️ هذا الموقع موجود في قائمة المحتوى الإباحي.")
                 }
 
                 AlertDialog.Builder(this)
                     .setTitle("تحذير قبل فتح الموقع")
                     .setMessage(
-                        warningParts.joinToString("\n\n") +
-                            "\n\nهل تريد فتح هذا الموقع؟"
+                        warningParts.joinToString("\\n\\n") +
+                            "\\n\\nهل تريد فتح هذا الموقع؟"
                     )
                     .setPositiveButton("متابعة") { _, _ ->
                         lastConfirmedSafetyUrl = rawUrl
