@@ -947,6 +947,8 @@ class BrowserActivity : Activity() {
         // ما تفتحه الصفحة من نفسها بدون ضغط يبقى محجوبًا.
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = false
+        // Require an explicit user gesture before a site can autoplay media.
+        settings.mediaPlaybackRequiresUserGesture = true
         settings.allowFileAccess = false
         settings.allowContentAccess = false
         // Never allow file-origin pages to reach other local files or network origins.
@@ -1158,6 +1160,19 @@ class BrowserActivity : Activity() {
                 // الاحتفاظ برسالة النافذة حتى يضغط المستخدم «سماح» كان يوقف التطبيق
                 // (المتصفح يُلغي النافذة المعلّقة إذا طلبت الصفحة نافذة أخرى أو طال الانتظار).
                 val temp = WebView(this@BrowserActivity)
+                // This temporary WebView only observes popup URLs; it must never run
+                // page JavaScript or access local files/content while capturing them.
+                temp.settings.apply {
+                    javaScriptEnabled = false
+                    javaScriptCanOpenWindowsAutomatically = false
+                    allowFileAccess = false
+                    allowContentAccess = false
+                    allowFileAccessFromFileURLs = false
+                    allowUniversalAccessFromFileURLs = false
+                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) safeBrowsingEnabled = true
+                }
+                CookieManager.getInstance().setAcceptThirdPartyCookies(temp, false)
                 var finished = false
 
                 fun dispose() {
