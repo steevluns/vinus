@@ -1830,26 +1830,6 @@ class BrowserActivity : Activity() {
         dialog.show()
     }
 
-    private fun isModApkWarningHost(host: String): Boolean {
-        val h = host.lowercase(Locale.US).removePrefix("www.").removeSuffix(".")
-        val explicitHosts = setOf(
-            "modcda.com",
-            "apkstime.com",
-            "fastmodapk.com",
-            "meigeeks.com",
-            "pastebin.com",
-            "greatmodapk.com",
-            "downloadatoz.com"
-        )
-        if (explicitHosts.contains(h)) return true
-
-        // تحذير استباقي للمواقع التي تحمل نمطاً واضحاً لمواقع MOD/APK.
-        return h.contains("modapk") ||
-            h.contains("apkmod") ||
-            h.contains("mod-cda") ||
-            h.contains("modcda")
-    }
-
     private fun navigateWithSafetyCheck(webView: WebView, rawUrl: String) {
         // روابط magnet وftp لا يفتحها المتصفح: تذهب لمدير التنزيل
         val lowerUrl = rawUrl.trim().lowercase()
@@ -1884,7 +1864,6 @@ class BrowserActivity : Activity() {
         if (host != null) {
             val normalizedHost = host.lowercase(Locale.US).removePrefix("www.")
             val match = AdBlocker.matchSafetyCategory(this, host)
-            val modApkWarning = isModApkWarningHost(normalizedHost)
 
             if (match?.category == ListCategory.MALWARE ||
                 match?.category == ListCategory.PHISHING ||
@@ -1903,17 +1882,10 @@ class BrowserActivity : Activity() {
                 return
             }
 
-            if (match != null || modApkWarning) {
+            if (match != null) {
                 val warningParts = mutableListOf<String>()
 
-                if (modApkWarning) {
-                    warningParts.add(
-                        "⚠️ قد ينشر هذا الموقع تطبيقات أو برامج معدّلة. " +
-                            "يمكنك فحص الملفات، لكن ذلك لا يضمن سلامتها."
-                    )
-                }
-
-                if (match?.category == ListCategory.PORN) {
+                if (match.category == ListCategory.PORN) {
                     warningParts.add("⚠️ هذا الموقع موجود في قائمة المحتوى الإباحي.")
                 }
 
