@@ -948,6 +948,7 @@ class BrowserActivity : Activity() {
         settings.setSupportMultipleWindows(true)
         settings.javaScriptCanOpenWindowsAutomatically = false
         settings.allowFileAccess = false
+        settings.allowContentAccess = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.safeBrowsingEnabled = true
         settings.blockNetworkImage = hideImages
         settings.loadsImagesAutomatically = !hideImages
