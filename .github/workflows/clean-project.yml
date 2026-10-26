@@ -2,11 +2,6 @@ name: 🧹 Clean Project Files
 
 on:
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: "Type CLEAN to confirm"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -14,7 +9,6 @@ permissions:
 jobs:
   clean-project:
     name: Delete project files (keep Git + Actions)
-    if: ${{ inputs.confirm == 'CLEAN' }}
     runs-on: ubuntu-latest
 
     steps:
