@@ -1862,7 +1862,6 @@ class BrowserActivity : Activity() {
         val host = uri?.host
 
         if (host != null) {
-            val normalizedHost = host.lowercase(Locale.US).removePrefix("www.")
             val match = AdBlocker.matchSafetyCategory(this, host)
 
             if (match?.category == ListCategory.MALWARE ||
