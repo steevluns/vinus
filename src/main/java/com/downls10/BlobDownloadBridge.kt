@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class BlobDownloadBridge(context: Context) {
 
-    private class Transfer(val suggestedName: String?, val mimeHint: String?) {
+    private class Transfer(val suggestedName: String?, val mimeHint: String?, val webView: WebView) {
         @Volatile var sink: DownloadsRepository.LocalSink? = null
     }
 
@@ -27,7 +27,9 @@ class BlobDownloadBridge(context: Context) {
 
     fun start(webView: WebView, blobUrl: String, suggestedName: String?, mimeHint: String?) {
         val token = UUID.randomUUID().toString()
-        transfers[token] = Transfer(suggestedName, mimeHint)
+        transfers[token] = Transfer(suggestedName, mimeHint, webView)
+        // Expose the bridge only while this page's blob download is running.
+        webView.addJavascriptInterface(this, "DownLS10Blob")
 
         val js = """
             (function() {
@@ -67,8 +69,16 @@ class BlobDownloadBridge(context: Context) {
         // تنظيف: إذا لم تبدأ العملية خلال دقيقتين نلغيها
         mainHandler.postDelayed({
             val t = transfers[token]
-            if (t != null && t.sink == null) transfers.remove(token)
+            if (t != null && t.sink == null && transfers.remove(token, t)) detachBridgeIfIdle(t.webView)
         }, 120_000L)
+    }
+
+    private fun detachBridgeIfIdle(webView: WebView) {
+        mainHandler.post {
+            if (transfers.values.none { it.webView === webView }) {
+                try { webView.removeJavascriptInterface("DownLS10Blob") } catch (_: Exception) { }
+            }
+        }
     }
 
     @JavascriptInterface
@@ -78,7 +88,10 @@ class BlobDownloadBridge(context: Context) {
         val total = size?.toLongOrNull() ?: 0L
         val effectiveMime = if (!mime.isNullOrBlank()) mime else t.mimeHint
         val sink = DownloadsRepository.openLocalSink(appContext, t.suggestedName, effectiveMime, total, "blob:")
-        if (sink == null) transfers.remove(token) else t.sink = sink
+        if (sink == null) {
+            transfers.remove(token)
+            detachBridgeIfIdle(t.webView)
+        } else t.sink = sink
     }
 
     @JavascriptInterface
@@ -92,6 +105,7 @@ class BlobDownloadBridge(context: Context) {
         } catch (e: Exception) {
             transfers.remove(token)
             DownloadsRepository.failLocalSink(appContext, sink, e.message)
+            detachBridgeIfIdle(t.webView)
         }
     }
 
@@ -99,11 +113,13 @@ class BlobDownloadBridge(context: Context) {
     fun end(token: String) {
         val t = transfers.remove(token) ?: return
         t.sink?.let { DownloadsRepository.finishLocalSink(appContext, it) }
+        detachBridgeIfIdle(t.webView)
     }
 
     @JavascriptInterface
     fun fail(token: String, message: String?) {
         val t = transfers.remove(token) ?: return
+        detachBridgeIfIdle(t.webView)
         val sink = t.sink
         if (sink != null) {
             DownloadsRepository.failLocalSink(appContext, sink, message)
