@@ -1890,7 +1890,7 @@ class BrowserActivity : Activity() {
                 match?.category == ListCategory.PHISHING ||
                 match?.category == ListCategory.RISK
             ) {
-                val reason = when (match.category) {
+                val reason = when (match?.category) {
                     ListCategory.MALWARE -> "الموقع موجود في قائمة المواقع المصنفة ببرمجيات خبيثة."
                     ListCategory.PHISHING -> "الموقع موجود في قائمة مواقع التصيد الاحتيالي."
                     else -> "الموقع موجود في قائمة المواقع المشبوهة."
