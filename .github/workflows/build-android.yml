@@ -1,10 +1,7 @@
 name: Build DownLS10 APK
-# Build manually and for pull requests targeting main so proposed changes are verified.
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
@@ -43,6 +40,3 @@ jobs:
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
-
-# Build requested 2026-10-24: include latest saved project changes
-# Rebuild requested 2026-10-25: build latest saved changes.
