@@ -4,8 +4,14 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <!-- Legacy public-storage access is needed only on Android 9 and older.
+         Newer Android versions use MediaStore and the system file picker instead. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -21,8 +27,7 @@
         android:label="DownLS10"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault"
-        android:usesCleartextTraffic="false"
-        android:requestLegacyExternalStorage="true">
+        android:usesCleartextTraffic="false">
         
         <activity
             android:name=".DownLS10MainActivity"
