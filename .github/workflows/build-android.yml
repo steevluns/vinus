@@ -1,8 +1,10 @@
 name: Build DownLS10 APK
-# Manual builds only. Commits and source changes will not start a build automatically.
+# Build manually and for pull requests targeting main so proposed changes are verified.
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
