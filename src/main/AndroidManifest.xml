@@ -27,7 +27,7 @@
         android:label="DownLS10"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="true">
         
         <activity
             android:name=".DownLS10MainActivity"

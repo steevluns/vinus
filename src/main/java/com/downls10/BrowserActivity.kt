@@ -956,14 +956,18 @@ class BrowserActivity : Activity() {
         settings.javaScriptCanOpenWindowsAutomatically = false
         // Require an explicit user gesture before a site can autoplay media.
         settings.mediaPlaybackRequiresUserGesture = true
-        settings.allowFileAccess = false
-        settings.allowContentAccess = false
-        // Never allow file-origin pages to reach other local files or network origins.
+        // Permit HTTP for compatibility, while still blocking mixed HTTP/HTTPS content.
+        // HTTP itself is unencrypted, so warn users when a top-level page uses it.
+        settings.allowFileAccess = true
+        settings.allowContentAccess = true
+        // Local files can be opened, but file-origin pages cannot read other file URLs
+        // or make unrestricted cross-origin requests.
         settings.allowFileAccessFromFileURLs = false
         settings.allowUniversalAccessFromFileURLs = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.safeBrowsingEnabled = true
-        // Prevent remote websites from silently receiving third-party tracking cookies.
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
+        // Third-party cookies are enabled for sites that require federated login/embedded sessions.
+        // Keep SSL validation, Safe Browsing, and mixed-content blocking enabled.
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         // Keep WebView remote debugging disabled in user-facing builds.
         WebView.setWebContentsDebuggingEnabled(false)
         settings.blockNetworkImage = hideImages
@@ -1080,6 +1084,13 @@ class BrowserActivity : Activity() {
                 persistTabs()
                 if (nightMode) { applyNightModeJs(view); applySearxngNightModeJs(view) }
                 if (isActiveTab(view)) editUrl.setText(url)
+                if (url?.startsWith("http://", ignoreCase = true) == true) {
+                    Toast.makeText(
+                        this@BrowserActivity,
+                        "تنبيه أمان: اتصال HTTP غير مشفّر؛ لا تدخل كلمات مرور أو بيانات حساسة.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
 
             // أول ظهور لمحتوى الصفحة الجديدة: أسرع وقت لتطبيق الوضع الليلي
