@@ -15,6 +15,19 @@ import java.net.Socket
  */
 class FtpClient(private val host: String, private val port: Int) {
 
+    init {
+        require(host.isNotBlank() && host.none { it == '\\r' || it == '\\n' || it == '\\u0000' }) {
+            "اسم خادم FTP غير صالح"
+        }
+        require(port in 1..65535) { "منفذ FTP غير صالح" }
+    }
+
+    private fun validateArgument(value: String, label: String) {
+        if (value.length > 4096 || value.any { it == '\\r' || it == '\\n' || it == '\\u0000' }) {
+            throw IOException("$label غير صالح")
+        }
+    }
+
     private class Reply(val code: Int, val text: String)
 
     private var control: Socket? = null
@@ -41,6 +54,8 @@ class FtpClient(private val host: String, private val port: Int) {
     }
 
     private fun send(command: String): Reply {
+        // منع حقن أوامر FTP عبر CR/LF أو NUL في اسم المستخدم أو كلمة المرور أو المسار.
+        validateArgument(command, "أمر FTP")
         val w = writer ?: throw IOException("FTP غير متصل")
         w.write((command + "\r\n").toByteArray(Charsets.UTF_8))
         w.flush()
@@ -48,9 +63,13 @@ class FtpClient(private val host: String, private val port: Int) {
     }
 
     fun connect(user: String, password: String) {
+        validateArgument(user, "اسم المستخدم")
+        validateArgument(password, "كلمة المرور")
         val socket = Socket()
         socket.connect(InetSocketAddress(host, port), 20000)
         socket.soTimeout = 30000
+        socket.keepAlive = true
+        socket.tcpNoDelay = true
         control = socket
         reader = BufferedReader(InputStreamReader(socket.getInputStream(), Charsets.ISO_8859_1))
         writer = socket.getOutputStream()
@@ -75,13 +94,16 @@ class FtpClient(private val host: String, private val port: Int) {
         val dataPort: Int
         if (reply.code == 229) {
             val m = Regex("""\(\|\|\|(\d+)\|\)""").find(reply.text) ?: throw IOException("رد EPSV غير مفهوم")
-            dataPort = m.groupValues[1].toInt()
+            dataPort = m.groupValues[1].toIntOrNull()
+                ?.takeIf { it in 1..65535 }
+                ?: throw IOException("منفذ EPSV غير صالح")
         } else {
             reply = send("PASV")
             if (reply.code != 227) throw NonRetryableDownloadException("الخادم لا يدعم الوضع السلبي")
             val m = Regex("""(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)""").find(reply.text)
                 ?: throw IOException("رد PASV غير مفهوم")
             dataPort = m.groupValues[5].toInt() * 256 + m.groupValues[6].toInt()
+            if (dataPort !in 1..65535) throw IOException("منفذ PASV غير صالح")
         }
         val socket = Socket()
         socket.connect(InetSocketAddress(host, dataPort), 20000)
