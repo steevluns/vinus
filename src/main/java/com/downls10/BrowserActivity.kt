@@ -3446,6 +3446,13 @@ class BrowserActivity : Activity() {
     }
 
     override fun onDestroy() {
+        // Preserve existing first-party login/session cookies; do not clear the cookie store.
+        // Third-party cookies remain disabled for each WebView.
+        try {
+            CookieManager.getInstance().flush()
+        } catch (_: Exception) {
+            // Cookie persistence errors must not prevent activity cleanup.
+        }
         tabs.forEach { it.webView.destroy() }
         super.onDestroy()
     }
