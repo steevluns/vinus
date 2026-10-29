@@ -1230,15 +1230,23 @@ class BrowserActivity : Activity() {
                 callback: ValueCallback<Array<Uri>>,
                 fileChooserParams: FileChooserParams
             ): Boolean {
+                // Use Android's system document picker: grant access only to the file
+                // the user selects, instead of requesting broad access to all storage.
+                filePathCallback?.onReceiveValue(null)
                 filePathCallback = callback
-                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
                     type = "*/*"
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    if (fileChooserParams.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
                 }
                 try {
-                    startActivityForResult(Intent.createChooser(intent, "اختر ملف"), FILE_CHOOSER_CODE)
+                    startActivityForResult(intent, FILE_CHOOSER_CODE)
                 } catch (e: Exception) {
                     filePathCallback = null
+                    callback.onReceiveValue(null)
                     return false
                 }
                 return true
@@ -1329,7 +1337,14 @@ class BrowserActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == FILE_CHOOSER_CODE) {
-            val results: Array<Uri>? = if (resultCode == Activity.RESULT_OK && data?.data != null) arrayOf(data.data!!) else null
+            val results: Array<Uri>? = if (resultCode == Activity.RESULT_OK && data != null) {
+                val selected = mutableListOf<Uri>()
+                data.clipData?.let { clip ->
+                    for (index in 0 until clip.itemCount) selected.add(clip.getItemAt(index).uri)
+                }
+                data.data?.let { if (it !in selected) selected.add(it) }
+                selected.distinct().takeIf { it.isNotEmpty() }?.toTypedArray()
+            } else null
             filePathCallback?.onReceiveValue(results)
             filePathCallback = null
             return
@@ -1851,14 +1866,30 @@ class BrowserActivity : Activity() {
             dialog.dismiss()
         }
         dialogView.findViewById<android.widget.Button>(R.id.btnDownload).setOnClickListener {
-            DownloadsRepository.startNewDownload(
-                this@BrowserActivity, url,
-                showToast = showToast,
-                suggestedFileName = preview.fileName,
-                userAgent = userAgent,
-                referer = referer,
-                mimeType = mimeType
-            )
+            val startDownload = {
+                DownloadsRepository.startNewDownload(
+                    this@BrowserActivity, url,
+                    showToast = showToast,
+                    suggestedFileName = preview.fileName,
+                    userAgent = userAgent,
+                    referer = referer,
+                    mimeType = mimeType
+                )
+            }
+            // Android 9 and older need the legacy write permission for the public download folder.
+            // Android 10+ uses MediaStore and must not be asked for broad storage access.
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                ensureAndroidPermissions(arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE)) { granted ->
+                    if (granted) startDownload()
+                    else Toast.makeText(
+                        this@BrowserActivity,
+                        "يحتاج التطبيق إذن التخزين لحفظ الملف. يمكنك اختيار ملف من مدير الملفات عند الحاجة.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                startDownload()
+            }
             dialog.dismiss()
         }
         dialogView.findViewById<android.widget.Button>(R.id.btnCancel).setOnClickListener {
