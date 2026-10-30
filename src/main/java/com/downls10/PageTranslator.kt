@@ -22,12 +22,17 @@ import java.util.concurrent.TimeUnit
  */
 object PageTranslator {
 
-    private val executor = Executors.newFixedThreadPool(5)
+    // Keep translation requests bounded so very large pages cannot overwhelm the device.
+    private val executor = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
+    private const val MAX_TEXT_NODES = 500
+    private const val TRANSLATION_TIMEOUT_SECONDS = 25L
 
     private const val EXTRACT_JS = """
         (function() {
             var texts = [];
+            if (!document.body) return JSON.stringify(texts);
+            var maxNodes = 500;
             var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
                 acceptNode: function(node) {
                     var p = node.parentNode;
@@ -43,7 +48,9 @@ object PageTranslator {
                 }
             });
             var n;
-            while (n = walker.nextNode()) { texts.push(n.nodeValue); }
+            while (texts.length < maxNodes && (n = walker.nextNode())) {
+                texts.push(n.nodeValue);
+            }
             return JSON.stringify(texts);
         })();
     """
@@ -57,7 +64,7 @@ object PageTranslator {
             try {
                 val jsonString = unquoteJsResult(rawResult)
                 val arr = JSONArray(jsonString)
-                val originalTexts = (0 until arr.length()).map { arr.getString(it) }
+                val originalTexts = (0 until arr.length().coerceAtMost(MAX_TEXT_NODES)).map { arr.getString(it) }
                 if (originalTexts.isEmpty()) {
                     onDone(false, "تعذّر استخراج نص من الصفحة (قد تكون فارغة أو لم تكتمل تحميلها)")
                     return@evaluateJavascript
@@ -79,7 +86,11 @@ object PageTranslator {
                 }
 
                 Thread {
-                    latch.await(40, TimeUnit.SECONDS)
+                    try {
+                        latch.await(TRANSLATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                    }
                     mainHandler.post {
                         val allTranslated = mutableListOf<String>()
                         var failed = false
@@ -94,8 +105,8 @@ object PageTranslator {
                                 allTranslated.addAll(chunkResult)
                             }
                         }
-                        if (failed && allTranslated.size != originalTexts.size) {
-                            onDone(false, firstError)
+                        if (failed) {
+                            onDone(false, if (firstError.isBlank()) "انتهت مهلة الترجمة أو تعذّر ترجمة جزء من الصفحة، حاول مجدداً" else firstError)
                         } else if (allTranslated.size != originalTexts.size) {
                             onDone(false, "اختلاف عدد النصوص بعد الترجمة، حاول مجدداً")
                         } else {
@@ -228,6 +239,16 @@ object PageTranslator {
                 }
             })();
         """
-        webView.evaluateJavascript(applyJs) { onDone(true, "تمت الترجمة بنجاح") }
+        try {
+            webView.evaluateJavascript(applyJs) { result ->
+                if (result == "null") {
+                    onDone(false, "تعذّر تطبيق الترجمة على الصفحة، حاول مجدداً")
+                } else {
+                    onDone(true, "تمت الترجمة بنجاح")
+                }
+            }
+        } catch (_: Exception) {
+            onDone(false, "تعذّر تطبيق الترجمة على الصفحة، حاول مجدداً")
+        }
     }
 }
