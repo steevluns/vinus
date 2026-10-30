@@ -747,6 +747,7 @@ object DownloadsRepository {
                     item.progress = 100
                     item.speed = "0 KB/s"
                     item.status = "مكتمل"
+                    item.state = DownloadState.COMPLETED
                     runCatching { notifyChanged(appContext, forceSave = true) }
                 },
                 onError = { error ->
@@ -779,6 +780,7 @@ object DownloadsRepository {
                     item.progress = 100
                     item.speed = "0 KB/s"
                     item.status = "مكتمل"
+                    item.state = DownloadState.COMPLETED
                     runCatching { notifyChanged(appContext, forceSave = true) }
                 },
                 onError = { error ->
