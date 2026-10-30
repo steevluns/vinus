@@ -1664,23 +1664,36 @@ class BrowserActivity : Activity() {
                         }
                     }
 
-                    function unwrapGoogle(u) {
+                    // Resolve search-engine redirect links before comparing hosts.
+                    // Google result anchors often point to google.com/url, so comparing
+                    // their host first incorrectly treats them as links to the search page.
+                    function unwrapRedirect(u) {
                         try {
                             var x = new URL(u, location.href);
                             var h = normalizeHost(x.hostname);
-                            if ((h === 'google.com' || h.endsWith('.google.com') || h.indexOf('google.') === 0) &&
-                                x.pathname === '/url') {
-                                return x.searchParams.get('q') ||
-                                       x.searchParams.get('url') ||
-                                       x.searchParams.get('u') ||
-                                       u;
+                            var path = x.pathname.toLowerCase();
+                            var isGoogle = h === 'google.com' || h.endsWith('.google.com') || /^google\.[a-z.]+$/.test(h);
+                            var isBing = h === 'bing.com' || h.endsWith('.bing.com');
+                            var isDuckDuckGo = h === 'duckduckgo.com' || h.endsWith('.duckduckgo.com');
+                            var target = null;
+
+                            if (isGoogle && path === '/url') {
+                                target = x.searchParams.get('q') || x.searchParams.get('url') ||
+                                         x.searchParams.get('u') || x.searchParams.get('adurl');
+                            } else if (isBing && (path === '/ck/a' || path === '/aclick')) {
+                                target = x.searchParams.get('u') || x.searchParams.get('url');
+                                if (target && target.charAt(0) === 'a') {
+                                    try { target = atob(target.substring(1).replace(/-/g, '+').replace(/_/g, '/')); } catch (e) {}
+                                }
+                            } else if (isDuckDuckGo && path === '/l/') {
+                                target = x.searchParams.get('uddg');
                             }
-                        } catch (e) {}
-                        return u;
+                            return target ? new URL(target, location.href).href : u;
+                        } catch (e) { return u; }
                     }
 
                     function isVisited(u) {
-                        var unwrapped = unwrapGoogle(u);
+                        var unwrapped = unwrapRedirect(u);
                         var n = normalize(unwrapped);
                         if (!n) return false;
 
@@ -1721,16 +1734,17 @@ class BrowserActivity : Activity() {
                             var href = a.href || a.getAttribute('href') || '';
                             if (!/^https?:/i.test(href)) continue;
 
+                            var destination = unwrapRedirect(href);
                             var linkUrl;
-                            try { linkUrl = new URL(href, location.href); } catch (e) { continue; }
+                            try { linkUrl = new URL(destination, location.href); } catch (e) { continue; }
 
                             var currentHost = normalizeHost(location.hostname);
                             var resultHost = normalizeHost(linkUrl.hostname);
-                            if (resultHost === currentHost) continue;
+                            if (!resultHost || resultHost === currentHost) continue;
 
                             if (!String(a.innerText || a.textContent || '').trim()) continue;
 
-                            if (isVisited(href)) {
+                            if (isVisited(destination) || isVisited(href)) {
                                 paintVisited(a);
                             }
                             // غير المزور: لا نضع أي لون من التطبيق، حتى يبقى
