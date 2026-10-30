@@ -44,7 +44,7 @@ class DownloadAdapter(
         tvFileIcon.text = getIconForExtension(item.extension)
         tvStatus.text = item.status
 
-        val totalText = if (item.totalBytes > 0) formatBytes(item.totalBytes) else "؟"
+        val totalText = if (item.totalBytes > 0 || item.state == DownloadState.COMPLETED) formatBytes(item.totalBytes) else "؟"
         tvFileSize.text = formatBytes(item.downloadedBytes) + " / " + totalText
 
         if (showSpeed) {
@@ -89,12 +89,17 @@ class DownloadAdapter(
 
     /** يعرض الحجم بوحدة مناسبة (KB / MB / GB) حتى للملفات الكبيرة جداً. */
     private fun formatBytes(bytes: Long): String {
-        if (bytes < 1024L * 1024L) return (bytes / 1024L).toString() + " KB"
-        val mb = bytes / (1024.0 * 1024.0)
-        if (mb < 1024.0) return String.format(java.util.Locale.US, "%.1f MB", mb)
-        return String.format(java.util.Locale.US, "%.2f GB", mb / 1024.0)
+        val value = bytes.coerceAtLeast(0L)
+        if (value < 1024L) return "$value B"
+        val units = arrayOf("KB", "MB", "GB", "TB", "PB", "EB")
+        var amount = value.toDouble() / 1024.0
+        var unit = 0
+        while (amount >= 1024.0 && unit < units.lastIndex) {
+            amount /= 1024.0
+            unit++
+        }
+        return String.format(java.util.Locale.US, if (amount < 10.0) "%.2f %s" else "%.1f %s", amount, units[unit])
     }
-
     private fun getIconForExtension(ext: String): String {
         return when (ext.lowercase()) {
             "mp4", "mkv", "avi" -> "🎬"
