@@ -44,7 +44,10 @@ class DownloadAdapter(
         tvFileIcon.text = getIconForExtension(item.extension)
         tvStatus.text = item.status
 
-        val totalText = if (item.totalBytes > 0 || item.state == DownloadState.COMPLETED) formatBytes(item.totalBytes) else "؟"
+        val totalText = when {
+            item.totalBytes > 0L || item.state == DownloadState.COMPLETED -> formatBytes(item.totalBytes)
+            else -> "الحجم غير معروف"
+        }
         tvFileSize.text = formatBytes(item.downloadedBytes) + " / " + totalText
 
         if (showSpeed) {
