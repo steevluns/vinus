@@ -1911,10 +1911,19 @@ class BrowserActivity : Activity() {
         mimeType: String?,
         showToast: Boolean
     ) {
-        val sizeText = if (preview.totalSize > 0) {
-            val mb = preview.totalSize / 1024L / 1024L
-            val kb = (preview.totalSize % (1024L * 1024L)) / 1024L
-            if (mb > 0) "$mb ميجابايت" else if (kb > 0) "$kb كيلو بايت" else "أقل من كيلو بايت"
+        val sizeText = if (preview.totalSize >= 0L && preview.responseCode > 0) {
+            val bytes = preview.totalSize
+            if (bytes < 1024L) "$bytes B"
+            else {
+                val units = arrayOf("KB", "MB", "GB", "TB", "PB", "EB")
+                var amount = bytes.toDouble() / 1024.0
+                var unit = 0
+                while (amount >= 1024.0 && unit < units.lastIndex) {
+                    amount /= 1024.0
+                    unit++
+                }
+                String.format(java.util.Locale.US, if (amount < 10.0) "%.2f %s" else "%.1f %s", amount, units[unit])
+            }
         } else "حجم غير معروف"
 
         val dialogView = layoutInflater.inflate(R.layout.dialog_download_confirm, null)
