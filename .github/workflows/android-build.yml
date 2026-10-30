@@ -60,3 +60,5 @@ jobs:
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+# Trigger a fresh Android build for the latest main branch source.
