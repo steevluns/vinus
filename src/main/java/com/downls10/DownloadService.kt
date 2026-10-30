@@ -153,16 +153,15 @@ object DownloadNotifier {
         }
 
         if (downloading) {
-            builder.setSmallIcon(android.R.drawable.stat_sys_download)   // سهم التنزيل القياسي
-            builder.setColor(0xFF1B5E20.toInt())                        // أخضر داكن (لون السهم في قائمة الإشعارات)
+            builder.setSmallIcon(android.R.drawable.stat_sys_download)   // سهم أبيض أثناء التنزيل
             builder.setOngoing(true)
             if (active.size == 1) {
                 val item = active[0]
                 builder.setContentTitle(item.fileName)
                 val speed = item.speed
                 builder.setContentText(if (item.totalBytes > 0) "${item.progress}%  •  $speed" else speed)
-                if (item.totalBytes > 0) builder.setProgress(100, item.progress, false)
-                else builder.setProgress(0, 0, true)
+                // مؤشر متحرك طوال التنزيل، مع إظهار النسبة داخل النص.
+                builder.setProgress(0, 0, true)
             } else {
                 builder.setContentTitle("جاري تنزيل ${active.size} ملفات")
                 builder.setContentText(active[0].fileName + "  +" + (active.size - 1))
