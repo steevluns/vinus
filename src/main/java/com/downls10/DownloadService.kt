@@ -88,9 +88,10 @@ class DownloadService : Service() {
 
 /**
  * يبني إشعار التنزيل ويقرّر متى تعمل الخدمة:
- * - تنزيل جارٍ: سهم أبيض (أيقونة التنزيل القياسية) + تقدّم + زر «إيقاف مؤقت».
+ * - تنزيل جارٍ: سهم تنزيل أبيض + تقدّم متحرك + زر «إيقاف مؤقت».
+ * - اكتمل تنزيل واحد أو أكثر: إشعار قابل للإزالة بأيقونة تنزيل مكتمل ولون أخضر.
  * - كل التنزيلات متوقفة مؤقتاً: علامة إيقاف مؤقت + زر «استئناف».
- * - لا شيء: لا إشعار.
+ * - لا يوجد تنزيل أو اكتمال محفوظ: لا إشعار.
  */
 object DownloadNotifier {
 
@@ -127,6 +128,7 @@ object DownloadNotifier {
         val items = DownloadsRepository.downloadList
         val active = items.filter { it.state == DownloadState.DOWNLOADING }
         val paused = items.filter { it.state == DownloadState.PAUSED && DownloadsRepository.isResumable(it) }
+        val completed = items.filter { it.state == DownloadState.COMPLETED }
         val downloading = active.isNotEmpty()
 
         val builder = if (Build.VERSION.SDK_INT >= 26) {
@@ -176,9 +178,10 @@ object DownloadNotifier {
                     Icon.createWithResource(context, android.R.drawable.ic_media_pause), "إيقاف مؤقت", pauseIntent
                 ).build()
             )
-        } else {
+        } else if (paused.isNotEmpty()) {
             builder.setSmallIcon(pauseIcon())   // علامة الإيقاف المؤقت
             builder.setOngoing(false)
+            builder.setAutoCancel(true)
             builder.setContentTitle("التنزيل متوقف مؤقتاً")
             if (paused.size == 1) {
                 builder.setContentText(paused[0].fileName)
@@ -204,6 +207,16 @@ object DownloadNotifier {
                     Icon.createWithResource(context, android.R.drawable.ic_media_play), "استئناف", resumeIntent
                 ).build()
             )
+        } else if (completed.isNotEmpty()) {
+            // إشعار نهائي قابل للسحب: أخضر وثابت ولا يعرض حركة تقدم.
+            builder.setSmallIcon(android.R.drawable.stat_sys_download_done)
+            builder.setColor(0xFF2E7D32.toInt())
+            if (Build.VERSION.SDK_INT >= 31) builder.setColorized(true)
+            builder.setOngoing(false)
+            builder.setAutoCancel(true)
+            builder.setProgress(0, 0, false)
+            builder.setContentTitle("اكتمل التنزيل")
+            builder.setContentText(if (completed.size == 1) completed[0].fileName else "اكتمل تنزيل ${completed.size} ملفات")
         }
         return builder.build()
     }
@@ -216,11 +229,14 @@ object DownloadNotifier {
         val app = context.applicationContext
         var active = 0
         var paused = 0
+        var completed = 0
         for (item in DownloadsRepository.downloadList) {
             if (item.state == DownloadState.DOWNLOADING) active++
             else if (item.state == DownloadState.PAUSED && DownloadsRepository.isResumable(item)) paused++
+            else if (item.state == DownloadState.COMPLETED) completed++
         }
-        val category = if (active > 0) 1 else if (paused > 0) 2 else 0
+        // الأولوية للتنزيل الجاري، ثم المتوقف مؤقتاً، ثم إشعار الاكتمال.
+        val category = if (active > 0) 1 else if (paused > 0) 2 else if (completed > 0) 3 else 0
         val now = SystemClock.elapsedRealtime()
         if (!force && category == lastCategory && now - lastSync < 3000L) return
         lastCategory = category
@@ -238,10 +254,13 @@ object DownloadNotifier {
             }
         } else {
             if (service != null) {
-                service.stopForeground(Service.STOP_FOREGROUND_DETACH)
+                service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
                 service.stopSelf()
             }
-            if (category == 2) nm.notify(NOTIF_ID, build(app)) else nm.cancel(NOTIF_ID)
+            when (category) {
+                2, 3 -> nm.notify(NOTIF_ID, build(app))
+                else -> nm.cancel(NOTIF_ID)
+            }
         }
     }
 
