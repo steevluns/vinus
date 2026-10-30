@@ -1911,7 +1911,7 @@ class BrowserActivity : Activity() {
         mimeType: String?,
         showToast: Boolean
     ) {
-        val sizeText = if (preview.totalSize >= 0L && preview.responseCode > 0) {
+        val sizeText = if (preview.totalSize >= 0L) {
             val bytes = preview.totalSize
             if (bytes < 1024L) "$bytes B"
             else {
