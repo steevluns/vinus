@@ -1938,7 +1938,8 @@ class BrowserActivity : Activity() {
 
         dialogView.findViewById<android.widget.Button>(R.id.btnAdd).setOnClickListener {
             DownloadsRepository.addDownloadItemOnly(
-                this@BrowserActivity, url, preview.fileName, userAgent, referer
+                this@BrowserActivity, url, preview.fileName, userAgent, referer,
+                preview.totalSize
             )
             dialog.dismiss()
         }
