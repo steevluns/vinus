@@ -1,0 +1,62 @@
+name: Clean everything
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Clean unnecessary files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Keep source code, build configuration and GitHub workflows.
+          # Remove common generated files, caches and temporary output.
+
+          find . -type d \( \
+            -name node_modules -o \
+            -name .gradle -o \
+            -name .idea -o \
+            -name .dart_tool -o \
+            -name build -o \
+            -name .cache -o \
+            -name __pycache__ \
+          \) -prune -exec rm -rf {} +
+
+          find . -type f \( \
+            -name '*.log' -o \
+            -name '*.tmp' -o \
+            -name '*.bak' -o \
+            -name '*.temp' \
+          \) -delete
+
+          echo "Cleanup completed. Source files were preserved."
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Clean generated and temporary files"
+          git push
