@@ -1630,8 +1630,8 @@ class BrowserActivity : Activity() {
     }
 
     private fun applyVisitedSearchResultColors(webView: WebView) {
+        // Apply visited-link coloring on every website, not only recognized search engines.
         val url = webView.url ?: return
-        if (!isSearchResultsPage(url)) return
 
         val visitedUrlsJson = VisitedSites.allVisitedUrlsJson(this)
         val visitedHostsJson = VisitedSites.asJsonForInjection(this)
