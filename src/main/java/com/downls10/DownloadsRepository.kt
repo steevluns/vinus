@@ -269,7 +269,8 @@ object DownloadsRepository {
         cleanUrl: String,
         fileName: String,
         userAgent: String? = null,
-        referer: String? = null
+        referer: String? = null,
+        totalBytes: Long = 0L
     ): DownloadItem? {
         val appContext = context.applicationContext
         trackActivities(context)
@@ -291,6 +292,7 @@ object DownloadsRepository {
             url = cleanUrl,
             fileName = fileName,
             extension = ext,
+            totalBytes = totalBytes.coerceAtLeast(0L),
             userAgent = userAgent,
             referer = referer,
             status = "في الانتظار...",
