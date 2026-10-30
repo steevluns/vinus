@@ -431,7 +431,7 @@ class DownloadManagerEngine {
                         if (elapsed >= 3000) {
                             val speedKb = (bytesSinceLast * 1000L / elapsed) / 1024L
                             val speedText = if (speedKb >= 1024) "${speedKb / 1024} MB/s" else "$speedKb KB/s"
-                            val progress = if (totalSize > 0) ((totalRead * 100) / totalSize).toInt().coerceIn(0, 100) else 0
+                            val progress = if (totalSize > 0) ((totalRead.toDouble() * 100.0) / totalSize.toDouble()).toInt().coerceIn(0, 100) else 0
                             mainHandler.post { onProgress(progress, speedText, totalRead, totalSize) }
                             lastTime = now
                             bytesSinceLast = 0L
@@ -444,6 +444,8 @@ class DownloadManagerEngine {
                     }
 
                     item.downloadedBytes = totalRead
+                    // If the server did not send Content-Length, record the real final size.
+                    if (totalSize <= 0L) item.totalBytes = totalRead
                     item.state = DownloadState.COMPLETED
                     completedOk = true   // نستدعي onComplete بعد إغلاق الملف في finally
 
