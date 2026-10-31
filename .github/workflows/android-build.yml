@@ -1,4 +1,5 @@
 name: Build Android APK
+# Build trigger: compile the latest saved source changes.
 
 on:
   workflow_dispatch:
