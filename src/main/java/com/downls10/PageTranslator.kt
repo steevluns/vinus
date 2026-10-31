@@ -237,14 +237,15 @@ object PageTranslator {
                     }
                     idx++;
                 }
+                return true;
             })();
         """
         try {
             webView.evaluateJavascript(applyJs) { result ->
-                if (result == "null") {
-                    onDone(false, "تعذّر تطبيق الترجمة على الصفحة، حاول مجدداً")
-                } else {
+                if (result == "true") {
                     onDone(true, "تمت الترجمة بنجاح")
+                } else {
+                    onDone(false, "تعذّر تطبيق الترجمة على الصفحة، حاول مجدداً")
                 }
             }
         } catch (_: Exception) {
