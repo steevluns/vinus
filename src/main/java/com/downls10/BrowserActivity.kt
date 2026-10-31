@@ -2677,44 +2677,37 @@ class BrowserActivity : Activity() {
      */
     private fun applyNightModeJs(webView: WebView) {
         val js = """
-            (function() {
-                try {
-                    window.__downls10NightOff = true;
-                    var style = document.getElementById('__downls10_night_mode__');
-                    if (style) style.remove();
-                    var searchStyle = document.getElementById('__downls10_google_search_dark__');
-                    if (searchStyle) searchStyle.remove();
-                    var searxStyle = document.getElementById('__downls10_searx_dark__');
-                    if (searxStyle) searxStyle.remove();
-                    if (document.documentElement) {
-                        document.documentElement.style.removeProperty('filter');
-                        document.documentElement.style.removeProperty('background');
-                        document.documentElement.style.removeProperty('background-color');
-                        document.documentElement.style.removeProperty('color-scheme');
-                    }
-                    if (document.body) {
-                        document.body.style.removeProperty('filter');
-                        document.body.style.removeProperty('background');
-                        document.body.style.removeProperty('background-color');
-                        document.body.style.removeProperty('color');
-                    }
-                    if (window.__downls10NightObserver) {
-                        window.__downls10NightObserver.disconnect();
-                        window.__downls10NightObserver = null;
-                    }
-                    if (window.__downls10NightTimer) {
-                        clearInterval(window.__downls10NightTimer);
-                        window.__downls10NightTimer = null;
-                    }
-                    if (window.__downls10GoogleDarkObserver) {
-                        window.__downls10GoogleDarkObserver.disconnect();
-                        window.__downls10GoogleDarkObserver = null;
-                    }
-                    if (window.__downls10GoogleDarkTimer) {
-                        clearInterval(window.__downls10GoogleDarkTimer);
-                        window.__downls10GoogleDarkTimer = null;
-                    }
-                } catch (e) {}
+            (function(){
+              try {
+                var id='__downls10_night_mode__';
+                var excluded='img,picture,video,audio,canvas,svg,iframe,object,embed,input[type=image]';
+                function rgb(v){var m=(v||'').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);return m?{r:+m[1],g:+m[2],b:+m[3]}:null;}
+                function lum(c){return c?0.2126*c.r+0.7152*c.g+0.0722*c.b:0;}
+                function visible(c){return c&&(c.r>12||c.g>12||c.b>12);}
+                function apply(){
+                  if(!document.documentElement||!document.body)return;
+                  var rb=rgb(getComputedStyle(document.documentElement).backgroundColor);
+                  var bb=rgb(getComputedStyle(document.body).backgroundColor);
+                  var meta=document.querySelector('meta[name="color-scheme"]');
+                  var dark=!!(meta&&/dark/i.test(meta.content||''))||(visible(bb)&&lum(bb)<105)||(!visible(bb)&&visible(rb)&&lum(rb)<105);
+                  window.__downls10NightDark=dark;
+                  var old=document.getElementById(id);if(old)old.remove();if(dark)return;
+                  var st=document.createElement('style');st.id=id;
+                  st.textContent='html,body{background:#000!important;color:#eee!important;color-scheme:dark!important}a{color:#8ab4f8!important}input,textarea,select,button{background:#202124!important;color:#eee!important;border-color:#555!important}::placeholder{color:#aaa!important}';
+                  (document.head||document.documentElement).appendChild(st);
+                  var els=document.querySelectorAll('body,body *');
+                  for(var i=0;i<els.length;i++){var e=els[i];if(e.closest(excluded))continue;var cs=getComputedStyle(e),bg=rgb(cs.backgroundColor),fg=rgb(cs.color);
+                    if(bg&&lum(bg)>150)e.style.setProperty('background-color','#111','important');
+                    if(fg&&lum(fg)>145)e.style.setProperty('color','#eee','important');
+                    var bd=rgb(cs.borderTopColor);if(bd&&lum(bd)>170)e.style.setProperty('border-color','#444','important');}
+                }
+                if(window.__downls10NightObserver)window.__downls10NightObserver.disconnect();
+                if(window.__downls10NightTimer)clearInterval(window.__downls10NightTimer);
+                apply();
+                window.__downls10NightObserver=new MutationObserver(function(){if(!window.__downls10NightDark)apply();});
+                window.__downls10NightObserver.observe(document.documentElement,{childList:true,subtree:true});
+                window.__downls10NightTimer=setInterval(function(){if(!window.__downls10NightDark)apply();},1800);
+              }catch(e){}
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
@@ -2722,23 +2715,10 @@ class BrowserActivity : Activity() {
 
     private fun removeNightModeJs(webView: WebView) {
         val js = """
-            (function(){
-                window.__downls10NightOff = true;
-                window.__downls10NightInverted = undefined;
-                var style = document.getElementById('__downls10_night_mode__');
-                if (style) style.textContent = '';
-                // إزالة نمط SearXNG الليلي أيضاً
-                var searxStyle = document.getElementById('__downls10_searx_dark__');
-                if (searxStyle) searxStyle.textContent = '';
-                // إيقاف المراقبين
-                if (window.__downls10SearxDarkObserver) {
-                    window.__downls10SearxDarkObserver.disconnect();
-                    window.__downls10SearxDarkObserver = null;
-                }
-                if (window.__downls10SearxDarkTimer) {
-                    clearInterval(window.__downls10SearxDarkTimer);
-                    window.__downls10SearxDarkTimer = null;
-                }
+            (function(){var s=document.getElementById('__downls10_night_mode__');if(s)s.remove();
+              window.__downls10NightDark=undefined;
+              if(window.__downls10NightObserver){window.__downls10NightObserver.disconnect();window.__downls10NightObserver=null;}
+              if(window.__downls10NightTimer){clearInterval(window.__downls10NightTimer);window.__downls10NightTimer=null;}
             })();
         """
         webView.evaluateJavascript(js, null)
