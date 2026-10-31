@@ -1733,7 +1733,12 @@ class BrowserActivity : Activity() {
                     }
 
                     function paintVisited(element) {
-                        // تعطيل تلوين الروابط المزارة بالبنفسجي، مع الحفاظ على تنسيق الموقع.
+                        // أخضر داكن ثابت للروابط التي سبق فتحها، عبر جميع أنواع نتائج البحث.
+                        var visitedColor = '#006400';
+                        element.style.setProperty('color', visitedColor, 'important');
+                        element.querySelectorAll('*').forEach(function(child) {
+                            child.style.setProperty('color', visitedColor, 'important');
+                        });
                     }
 
                     function styleResults() {
