@@ -2722,48 +2722,77 @@ class BrowserActivity : Activity() {
      * قديم كي يعرض WebView ألوان كل موقع وروابطه الافتراضية.
      */
     private fun applyNightModeJs(webView: WebView) {
-        // اكتشف أولاً إن كانت الصفحة داكنة أصلًا؛ لا نغيّر ألوانها في هذه الحالة.
-        // للصفحات الفاتحة، نحول الخلفيات البيضاء المتداخلة إلى شفافة فوق خلفية سوداء
-        // ونفرض لونًا فاتحًا واضحًا للنصوص، مع إبقاء الصور والفيديوهات بألوانها الأصلية.
+        // لا تفحص الخلفية بعد حقن CSS، لأن ذلك سيجعل الصفحة تبدو سوداء
+        // ثم يزيل التأثير في الاستدعاء التالي. خزّن نتيجة الفحص الأصلية لكل صفحة.
         val js = """
             (function(){
               try {
                 var id='__downls10_night_mode__';
                 var root=document.documentElement;
                 if(!root) return;
-                function rgb(c){
-                  var m=(c||'').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);
-                  return m ? [ +m[1], +m[2], +m[3] ] : null;
+                function colorInfo(c){
+                  if(!c || c==='transparent') return null;
+                  var m=c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/i);
+                  if(!m) return null;
+                  var alpha=(m[4]===undefined)?1:parseFloat(m[4]);
+                  if(alpha<0.15) return null;
+                  var r=+m[1],g=+m[2],b=+m[3];
+                  return {lum:(r*299+g*587+b*114)/1000,alpha:alpha};
                 }
-                function lum(c){
-                  var v=rgb(c); if(!v) return null;
-                  return (v[0]*299+v[1]*587+v[2]*114)/1000;
+                function visible(el){
+                  if(!el || !el.getBoundingClientRect) return false;
+                  var r=el.getBoundingClientRect(),cs=getComputedStyle(el);
+                  return r.width>Math.min(120,innerWidth*0.25) &&
+                         r.height>Math.min(60,innerHeight*0.1) &&
+                         cs.display!=='none' && cs.visibility!=='hidden' &&
+                         parseFloat(cs.opacity||'1')>0;
                 }
-                var body=document.body;
-                var htmlBg=getComputedStyle(root).backgroundColor;
-                var bodyBg=body ? getComputedStyle(body).backgroundColor : '';
-                var sample=lum(bodyBg);
-                if(sample===null || bodyBg==='rgba(0, 0, 0, 0)') sample=lum(htmlBg);
-                if(sample===null) sample=255;
+                if(typeof window.__downls10NightOriginalDark==='undefined'){
+                  var candidates=[root,document.body];
+                  // بعض المواقع ترسم الخلفية على حاوية رئيسية بدل body.
+                  if(document.body){
+                    var all=document.body.querySelectorAll('*');
+                    var count=0;
+                    for(var n=0;n<all.length && count<100;n++){
+                      var el=all[n];
+                      if(!visible(el)) continue;
+                      var rect=el.getBoundingClientRect();
+                      if(rect.width*rect.height < innerWidth*innerHeight*0.18) continue;
+                      candidates.push(el); count++;
+                    }
+                  }
+                  var darkScore=0,lightScore=0;
+                  for(var k=0;k<candidates.length;k++){
+                    var el=candidates[k]; if(!el) continue;
+                    var info=colorInfo(getComputedStyle(el).backgroundColor);
+                    if(!info) continue;
+                    var rect=el.getBoundingClientRect ? el.getBoundingClientRect() : {width:innerWidth,height:innerHeight};
+                    var area=Math.max(1,Math.min(innerWidth,rect.width)*Math.min(innerHeight,rect.height));
+                    var weight=Math.min(1,area/(innerWidth*innerHeight*0.5));
+                    if(info.lum<95) darkScore+=weight;
+                    else if(info.lum>185) lightScore+=weight;
+                  }
+                  window.__downls10NightOriginalDark = darkScore>0 && darkScore>=lightScore;
+                }
                 var st=document.getElementById(id);
-                // الموقع الداكن أصلًا يبقى بألوانه الأصلية، ونزيل أي حقن سابق.
-                if(sample < 95){
+                // الموقع الداكن أصلاً لا نغيّر ألوانه.
+                if(window.__downls10NightOriginalDark){
                   if(st) st.remove();
-                  window.__downls10NightDark=false;
+                  window.__downls10NightDark=true;
                   return;
                 }
                 if(!st){ st=document.createElement('style'); st.id=id; (document.head||root).appendChild(st); }
                 st.textContent =
-                  'html,body{background:#000!important;background-color:#000!important;color:#f2f2f2!important;color-scheme:dark!important}'+
-                  'body *:not(img):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(picture):not(source){background-color:transparent!important;color:#f0f0f0!important;border-color:#444!important;text-shadow:none!important;box-shadow:none!important}'+
+                  'html,body{background:#000!important;background-color:#000!important;background-image:none!important;color:#f2f2f2!important;color-scheme:dark!important}'+
+                  'body *:not(img):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(picture):not(source){background-color:transparent!important;background-image:none!important;color:#f0f0f0!important;-webkit-text-fill-color:#f0f0f0!important;border-color:#444!important;text-shadow:none!important;box-shadow:none!important}'+
                   'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
-                  'input,textarea,select,button,[role="button"]{background:#222!important;background-color:#222!important;color:#f5f5f5!important;-webkit-text-fill-color:#f5f5f5!important;border:1px solid #555!important}'+
+                  'input,textarea,select,button,[role="button"]{background:#222!important;background-color:#222!important;background-image:none!important;color:#f5f5f5!important;-webkit-text-fill-color:#f5f5f5!important;border:1px solid #555!important}'+
                   'input::placeholder,textarea::placeholder{color:#c7c7c7!important;-webkit-text-fill-color:#c7c7c7!important}'+
                   'table,th,td,hr,fieldset{border-color:#444!important}'+
                   'img,picture,video,canvas,svg,iframe,object,embed{filter:none!important}'+
-                  'img,video,canvas,svg,iframe,object,embed{background-color:transparent!important}'+
+                  'img,video,canvas,svg,iframe,object,embed{background-color:transparent!important;background-image:none!important}'+
                   'pre,code,kbd,samp{background:#171717!important;background-color:#171717!important;color:#f0f0f0!important;-webkit-text-fill-color:#f0f0f0!important}';
-                window.__downls10NightDark=true;
+                window.__downls10NightDark=false;
               } catch(e) {}
             })();
         """.trimIndent()
