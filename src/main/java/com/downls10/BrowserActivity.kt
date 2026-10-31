@@ -1087,8 +1087,7 @@ class BrowserActivity : Activity() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 tabs.find { it.webView == view }?.pageLoading = true
-                // سجّل الموقع فور بدء فتحه، لا تنتظر onPageFinished؛
-                // بهذا تبقى نتيجة البحث بنفسجية حتى لو تأخر الموقع أو لم يكتمل تحميله.
+                // سجّل الموقع فور بدء فتحه، لا تنتظر onPageFinished.
                 recordVisitedNavigation(url)
                 // نحفظ الحالة فور بدء التنقل أيضًا حتى لا نفقد آخر خطوة إذا أُغلق التطبيق
                 // قبل onPageFinished.
@@ -1641,169 +1640,12 @@ class BrowserActivity : Activity() {
         webView.evaluateJavascript(js, null)
     }
 
+    /**
+     * لا نفرض ألوانًا مخصصة على روابط نتائج البحث أو الروابط التي سبق فتحها.
+     * نترك WebView والموقع نفسه يحددان ألوان الروابط الافتراضية.
+     */
     private fun applyVisitedSearchResultColors(webView: WebView) {
-        // Apply visited-link coloring on every website, not only recognized search engines.
-        val url = webView.url ?: return
-
-        val visitedUrlsJson = VisitedSites.allVisitedUrlsJson(this)
-        val visitedHostsJson = VisitedSites.asJsonForInjection(this)
-        val quotedUrlsJson = JSONObject.quote(visitedUrlsJson)
-        val quotedHostsJson = JSONObject.quote(visitedHostsJson)
-
-        val js = """
-            (function(visitedUrlsRaw, visitedHostsRaw) {
-                try {
-                    var visitedUrls = JSON.parse(visitedUrlsRaw || '{}');
-                    var visitedHosts = JSON.parse(visitedHostsRaw || '{}');
-                    // لا نفرض لونًا على الروابط التي زارها المستخدم؛ اترك لون الموقع الأصلي.
-
-                    function normalizeHost(host) {
-                        return String(host || '')
-                            .toLowerCase()
-                            .replace(/^www\./, '')
-                            .replace(/\.$/, '');
-                    }
-
-                    function normalize(u) {
-                        try {
-                            var x = new URL(u, location.href);
-                            if (x.protocol !== 'http:' && x.protocol !== 'https:') return '';
-                            x.hash = '';
-                            var s = x.toString();
-                            return s.endsWith('/') ? s.slice(0, -1) : s;
-                        } catch (e) {
-                            return '';
-                        }
-                    }
-
-                    // Resolve search-engine redirect links before comparing hosts.
-                    // Google result anchors often point to google.com/url, so comparing
-                    // their host first incorrectly treats them as links to the search page.
-                    function unwrapRedirect(u) {
-                        try {
-                            var x = new URL(u, location.href);
-                            var h = normalizeHost(x.hostname);
-                            var path = x.pathname.toLowerCase();
-                            var isGoogle = h === 'google.com' || h.endsWith('.google.com') || /^google\.[a-z.]+$/.test(h);
-                            var isBing = h === 'bing.com' || h.endsWith('.bing.com');
-                            var isDuckDuckGo = h === 'duckduckgo.com' || h.endsWith('.duckduckgo.com');
-                            var target = null;
-
-                            if (isGoogle && path === '/url') {
-                                target = x.searchParams.get('q') || x.searchParams.get('url') ||
-                                         x.searchParams.get('u') || x.searchParams.get('adurl');
-                            } else if (isBing && (path === '/ck/a' || path === '/aclick')) {
-                                target = x.searchParams.get('u') || x.searchParams.get('url');
-                                if (target && target.charAt(0) === 'a') {
-                                    try { target = atob(target.substring(1).replace(/-/g, '+').replace(/_/g, '/')); } catch (e) {}
-                                }
-                            } else if (isDuckDuckGo && path === '/l/') {
-                                target = x.searchParams.get('uddg');
-                            }
-                            return target ? new URL(target, location.href).href : u;
-                        } catch (e) { return u; }
-                    }
-
-                    function isVisited(u) {
-                        var unwrapped = unwrapRedirect(u);
-                        var n = normalize(unwrapped);
-                        if (!n) return false;
-
-                        try {
-                            var host = normalizeHost(new URL(unwrapped, location.href).hostname);
-                            if (host) {
-                                // تطابق النطاق نفسه، وكذلك النطاقات الفرعية للموقع.
-                                if (visitedHosts[host]) return true;
-                                var keys = Object.keys(visitedHosts);
-                                for (var i = 0; i < keys.length; i++) {
-                                    var visitedHost = normalizeHost(keys[i]);
-                                    if (visitedHost &&
-                                        (host === visitedHost ||
-                                         host.endsWith('.' + visitedHost) ||
-                                         visitedHost.endsWith('.' + host))) {
-                                        return true;
-                                    }
-                                }
-                            }
-                        } catch (e) {}
-
-                        if (visitedUrls[n]) return true;
-                        var alt = n.endsWith('/') ? n.slice(0, -1) : n + '/';
-                        return !!visitedUrls[alt];
-                    }
-
-                    function paintVisited(element) {
-                        // أخضر داكن ثابت للروابط التي سبق فتحها، عبر جميع أنواع نتائج البحث.
-                        var visitedColor = '#006400';
-                        element.style.setProperty('color', visitedColor, 'important');
-                        element.querySelectorAll('*').forEach(function(child) {
-                            child.style.setProperty('color', visitedColor, 'important');
-                        });
-                    }
-
-                    function styleResults() {
-                        var links = document.querySelectorAll('a[href]');
-                        for (var i = 0; i < links.length; i++) {
-                            var a = links[i];
-                            var href = a.href || a.getAttribute('href') || '';
-                            if (!/^https?:/i.test(href)) continue;
-
-                            var destination = unwrapRedirect(href);
-                            var linkUrl;
-                            try { linkUrl = new URL(destination, location.href); } catch (e) { continue; }
-
-                            var currentHost = normalizeHost(location.hostname);
-                            var resultHost = normalizeHost(linkUrl.hostname);
-                            if (!resultHost || resultHost === currentHost) continue;
-
-                            if (!String(a.innerText || a.textContent || '').trim()) continue;
-
-                            if (isVisited(destination) || isVisited(href)) {
-                                paintVisited(a);
-                            }
-                            // غير المزور: لا نضع أي لون من التطبيق، حتى يبقى
-                            // اللون الأصلي الذي اختاره محرك البحث.
-                        }
-                    }
-
-                    function scheduleStyle() {
-                        if (window.__downls10VisitedColorTimer) {
-                            clearTimeout(window.__downls10VisitedColorTimer);
-                        }
-                        window.__downls10VisitedColorTimer = setTimeout(function() {
-                            window.__downls10VisitedColorTimer = null;
-                            styleResults();
-                        }, 80);
-                    }
-
-                    styleResults();
-
-                    // محركات البحث الحديثة تغيّر class/style للنتائج بعد تحميلها.
-                    // نراقب إضافة النتائج وتغييرات style/class حتى لا يعود الرابط المزور
-                    // إلى اللون الأصلي بعد أن نلوّنه.
-                    if (!window.__downls10VisitedColorObserver) {
-                        window.__downls10VisitedColorObserver = new MutationObserver(function() {
-                            scheduleStyle();
-                        });
-
-                        window.__downls10VisitedColorObserver.observe(document.documentElement, {
-                            childList: true,
-                            attributes: true,
-                            attributeFilter: ['class', 'style'],
-                            subtree: true
-                        });
-
-                        window.addEventListener('pageshow', styleResults);
-
-                        // عدة محاولات قصيرة لأن بعض محركات البحث ترسم النتائج على مراحل.
-                        [150, 400, 800, 1500, 3000].forEach(function(delay) {
-                            setTimeout(styleResults, delay);
-                        });
-                    }
-                } catch (e) {}
-            })($quotedUrlsJson, $quotedHostsJson);
-        """
-        webView.evaluateJavascript(js, null)
+        // Intentionally empty: preserve the website/WebView default link colors.
     }
 
     private fun recordVisitedNavigation(url: String?) {
