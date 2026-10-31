@@ -1137,6 +1137,7 @@ class BrowserActivity : Activity() {
                     applyNightModeJs(view)
                     applySearxngNightModeJs(view)
                 }
+                if (isGoogleSearchResultsPage(url)) hideGoogleResultMenuButtons(view)
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
@@ -1148,6 +1149,12 @@ class BrowserActivity : Activity() {
                 if (restoringPreviousPosition < 0 && tabRestoring?.historyNavigationPending != true &&
                     ensureGoogleSearchPageSize(view)) return
                 if (isGoogleSearchResultsPage(url)) {
+                    hideGoogleResultMenuButtons(view)
+                    mainHandler.postDelayed({
+                        if (!isFinishing && !isDestroyed && isGoogleSearchResultsPage(view.url)) {
+                            hideGoogleResultMenuButtons(view)
+                        }
+                    }, 1000L)
                     injectGooglePaginationJs(view)
                     mainHandler.postDelayed({
                         if (!isFinishing && !isDestroyed && isGoogleSearchResultsPage(view.url)) {
@@ -1483,6 +1490,24 @@ class BrowserActivity : Activity() {
                         window.__downls10GoogleDarkTimer = null;
                     }
                 } catch (e) {}
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
+    }
+
+    // إخفاء زر النقاط الثلاث الخاص بكل نتيجة في صفحات بحث Google فقط.
+    private fun hideGoogleResultMenuButtons(webView: WebView) {
+        val js = """
+            (function() {
+              try {
+                var id = '__vinus_hide_google_result_menu__';
+                if (!document.getElementById(id)) {
+                  var style = document.createElement('style');
+                  style.id = id;
+                  style.textContent = '[aria-label*="About this result" i],[aria-label*="حول هذه النتيجة"],[data-tooltip*="About this result" i],button[aria-label*="More options" i],[role="button"][aria-label*="More options" i]{display:none !important;}';
+                  (document.head || document.documentElement).appendChild(style);
+                }
+              } catch (e) {}
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
