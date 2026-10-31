@@ -1086,7 +1086,16 @@ class BrowserActivity : Activity() {
 
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                tabs.find { it.webView == view }?.pageLoading = true
+                val navigatingTab = tabs.find { it.webView == view }
+                // احفظ موضع صفحة نتائج البحث قبل أن يبدأ الانتقال إلى الموقع،
+                // لأن مستمع التمرير يتوقف أثناء تحميل الصفحة الجديدة.
+                navigatingTab?.let { tab ->
+                    val previousUrl = view.url
+                    if (previousUrl != null && !tab.pageLoading && tab.pendingRestoreY < 0) {
+                        rememberScroll(tab, previousUrl, view.scrollY)
+                    }
+                    tab.pageLoading = true
+                }
                 // سجّل الموقع فور بدء فتحه، لا تنتظر onPageFinished.
                 recordVisitedNavigation(url)
                 // نحفظ الحالة فور بدء التنقل أيضًا حتى لا نفقد آخر خطوة إذا أُغلق التطبيق
