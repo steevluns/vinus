@@ -1116,7 +1116,10 @@ class BrowserActivity : Activity() {
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
-                if (ensureGoogleSearchPageSize(view)) return
+                // عند الرجوع إلى نتائج البحث لا نعيد توجيه Google لإضافة num=20؛
+                // لأن تغيير الرابط أثناء الاستعادة يغيّر سجل WebView ويعيد التمرير إلى البداية.
+                val restoringPreviousPosition = tabs.find { it.webView == view }?.pendingRestoreY ?: -1
+                if (restoringPreviousPosition < 0 && ensureGoogleSearchPageSize(view)) return
                 if (isGoogleSearchResultsPage(url)) {
                     injectGooglePaginationJs(view)
                     mainHandler.postDelayed({
