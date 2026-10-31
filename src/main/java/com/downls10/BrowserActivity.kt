@@ -2744,27 +2744,47 @@ class BrowserActivity : Activity() {
      * قديم كي يعرض WebView ألوان كل موقع وروابطه الافتراضية.
      */
     private fun applyNightModeJs(webView: WebView) {
-        // يطبق وضعًا داكنًا ثابتًا على نتائج البحث والمواقع، مع إبقاء الوسائط والصور بألوانها الأصلية.
-        // لا نوقف التطبيق إذا كان الموقع داكنًا أصلًا؛ بعض الصفحات تستخدم خلفيات فاتحة داخل أجزاء منها.
+        // اكتشف أولاً إن كانت الصفحة داكنة أصلًا؛ لا نغيّر ألوانها في هذه الحالة.
+        // للصفحات الفاتحة، نحول الخلفيات البيضاء المتداخلة إلى شفافة فوق خلفية سوداء
+        // ونفرض لونًا فاتحًا واضحًا للنصوص، مع إبقاء الصور والفيديوهات بألوانها الأصلية.
         val js = """
             (function(){
               try {
                 var id='__downls10_night_mode__';
                 var root=document.documentElement;
                 if(!root) return;
+                function rgb(c){
+                  var m=(c||'').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);
+                  return m ? [ +m[1], +m[2], +m[3] ] : null;
+                }
+                function lum(c){
+                  var v=rgb(c); if(!v) return null;
+                  return (v[0]*299+v[1]*587+v[2]*114)/1000;
+                }
+                var body=document.body;
+                var htmlBg=getComputedStyle(root).backgroundColor;
+                var bodyBg=body ? getComputedStyle(body).backgroundColor : '';
+                var sample=lum(bodyBg);
+                if(sample===null || bodyBg==='rgba(0, 0, 0, 0)') sample=lum(htmlBg);
+                if(sample===null) sample=255;
                 var st=document.getElementById(id);
+                // الموقع الداكن أصلًا يبقى بألوانه الأصلية، ونزيل أي حقن سابق.
+                if(sample < 95){
+                  if(st) st.remove();
+                  window.__downls10NightDark=false;
+                  return;
+                }
                 if(!st){ st=document.createElement('style'); st.id=id; (document.head||root).appendChild(st); }
                 st.textContent =
-                  'html{background:#121212!important;color-scheme:dark!important}'+
-                  'body{background-color:#121212!important;color:#e8e8e8!important}'+
-                  'body p,body span,body li,body label,body td,body th,body h1,body h2,body h3,body h4,body h5,body h6,body dt,body dd,body blockquote,body figcaption{color:#e8e8e8!important}'+
-                  'a,a:visited{color:#9fc5ff!important}'+
-                  'input,textarea,select,button,[role="button"]{background-color:#252525!important;color:#eeeeee!important;border-color:#555!important}'+
-                  'input::placeholder,textarea::placeholder{color:#bdbdbd!important}'+
+                  'html,body{background:#000!important;background-color:#000!important;color:#f2f2f2!important;color-scheme:dark!important}'+
+                  'body *:not(img):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(picture):not(source){background-color:transparent!important;color:#f0f0f0!important;border-color:#444!important;text-shadow:none!important;box-shadow:none!important}'+
+                  'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
+                  'input,textarea,select,button,[role="button"]{background:#222!important;background-color:#222!important;color:#f5f5f5!important;-webkit-text-fill-color:#f5f5f5!important;border:1px solid #555!important}'+
+                  'input::placeholder,textarea::placeholder{color:#c7c7c7!important;-webkit-text-fill-color:#c7c7c7!important}'+
                   'table,th,td,hr,fieldset{border-color:#444!important}'+
-                  'img, picture, video, canvas, svg, iframe, object, embed{filter:none!important}'+
+                  'img,picture,video,canvas,svg,iframe,object,embed{filter:none!important}'+
                   'img,video,canvas,svg,iframe,object,embed{background-color:transparent!important}'+
-                  'pre,code,kbd,samp{background-color:#1c1c1c!important;color:#e8e8e8!important}';
+                  'pre,code,kbd,samp{background:#171717!important;background-color:#171717!important;color:#f0f0f0!important;-webkit-text-fill-color:#f0f0f0!important}';
                 window.__downls10NightDark=true;
               } catch(e) {}
             })();
