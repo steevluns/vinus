@@ -1638,7 +1638,7 @@ class BrowserActivity : Activity() {
                     var paleGreen = "#8FBC8F";
 
                     function normalizeHost(host) {
-                        return String(host || "").toLowerCase().replace(/^www\\./, "").replace(/\\.$/, "");
+                        return String(host || "").toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
                     }
 
                     function isVisitedLink(anchor) {
