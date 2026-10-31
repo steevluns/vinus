@@ -1043,15 +1043,9 @@ class BrowserActivity : Activity() {
                         return false
                     }
                 }
-                if (request.isForMainFrame && mightBeDownloadUrl(url)) {
-                    confirmDownload(
-                        url,
-                        suggestedFileName = null,
-                        userAgent = view.settings.userAgentString,
-                        referer = view.url
-                    )
-                    return true
-                }
+                // لا تعترض روابط صفحات الويب لمجرد احتوائها على كلمة download أو
+                // امتداد/مسار ملتبس؛ اترك التنقل الطبيعي يعمل. التنزيلات الحقيقية
+                // تظل تمر عبر setDownloadListener وتعرض نافذة اسم الملف والحجم والامتداد.
                 if (request.isForMainFrame) {
                     val known = DownloadsRepository.downloadList.find { it.url == url }
                     if (known != null) {
