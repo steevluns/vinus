@@ -547,7 +547,25 @@ class BrowserActivity : Activity() {
         }
 
         cancelScrollRestore(tab)
-        val savedY = targetUrl?.let { tab.scrollPositions[it] } ?: 0
+        // ابحث أولًا عن الرابط المطابق تمامًا، ثم استخدم عنوانًا مكافئًا إذا غيّر
+        // محرك البحث معاملات مثل num أو tracking أثناء فتح النتيجة.
+        val savedY = targetUrl?.let { target ->
+            tab.scrollPositions[target] ?: run {
+                val targetUri = runCatching { Uri.parse(target) }.getOrNull()
+                val targetHost = targetUri?.host?.lowercase(Locale.US)
+                val targetPath = targetUri?.path.orEmpty().trimEnd('/')
+                val targetQuery = targetUri?.getQueryParameter("q")
+                tab.scrollPositions.entries.lastOrNull { (savedUrl, _) ->
+                    val savedUri = runCatching { Uri.parse(savedUrl) }.getOrNull()
+                    val savedHost = savedUri?.host?.lowercase(Locale.US)
+                    val savedPath = savedUri?.path.orEmpty().trimEnd('/')
+                    val samePage = savedHost == targetHost && savedPath == targetPath
+                    val sameSearch = targetQuery != null &&
+                        savedUri?.getQueryParameter("q") == targetQuery
+                    samePage && (sameSearch || targetQuery == null)
+                }?.value
+            }
+        } ?: 0
 
         // عند الرجوع نفضّل النسخة المخزّنة مؤقتًا لتظهر نفس نتائج البحث التي رآها المستخدم
         wv.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
