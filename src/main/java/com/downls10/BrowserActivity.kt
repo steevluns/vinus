@@ -1495,17 +1495,48 @@ class BrowserActivity : Activity() {
         webView.evaluateJavascript(js, null)
     }
 
-    // إخفاء زر النقاط الثلاث الخاص بكل نتيجة في صفحات بحث Google فقط.
+    // حذف عنصر قائمة النقاط الثلاث من DOM في نتائج بحث Google، وليس إخفاءه بـ CSS.
     private fun hideGoogleResultMenuButtons(webView: WebView) {
         val js = """
             (function() {
               try {
-                var id = '__vinus_hide_google_result_menu__';
-                if (!document.getElementById(id)) {
-                  var style = document.createElement('style');
-                  style.id = id;
-                  style.textContent = '[aria-label*="About this result" i],[aria-label*="حول هذه النتيجة"],[data-tooltip*="About this result" i],button[aria-label*="More options" i],[role="button"][aria-label*="More options" i]{display:none !important;}';
-                  (document.head || document.documentElement).appendChild(style);
+                var selectors = [
+                  '[aria-label="About this result"]',
+                  '[aria-label="حول هذه النتيجة"]',
+                  '[data-tooltip="About this result"]',
+                  '[aria-label*="About this result" i]',
+                  '[aria-label*="حول هذه النتيجة"]'
+                ];
+                function removeResultMenus(root) {
+                  (root || document).querySelectorAll(selectors.join(',')).forEach(function(node) {
+                    // احذف زر القائمة نفسه، مع تجنب حذف بطاقة نتيجة البحث كاملة.
+                    var button = node.closest('button,[role="button"]') || node;
+                    if (button && button !== document.body && button !== document.documentElement) {
+                      button.remove();
+                    }
+                  });
+                }
+                removeResultMenus(document);
+                if (!window.__vinusGoogleResultMenuObserver) {
+                  window.__vinusGoogleResultMenuObserver = new MutationObserver(function(records) {
+                    records.forEach(function(record) {
+                      record.addedNodes.forEach(function(node) {
+                        if (node.nodeType === 1) {
+                          if (node.matches && selectors.some(function(sel) {
+                            try { return node.matches(sel); } catch(e) { return false; }
+                          })) {
+                            var button = node.closest('button,[role="button"]') || node;
+                            if (button !== document.body && button !== document.documentElement) button.remove();
+                          }
+                          removeResultMenus(node);
+                        }
+                      });
+                    });
+                  });
+                  window.__vinusGoogleResultMenuObserver.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true
+                  });
                 }
               } catch (e) {}
             })();
