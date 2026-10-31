@@ -2846,8 +2846,11 @@ class BrowserActivity : Activity() {
                 try {
                     window.__downls10NightOff = false;
                     var ID = '__downls10_night_mode__';
+                    // اقلب ألوان الصفحة فقط للوضع الليلي، ثم اعكس الفلتر على الوسائط
+                    // حتى تبقى ألوان الصور والفيديوهات والرسومات كما هي.
                     var CSS_ON = 'html{filter:invert(1) hue-rotate(180deg) !important;background:#fff !important;}' +
-                        'img,video,iframe,picture,svg,canvas,[style*="background-image"]{filter:invert(1) hue-rotate(180deg) !important;}';
+                        'img,video,iframe,picture,svg,canvas,[style*="background-image"],[role="img"]{filter:invert(1) hue-rotate(180deg) !important;}' +
+                        'video::-webkit-media-controls,video::-webkit-media-controls-panel{filter:none !important;}';
 
                     function styleEl() {
                         var s = document.getElementById(ID);
