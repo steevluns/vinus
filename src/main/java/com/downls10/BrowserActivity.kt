@@ -1649,7 +1649,7 @@ class BrowserActivity : Activity() {
                 if(!document.getElementById(key)){
                   var style=document.createElement('style');
                   style.id=key;
-                  style.textContent='a.__downls10_visited_link__,a.__downls10_visited_link__ *{color:#8FBC8F!important;-webkit-text-fill-color:#8FBC8F!important}';
+                  style.textContent='a.__downls10_visited_link__,a.__downls10_visited_link__ *{color:#A8CFA8!important;-webkit-text-fill-color:#A8CFA8!important}';
                   (document.head||document.documentElement).appendChild(style);
                 }
                 var visitedHosts=JSON.parse(\${JSONObject.quote(visitedHostsJson)});
