@@ -1643,7 +1643,7 @@ class BrowserActivity : Activity() {
                 try {
                     var visitedUrls = JSON.parse(visitedUrlsRaw || '{}');
                     var visitedHosts = JSON.parse(visitedHostsRaw || '{}');
-                    var PURPLE = '#c58af9';
+                    // لا نفرض لونًا على الروابط التي زارها المستخدم؛ اترك لون الموقع الأصلي.
 
                     function normalizeHost(host) {
                         return String(host || '')
@@ -1721,10 +1721,7 @@ class BrowserActivity : Activity() {
                     }
 
                     function paintVisited(element) {
-                        element.style.setProperty('color', PURPLE, 'important');
-                        element.querySelectorAll('*').forEach(function(child) {
-                            child.style.setProperty('color', PURPLE, 'important');
-                        });
+                        // تعطيل تلوين الروابط المزارة بالبنفسجي، مع الحفاظ على تنسيق الموقع.
                     }
 
                     function styleResults() {
@@ -2928,7 +2925,6 @@ class BrowserActivity : Activity() {
                                 'hr,[role="separator"],.MjjYud,.g,.tF2Cxc,.Gx5Zad,.xpd,.MjjYud>div{border-color:#777!important;}' +
                                 'a h3,a h2,h3,h2,[role="heading"]{color:#fff!important;}' +
                                 'cite,.VuuXrf,.qLRx3b,.tjvcx,.MUxGbd,.LEwnzc,.s3v9rd,.VwiC3b,.IsZvec,.yDYNvb,.lyLwlc{color:#c5c5c5!important;}' +
-                                'a:visited h3,a:visited h2{color:#c58af9!important;}' +
                                 'input,textarea,button{color:#f1f1f1!important;border-color:#777!important;}';
                             var ss = styleEl();
                             if (ss.textContent !== searchCss) ss.textContent = searchCss;
