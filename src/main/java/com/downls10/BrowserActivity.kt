@@ -1627,7 +1627,71 @@ class BrowserActivity : Activity() {
      * نترك WebView والموقع نفسه يحددان ألوان الروابط الافتراضية.
      */
     private fun applyVisitedSearchResultColors(webView: WebView) {
-        // Intentionally empty: preserve the website/WebView default link colors.
+        // اجعل روابط المواقع التي سبق للمستخدم زيارتها خضراء باهتة،
+        // واترك روابط المواقع غير المزارة بألوان محرك البحث الافتراضية.
+        val visitedHostsJson = VisitedSites.asJsonForInjection(this)
+        val js = """
+            (function() {
+                try {
+                    var visitedHosts = ${JSONObject.quote(visitedHostsJson)};
+                    visitedHosts = JSON.parse(visitedHosts);
+                    var paleGreen = "#8FBC8F";
+
+                    function normalizeHost(host) {
+                        return String(host || "").toLowerCase().replace(/^www\\./, "").replace(/\\.$/, "");
+                    }
+
+                    function isVisitedLink(anchor) {
+                        try {
+                            var url = new URL(anchor.href, location.href);
+                            if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+                            var host = normalizeHost(url.hostname);
+                            if (visitedHosts[host]) return true;
+
+                            // اعتبر النطاقات الفرعية تابعة للموقع الذي سبق زيارته.
+                            return Object.keys(visitedHosts).some(function(visitedHost) {
+                                return host === visitedHost || host.endsWith("." + visitedHost);
+                            });
+                        } catch (e) {
+                            return false;
+                        }
+                    }
+
+                    function paintVisitedLinks(root) {
+                        var links = [];
+                        if (root && root.matches && root.matches("a[href]")) links.push(root);
+                        if (root && root.querySelectorAll) {
+                            links = links.concat(Array.prototype.slice.call(root.querySelectorAll("a[href]")));
+                        }
+                        links.forEach(function(a) {
+                            if (isVisitedLink(a)) {
+                                a.style.setProperty("color", paleGreen, "important");
+                            } else {
+                                // لا نغيّر لون الروابط غير المزارة؛ يبقى لون الموقع الافتراضي.
+                                a.style.removeProperty("color");
+                            }
+                        });
+                    }
+
+                    paintVisitedLinks(document);
+                    if (window.__downls10_visited_links_observer__) {
+                        window.__downls10_visited_links_observer__.disconnect();
+                    }
+                    window.__downls10_visited_links_observer__ = new MutationObserver(function(records) {
+                        records.forEach(function(record) {
+                            record.addedNodes.forEach(function(node) {
+                                if (node.nodeType === 1) paintVisitedLinks(node);
+                            });
+                        });
+                    });
+                    window.__downls10_visited_links_observer__.observe(document.documentElement, {
+                        childList: true,
+                        subtree: true
+                    });
+                } catch (e) {}
+            })();
+        """.replace("${JSONObject.quote(visitedHostsJson)}", JSONObject.quote(visitedHostsJson))
+        webView.evaluateJavascript(js, null)
     }
 
     private fun recordVisitedNavigation(url: String?) {
