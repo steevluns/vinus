@@ -1427,51 +1427,33 @@ class BrowserActivity : Activity() {
      * يفرض الألوان الداكنة على نتائج بحث Google فقط.
      * لا يغيّر SearXNG أو بحث الفيديو أو الوضع الليلي داخل المواقع.
      */
+    /**
+     * لا يفرض المتصفح ألوانًا مخصصة على نتائج البحث؛ ينظّف فقط أي نمط قديم
+     * كان قد أُضيف سابقًا، لتبقى ألوان الموقع وWebView الافتراضية.
+     */
     private fun applySearxngNightModeJs(webView: WebView) {
-        if (!nightMode || !isGoogleSearchResultsPage(webView.url)) return
         val js = """
             (function() {
-              try {
-                if (!(location.hostname.toLowerCase() === 'google.com' ||
-                      location.hostname.toLowerCase().startsWith('google.') ||
-                      location.hostname.toLowerCase().endsWith('.google.com') ||
-                      location.hostname.toLowerCase().endsWith('.googleusercontent.com'))) return;
-                var id = '__downls10_google_search_dark__';
-                var css = [
-                  'html,html body,body{background:#000!important;background-color:#000!important;color:#fff!important;color-scheme:dark!important;}',
-                  'body,body div,body section,body main,body article,body aside,body header,body footer,body nav,body form,body fieldset,body table,body tr,body td,body th,body ul,body ol,body li,body p,body span,body small,body label,body time,body cite,body em,body strong,body b,body h1,body h2,body h3,body h4,body h5,body h6,body [class],body [id]{color:#fff!important;background-color:#000!important;border-color:#444!important;}',
-                  'a,a:visited,a *,a:visited *,h1 a,h2 a,h3 a,h4 a,[role="link"]{color:#fff!important;}',
-                  'input,textarea,select,button,[role="button"],[role="combobox"]{background:#111!important;background-color:#111!important;color:#fff!important;border-color:#666!important;caret-color:#fff!important;}',
-                  'input::placeholder,textarea::placeholder{color:#ccc!important;opacity:1!important;}',
-                  '#searchform,#tsf,#APjFqb,#gb,#hdtb,#hdtbMenus,#appbar,#rso,#search,#center_col,#res,#main,#content,main,.main-content,.search-results,.search-results-container,.results-container,.results-list{background:#000!important;background-color:#000!important;color:#fff!important;}',
-                  '.MjjYud,.g,.tF2Cxc,.Gx5Zad,.xpd,.SoaBEf{background:#000!important;background-color:#000!important;color:#fff!important;border-color:#444!important;box-shadow:none!important;}',
-                  '#rso h3,#search h3,#rso .LC20lb,#rso .DKV0Md,#rso .VwiC3b,#rso .IsZvec,#rso cite,#rso .qLRx3b{color:#fff!important;}',
-                  'hr,[role="separator"],body *{border-color:#444!important;scrollbar-color:#555 #000!important;}',
-                  'img,video,svg,canvas,iframe{filter:none!important;}',
-                  '::placeholder{color:#ccc!important;}::selection{background:#444!important;color:#fff!important;}',
-                  '::-webkit-scrollbar{width:8px;height:8px;background:#000!important;}::-webkit-scrollbar-thumb{background:#555!important;border-radius:4px;}::-webkit-scrollbar-track{background:#000!important;}'
-                ].join('');
-                function apply() {
-                  if (!location.hostname.toLowerCase().includes('google.')) return;
-                  var style = document.getElementById(id);
-                  if (!style) { style = document.createElement('style'); style.id = id; (document.head || document.documentElement).appendChild(style); }
-                  if (style.textContent !== css) style.textContent = css;
-                  document.documentElement.style.setProperty('background-color', '#000', 'important');
-                  document.documentElement.style.setProperty('color-scheme', 'dark', 'important');
-                  if (document.body) {
-                    document.body.style.setProperty('background-color', '#000', 'important');
-                    document.body.style.setProperty('color', '#fff', 'important');
-                  }
-                }
-                apply();
-                if (!window.__downls10GoogleDarkObserver && document.documentElement) {
-                  window.__downls10GoogleDarkObserver = new MutationObserver(function(){ apply(); });
-                  window.__downls10GoogleDarkObserver.observe(document.documentElement, {childList:true,subtree:true,attributes:true,attributeFilter:['class','style','data-theme']});
-                }
-                if (!window.__downls10GoogleDarkTimer) {
-                  window.__downls10GoogleDarkTimer = setInterval(apply, 900);
-                }
-              } catch(e) {}
+                try {
+                    var style = document.getElementById('__downls10_google_search_dark__');
+                    if (style) style.remove();
+                    if (document.documentElement) {
+                        document.documentElement.style.removeProperty('background-color');
+                        document.documentElement.style.removeProperty('color-scheme');
+                    }
+                    if (document.body) {
+                        document.body.style.removeProperty('background-color');
+                        document.body.style.removeProperty('color');
+                    }
+                    if (window.__downls10GoogleDarkObserver) {
+                        window.__downls10GoogleDarkObserver.disconnect();
+                        window.__downls10GoogleDarkObserver = null;
+                    }
+                    if (window.__downls10GoogleDarkTimer) {
+                        clearInterval(window.__downls10GoogleDarkTimer);
+                        window.__downls10GoogleDarkTimer = null;
+                    }
+                } catch (e) {}
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
@@ -2689,144 +2671,52 @@ class BrowserActivity : Activity() {
      * يطبّق الوضع الليلي على الصفحة. آمن للاستدعاء المتكرر (يُستدعى عند بدء الصفحة، وظهورها، وتقدّم التحميل، واكتمالها).
      * الصفحة الفاتحة تُقلب إلى أسود، والصفحة الداكنة أصلاً تبقى كما هي (يُفحص لون الخلفية الفعلي في عدة نقاط من الشاشة).
      */
+    /**
+     * لا يغيّر المتصفح ألوان صفحات الويب أو نتائج البحث؛ يزيل أي تأثير ليلي
+     * قديم كي يعرض WebView ألوان كل موقع وروابطه الافتراضية.
+     */
     private fun applyNightModeJs(webView: WebView) {
-        lastNightInject = System.currentTimeMillis()
-        val host = try { Uri.parse(webView.url ?: "").host } catch (e: Exception) { null }
-        val hostDark = when (nightHostState(host)) {
-            true -> "true"
-            false -> "false"
-            null -> "null"
-        }
         val js = """
-            (function(hostDark) {
+            (function() {
                 try {
-                    window.__downls10NightOff = false;
-                    var ID = '__downls10_night_mode__';
-                    // اقلب ألوان الصفحة فقط للوضع الليلي، ثم اعكس الفلتر على الوسائط
-                    // حتى تبقى ألوان الصور والفيديوهات والرسومات كما هي.
-                    var CSS_ON = 'html{filter:invert(1) hue-rotate(180deg) !important;background:#fff !important;}' +
-                        'img,video,iframe,picture,svg,canvas,[style*="background-image"],[role="img"]{filter:invert(1) hue-rotate(180deg) !important;}' +
-                        'video::-webkit-media-controls,video::-webkit-media-controls-panel{filter:none !important;}';
-
-                    function styleEl() {
-                        var s = document.getElementById(ID);
-                        if (!s) {
-                            s = document.createElement('style');
-                            s.id = ID;
-                            (document.head || document.documentElement).appendChild(s);
-                        }
-                        return s;
+                    window.__downls10NightOff = true;
+                    var style = document.getElementById('__downls10_night_mode__');
+                    if (style) style.remove();
+                    var searchStyle = document.getElementById('__downls10_google_search_dark__');
+                    if (searchStyle) searchStyle.remove();
+                    var searxStyle = document.getElementById('__downls10_searx_dark__');
+                    if (searxStyle) searxStyle.remove();
+                    if (document.documentElement) {
+                        document.documentElement.style.removeProperty('filter');
+                        document.documentElement.style.removeProperty('background');
+                        document.documentElement.style.removeProperty('background-color');
+                        document.documentElement.style.removeProperty('color-scheme');
                     }
-                    function setInverted(on) {
-                        var s = styleEl();
-                        var css = on ? CSS_ON : '';
-                        if (s.textContent !== css) s.textContent = css;
-                        window.__downls10NightInverted = on;
+                    if (document.body) {
+                        document.body.style.removeProperty('filter');
+                        document.body.style.removeProperty('background');
+                        document.body.style.removeProperty('background-color');
+                        document.body.style.removeProperty('color');
                     }
-                    function parseColor(str) {
-                        var m = String(str).match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?/);
-                        if (!m) return null;
-                        return { r: +m[1], g: +m[2], b: +m[3], a: (m[4] === undefined ? 1 : parseFloat(m[4])) };
+                    if (window.__downls10NightObserver) {
+                        window.__downls10NightObserver.disconnect();
+                        window.__downls10NightObserver = null;
                     }
-                    // لون الخلفية الفعلي عند نقطة من الشاشة (أول عنصر له خلفية صريحة)
-                    function backgroundAt(x, y) {
-                        var els = document.elementsFromPoint ? document.elementsFromPoint(x, y) : [];
-                        for (var i = 0; i < els.length; i++) {
-                            var cs = getComputedStyle(els[i]);
-                            var c = parseColor(cs.backgroundColor);
-                            if (c && c.a > 0.6) return c;
-                            if (cs.backgroundImage && cs.backgroundImage !== 'none') return null;
-                        }
-                        return 'canvas';
+                    if (window.__downls10NightTimer) {
+                        clearInterval(window.__downls10NightTimer);
+                        window.__downls10NightTimer = null;
                     }
-                    function detectDark() {
-                        if (!document.body) return null;
-                        var w = window.innerWidth, h = window.innerHeight;
-                        if (!w || !h) return null;
-                        var scheme = String(getComputedStyle(document.documentElement).colorScheme || '').trim();
-                        var canvasLum = (scheme === 'dark') ? 0 : 255;
-                        var pts = [0.1, 0.3, 0.5, 0.7, 0.9];
-                        var dark = 0, light = 0;
-                        for (var i = 0; i < pts.length; i++) {
-                            for (var j = 0; j < pts.length; j++) {
-                                var bg = backgroundAt(Math.floor(w * pts[i]), Math.floor(h * pts[j]));
-                                if (bg === null) continue;
-                                var lum = (bg === 'canvas') ? canvasLum : (0.299 * bg.r + 0.587 * bg.g + 0.114 * bg.b);
-                                if (lum < 110) dark++; else light++;
-                            }
-                        }
-                        if (dark + light < 6) return null;
-                        return (dark / (dark + light)) >= 0.55;
+                    if (window.__downls10GoogleDarkObserver) {
+                        window.__downls10GoogleDarkObserver.disconnect();
+                        window.__downls10GoogleDarkObserver = null;
                     }
-                    function run() {
-                        if (window.__downls10NightOff) return;
-
-                        // نتائج البحث فقط: لا نقلب الصفحة بالكامل حتى لا تتأثر صفحات المواقع العادية.
-                        // نرفع تباين النصوص والفواصل الضعيفة مثل الخط أسفل تاريخ النتيجة.
-                        var host = String(location.hostname || '').toLowerCase();
-                        var path = String(location.pathname || '').toLowerCase();
-                        var query = new URLSearchParams(location.search || '');
-                        var searchHost =
-                            host === 'google.com' || /^google\./.test(host) || host.endsWith('.google.com') ||
-                            host === 'bing.com' || host.endsWith('.bing.com') ||
-                            host === 'search.yahoo.com' || host === 'duckduckgo.com' || host.endsWith('.duckduckgo.com') ||
-                            host === 'search.brave.com' || host.endsWith('.yandex.com') || host.endsWith('.yandex.ru') ||
-                            host === 'search.aol.com' || host === 'search.naver.com' ||
-                            host === 'www.ecosia.org' || host === 'search.qwant.com';
-                        var isSearch = searchHost && (
-                            path.indexOf('search') >= 0 || query.has('q') || query.has('query') ||
-                            query.has('p') || query.has('text')
-                        );
-                        if (isSearch) {
-                            var searchCss =
-                                'html,body{background:#000!important;color:#f1f1f1!important;color-scheme:dark!important;}' +
-                                'body *{border-color:#666!important;}' +
-                                'hr,[role="separator"],.MjjYud,.g,.tF2Cxc,.Gx5Zad,.xpd,.MjjYud>div{border-color:#777!important;}' +
-                                'a h3,a h2,h3,h2,[role="heading"]{color:#fff!important;}' +
-                                'cite,.VuuXrf,.qLRx3b,.tjvcx,.MUxGbd,.LEwnzc,.s3v9rd,.VwiC3b,.IsZvec,.yDYNvb,.lyLwlc{color:#c5c5c5!important;}' +
-                                'input,textarea,button{color:#f1f1f1!important;border-color:#777!important;}';
-                            var ss = styleEl();
-                            if (ss.textContent !== searchCss) ss.textContent = searchCss;
-                            window.__downls10NightInverted = false;
-                            window.__downls10NightDark = true;
-                            return;
-                        }
-
-                        // افحص الخلفية الفعلية: إذا كانت الصفحة داكنة أصلًا، اتركها كما هي.
-                        // إذا كانت فاتحة أو تعذّر تحديد لونها، فعّل قلب الألوان للوضع الليلي.
-                        var detectedDark = detectDark();
-                        if (detectedDark === true) {
-                            window.__downls10NightDark = true;
-                            setInverted(false);
-                        } else {
-                            window.__downls10NightDark = false;
-                            setInverted(true);
-                        }
+                    if (window.__downls10GoogleDarkTimer) {
+                        clearInterval(window.__downls10GoogleDarkTimer);
+                        window.__downls10GoogleDarkTimer = null;
                     }
-                    run();
-
-                    if (!window.__downls10NightHooked) {
-                        window.__downls10NightHooked = true;
-                        var timer = null;
-                        var later = function() { clearTimeout(timer); timer = setTimeout(run, 250); };
-                        document.addEventListener('DOMContentLoaded', run);
-                        window.addEventListener('load', function() { run(); setTimeout(run, 800); setTimeout(run, 2000); });
-                        setTimeout(run, 300);
-                        setTimeout(run, 1000);
-                        // إذا بدّل الموقع نفسه بين فاتح وداكن نعيد الحكم
-                        var opts = { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-bs-theme'] };
-                        if (document.documentElement) new MutationObserver(later).observe(document.documentElement, opts);
-                        var bodyWatch = setInterval(function() {
-                            if (document.body) {
-                                new MutationObserver(later).observe(document.body, opts);
-                                clearInterval(bodyWatch);
-                            }
-                        }, 200);
-                        setTimeout(function() { clearInterval(bodyWatch); }, 5000);
-                    }
-                } catch (e) { }
-            })($hostDark);
-        """
+                } catch (e) {}
+            })();
+        """.trimIndent()
         webView.evaluateJavascript(js, null)
     }
 
