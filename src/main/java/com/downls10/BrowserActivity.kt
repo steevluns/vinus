@@ -79,7 +79,9 @@ private data class Tab(
     /** الموضع المطلوب استعادته الآن، أو -1 إذا لا توجد استعادة جارية */
     var pendingRestoreY: Int = -1,
     /** رقم يزيد عند بدء/إلغاء كل استعادة لإيقاف المحاولات القديمة */
-    var restoreGeneration: Int = 0
+    var restoreGeneration: Int = 0,
+    /** يمنع تعديل رابط نتائج البحث أثناء الرجوع، حتى لو كان موضع التمرير صفرًا */
+    var historyNavigationPending: Boolean = false
 )
 
 class BrowserActivity : Activity() {
@@ -556,23 +558,29 @@ class BrowserActivity : Activity() {
                 val targetHost = targetUri?.host?.lowercase(Locale.US)
                 val targetPath = targetUri?.path.orEmpty().trimEnd('/')
                 val targetQuery = targetUri?.getQueryParameter("q")
+                // تطابق مرن لعنوان البحث إذا أضاف Google معاملات num/start أو معاملات تتبّع.
                 tab.scrollPositions.entries.lastOrNull { (savedUrl, _) ->
                     val savedUri = runCatching { Uri.parse(savedUrl) }.getOrNull()
                     val savedHost = savedUri?.host?.lowercase(Locale.US)
                     val savedPath = savedUri?.path.orEmpty().trimEnd('/')
+                    val savedQuery = savedUri?.getQueryParameter("q")
+                    val isSearchHost = savedHost?.let {
+                        it == "google.com" || it.startsWith("google.") || it.endsWith(".google.com")
+                    } == true
+                    val sameSearch = targetQuery != null && savedQuery == targetQuery
                     val samePage = savedHost == targetHost && savedPath == targetPath
-                    val sameSearch = targetQuery != null &&
-                        savedUri?.getQueryParameter("q") == targetQuery
-                    samePage && (sameSearch || targetQuery == null)
+                    (samePage && (sameSearch || targetQuery == null)) || (isSearchHost && sameSearch)
                 }?.value
             }
         } ?: 0
 
-        // عند الرجوع نفضّل النسخة المخزّنة مؤقتًا لتظهر نفس نتائج البحث التي رآها المستخدم
+        // لا نسمح لإعادة ضبط حجم نتائج Google بتغيير عنوان الصفحة أثناء الرجوع.
+        tab.historyNavigationPending = true
         wv.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         wv.goBackOrForward(steps)
 
-        if (savedY > 0) startScrollRestore(tab, targetIndex, savedY)
+        // استعد الموضع حتى لو كان صفرًا، حتى تُغلق حالة الرجوع المعلّقة بصورة صحيحة.
+        startScrollRestore(tab, targetIndex, savedY)
         return true
     }
 
@@ -583,6 +591,7 @@ class BrowserActivity : Activity() {
 
     private fun finishScrollRestore(tab: Tab) {
         tab.pendingRestoreY = -1
+        tab.historyNavigationPending = false
         try { tab.webView.settings.cacheMode = WebSettings.LOAD_DEFAULT } catch (e: Exception) { }
     }
 
@@ -1119,7 +1128,9 @@ class BrowserActivity : Activity() {
                 // عند الرجوع إلى نتائج البحث لا نعيد توجيه Google لإضافة num=20؛
                 // لأن تغيير الرابط أثناء الاستعادة يغيّر سجل WebView ويعيد التمرير إلى البداية.
                 val restoringPreviousPosition = tabs.find { it.webView == view }?.pendingRestoreY ?: -1
-                if (restoringPreviousPosition < 0 && ensureGoogleSearchPageSize(view)) return
+                val tabRestoring = tabs.find { it.webView == view }
+                if (restoringPreviousPosition < 0 && tabRestoring?.historyNavigationPending != true &&
+                    ensureGoogleSearchPageSize(view)) return
                 if (isGoogleSearchResultsPage(url)) {
                     injectGooglePaginationJs(view)
                     mainHandler.postDelayed({
