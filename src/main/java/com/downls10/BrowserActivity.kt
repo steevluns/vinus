@@ -2689,7 +2689,7 @@ class BrowserActivity : Activity() {
                   var rb=rgb(getComputedStyle(document.documentElement).backgroundColor);
                   var bb=rgb(getComputedStyle(document.body).backgroundColor);
                   var meta=document.querySelector('meta[name="color-scheme"]');
-                  var dark=!!(meta&&/dark/i.test(meta.content||''))||(visible(bb)&&lum(bb)<105)||(!visible(bb)&&visible(rb)&&lum(rb)<105);
+                  var dark=!!(meta&&/^\\s*dark\\s*$/i.test(meta.content||''))||(visible(bb)&&lum(bb)<105)||(!visible(bb)&&visible(rb)&&lum(rb)<105);
                   window.__downls10NightDark=dark;
                   var old=document.getElementById(id);if(old)old.remove();if(dark)return;
                   var st=document.createElement('style');st.id=id;
