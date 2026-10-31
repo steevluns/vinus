@@ -2745,12 +2745,15 @@ class BrowserActivity : Activity() {
                 var root=document.documentElement, body=document.body;
                 if(!root||!body) return;
                 function rgb(v){var m=(v||'').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);return m?{r:+m[1],g:+m[2],b:+m[3]}:null;}
-                var rb=rgb(getComputedStyle(root).backgroundColor);
-                var bb=rgb(getComputedStyle(body).backgroundColor);
+                var rootBg=getComputedStyle(root).backgroundColor;
+                var bodyBg=getComputedStyle(body).backgroundColor;
+                var rb=rgb(rootBg), bb=rgb(bodyBg);
+                function opaque(value){return !!value&&value!=='transparent'&&
+                  (!/^rgba/i.test(value)||parseFloat(value.substring(value.lastIndexOf(',')+1))>0.01);}
                 var meta=document.querySelector('meta[name="color-scheme"]');
                 var dark=!!(meta&&/dark/i.test(meta.content||''))||
-                  !!(bb&&bb.r<95&&bb.g<95&&bb.b<95)||
-                  (!bb&&!!(rb&&rb.r<95&&rb.g<95&&rb.b<95));
+                  (opaque(bodyBg)&&!!(bb&&bb.r<95&&bb.g<95&&bb.b<95))||
+                  (!opaque(bodyBg)&&opaque(rootBg)&&!!(rb&&rb.r<95&&rb.g<95&&rb.b<95));
                 window.__downls10NightDark=dark;
                 if(dark)return;
                 var st=document.createElement('style');st.id=id;
