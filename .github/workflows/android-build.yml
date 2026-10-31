@@ -67,3 +67,5 @@ jobs:
 # Manual rebuild requested after restoring default WebView colors (2026-10-31).
 
 # Rebuild requested 2026-10-31 for pale-green visited search links.
+
+# Rebuild requested after scroll-position fix (2026-10-31).
