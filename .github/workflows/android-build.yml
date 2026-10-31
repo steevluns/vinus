@@ -65,3 +65,5 @@ jobs:
 # Trigger a fresh Android build for the latest main branch source.
 # Build requested 2026-10-31 after browser performance improvements.
 # Manual rebuild requested after restoring default WebView colors (2026-10-31).
+
+# Rebuild requested 2026-10-31 for pale-green visited search links.
