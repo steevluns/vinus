@@ -63,4 +63,4 @@ jobs:
           retention-days: 14
 
 # Trigger a fresh Android build for the latest main branch source.
-# Rebuild after the purple visited-links update (2026-10-30).
+# Manual rebuild requested after restoring default WebView colors (2026-10-31).
