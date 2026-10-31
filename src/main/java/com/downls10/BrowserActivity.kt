@@ -81,7 +81,10 @@ private data class Tab(
     /** رقم يزيد عند بدء/إلغاء كل استعادة لإيقاف المحاولات القديمة */
     var restoreGeneration: Int = 0,
     /** يمنع تعديل رابط نتائج البحث أثناء الرجوع، حتى لو كان موضع التمرير صفرًا */
-    var historyNavigationPending: Boolean = false
+    var historyNavigationPending: Boolean = false,
+    /** آخر موضع مؤكد لنتائج البحث، يبقى محفوظًا أثناء فتح المواقع والرجوع منها */
+    var lastSearchResultsUrl: String? = null,
+    var lastSearchResultsY: Int = 0
 )
 
 class BrowserActivity : Activity() {
@@ -574,13 +577,22 @@ class BrowserActivity : Activity() {
             }
         } ?: 0
 
+        // عند الرجوع إلى نتائج البحث، استخدم آخر موضع مرئي محفوظ حتى لو تغيّر
+        // رابط Google أو استبدل WebView عنوانه أثناء فتح النتيجة.
+        val targetSearchQuery = targetUrl?.let { runCatching { Uri.parse(it).getQueryParameter("q") }.getOrNull() }
+        val lastSearchQuery = tab.lastSearchResultsUrl?.let { runCatching { Uri.parse(it).getQueryParameter("q") }.getOrNull() }
+        val restoredY = if (targetUrl != null && isSearchResultsPage(targetUrl) &&
+            targetSearchQuery != null && targetSearchQuery == lastSearchQuery) {
+            tab.lastSearchResultsY
+        } else savedY
+
         // لا نسمح لإعادة ضبط حجم نتائج Google بتغيير عنوان الصفحة أثناء الرجوع.
         tab.historyNavigationPending = true
         wv.settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
         wv.goBackOrForward(steps)
 
         // استعد الموضع حتى لو كان صفرًا، حتى تُغلق حالة الرجوع المعلّقة بصورة صحيحة.
-        startScrollRestore(tab, targetIndex, savedY)
+        startScrollRestore(tab, targetIndex, restoredY)
         return true
     }
 
@@ -1006,6 +1018,10 @@ class BrowserActivity : Activity() {
             if (tab.pageLoading || tab.pendingRestoreY >= 0) return@setOnScrollChangeListener
             val url = wv.url ?: return@setOnScrollChangeListener
             rememberScroll(tab, url, scrollY)
+            if (isSearchResultsPage(url)) {
+                tab.lastSearchResultsUrl = url
+                tab.lastSearchResultsY = scrollY
+            }
         }
 
         // إذا لمس المستخدم الشاشة أثناء الاستعادة نوقفها حتى لا نتحكم بتمريره
