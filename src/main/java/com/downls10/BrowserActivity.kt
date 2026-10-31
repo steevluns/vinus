@@ -1640,59 +1640,21 @@ class BrowserActivity : Activity() {
      * نترك WebView والموقع نفسه يحددان ألوان الروابط الافتراضية.
      */
     private fun applyVisitedSearchResultColors(webView: WebView) {
-        // تلوين الرابط وكل النصوص المتداخلة داخله، بما فيها span التي يلوّنها محرك البحث.
-        val visitedHostsJson = VisitedSites.asJsonForInjection(this)
+        // لا نفرض أي لون مخصص على روابط نتائج البحث؛ اترك ألوان الموقع الافتراضية.
         val js = """
             (function() {
               try {
                 var key='__downls10_visited_links_style__';
-                if(!document.getElementById(key)){
-                  var style=document.createElement('style');
-                  style.id=key;
-                  style.textContent='a.__downls10_visited_link__,a.__downls10_visited_link__ *{color:#A8CFA8!important;-webkit-text-fill-color:#A8CFA8!important}';
-                  (document.head||document.documentElement).appendChild(style);
-                }
-                var visitedHosts=JSON.parse(\${JSONObject.quote(visitedHostsJson)});
-                function normalizeHost(host){
-                  return String(host||'').toLowerCase().replace(/^www\\./,'').replace(/\\.$/,'');
-                }
-                var hostKeys=Object.keys(visitedHosts).map(normalizeHost);
-                function wasVisited(anchor){
-                  try{
-                    var u=new URL(anchor.href,location.href);
-                    if(u.protocol!=='http:'&&u.protocol!=='https:')return false;
-                    var host=normalizeHost(u.hostname);
-                    return hostKeys.some(function(v){return host===v||host.endsWith('.'+v);});
-                  }catch(e){return false;}
-                }
-                function paint(root){
-                  if(!root)return;
-                  var list=[];
-                  if(root.nodeType===1&&root.matches&&root.matches('a[href]'))list.push(root);
-                  if(root.querySelectorAll)list=list.concat(Array.prototype.slice.call(root.querySelectorAll('a[href]')));
-                  list.forEach(function(a){
-                    if(wasVisited(a))a.classList.add('__downls10_visited_link__');
-                    else a.classList.remove('__downls10_visited_link__');
-                  });
-                }
-                paint(document);
-                if(window.__downls10_visited_links_observer__)window.__downls10_visited_links_observer__.disconnect();
-                var queued=false;
-                window.__downls10_visited_links_observer__=new MutationObserver(function(records){
-                  if(queued)return;
-                  queued=true;
-                  requestAnimationFrame(function(){
-                    queued=false;
-                    records.forEach(function(record){
-                      if(record.type==='attributes')paint(record.target);
-                      else record.addedNodes.forEach(function(node){if(node.nodeType===1)paint(node);});
-                    });
-                  });
+                var style=document.getElementById(key);
+                if(style) style.remove();
+                document.querySelectorAll('a.__downls10_visited_link__').forEach(function(a){
+                  a.classList.remove('__downls10_visited_link__');
                 });
-                window.__downls10_visited_links_observer__.observe(document.documentElement,{
-                  childList:true,subtree:true,attributes:true,attributeFilter:['href']
-                });
-              }catch(e){}
+                if(window.__downls10_visited_links_observer__){
+                  window.__downls10_visited_links_observer__.disconnect();
+                  window.__downls10_visited_links_observer__=null;
+                }
+              } catch(e) {}
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
