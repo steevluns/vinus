@@ -1098,9 +1098,8 @@ class BrowserActivity : Activity() {
                 }
                 // سجّل الموقع فور بدء فتحه، لا تنتظر onPageFinished.
                 recordVisitedNavigation(url)
-                // نحفظ الحالة فور بدء التنقل أيضًا حتى لا نفقد آخر خطوة إذا أُغلق التطبيق
-                // قبل onPageFinished.
-                persistTabs()
+                // تُحفظ حالة التبويبات بعد اكتمال الصفحة أو عند إيقاف النشاط؛
+                // تجنّب تسلسل WebView على خيط الواجهة عند بدء كل تحميل.
                 if (nightMode) { applyNightModeJs(view); applySearxngNightModeJs(view) }
                 if (isActiveTab(view)) editUrl.setText(url)
             }
@@ -1139,7 +1138,6 @@ class BrowserActivity : Activity() {
                 if (url != null) {
                     recordVisitedNavigation(url)
                     BrowserStorage.addHistory(this@BrowserActivity, view.title ?: url, url)
-                    applyVisitedSearchResultColors(view)
                 }
                 val resolvedTitle = view.title?.takeIf { it.isNotBlank() }
                     ?: url?.takeIf { it.isNotBlank() }
@@ -1162,12 +1160,7 @@ class BrowserActivity : Activity() {
                     // الحالة مبنية على سجل دائم، لذلك تبقى الألوان بعد الرجوع وإعادة فتح التطبيق.
                     applyVisitedSearchResultColors(view)
                     filterSearxngMicrosoftResults(view)
-                    mainHandler.postDelayed({
-                        if (!isFinishing && !isDestroyed && isSearchResultsPage(view.url)) {
-                            applyVisitedSearchResultColors(view)
-                            filterSearxngMicrosoftResults(view)
-                        }
-                    }, 700L)
+                    // تلوين الروابط يراقب الإضافات الديناميكية بنفسه؛ لا نعيد فحص الصفحة كاملة بعد 700ms.
                 }
 
                 // Keep translating every new page opened inside this translated tab.
