@@ -542,7 +542,8 @@ class BrowserActivity : Activity() {
 
         // احفظ موضع الصفحة التي نغادرها (احتياطًا، المستمع يحفظه أصلًا أثناء التمرير)
         val leavingUrl = wv.url
-        if (leavingUrl != null && !tab.pageLoading && tab.pendingRestoreY < 0) {
+        if (leavingUrl != null && tab.pendingRestoreY < 0) {
+            // احفظ الموضع الحالي حتى لو كانت الصفحة لا تزال تُحمّل محتوى ديناميكيًا.
             rememberScroll(tab, leavingUrl, wv.scrollY)
         }
 
@@ -2732,36 +2733,29 @@ class BrowserActivity : Activity() {
      * قديم كي يعرض WebView ألوان كل موقع وروابطه الافتراضية.
      */
     private fun applyNightModeJs(webView: WebView) {
-        // فحص الخلفية مرة واحدة وإضافة CSS ثابت؛ دون مسح متكرر لعناصر الصفحة.
+        // يطبق وضعًا داكنًا ثابتًا على نتائج البحث والمواقع، مع إبقاء الوسائط والصور بألوانها الأصلية.
+        // لا نوقف التطبيق إذا كان الموقع داكنًا أصلًا؛ بعض الصفحات تستخدم خلفيات فاتحة داخل أجزاء منها.
         val js = """
             (function(){
               try {
                 var id='__downls10_night_mode__';
-                if(document.getElementById(id)) return;
-                var root=document.documentElement, body=document.body;
-                if(!root||!body) return;
-                function rgb(v){var m=(v||'').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);return m?{r:+m[1],g:+m[2],b:+m[3]}:null;}
-                var rootBg=getComputedStyle(root).backgroundColor;
-                var bodyBg=getComputedStyle(body).backgroundColor;
-                var rb=rgb(rootBg), bb=rgb(bodyBg);
-                function opaque(value){return !!value&&value!=='transparent'&&
-                  (!/^rgba/i.test(value)||parseFloat(value.substring(value.lastIndexOf(',')+1))>0.01);}
-                var meta=document.querySelector('meta[name="color-scheme"]');
-                var dark=!!(meta&&/dark/i.test(meta.content||''))||
-                  (opaque(bodyBg)&&!!(bb&&bb.r<95&&bb.g<95&&bb.b<95))||
-                  (!opaque(bodyBg)&&opaque(rootBg)&&!!(rb&&rb.r<95&&rb.g<95&&rb.b<95));
-                window.__downls10NightDark=dark;
-                if(dark)return;
-                var st=document.createElement('style');st.id=id;
-                st.textContent=
-                  'html,body{background:#000!important;color:#eee!important;color-scheme:dark!important}'+
-                  'body p,body span,body li,body label,body td,body th,body h1,body h2,body h3,body h4,body h5,body h6,body div,body section,body article{color:#eee!important}'+
-                  'body a{color:#9abfff!important}'+
-                  'body :not(img):not(picture):not(video):not(audio):not(canvas):not(svg):not(iframe):not(object):not(embed){border-color:#444!important}'+
-                  'input,textarea,select,button{background:#202124!important;color:#eee!important;border-color:#555!important}'+
-                  '::placeholder{color:#aaa!important}';
-                (document.head||root).appendChild(st);
-              }catch(e){}
+                var root=document.documentElement;
+                if(!root) return;
+                var st=document.getElementById(id);
+                if(!st){ st=document.createElement('style'); st.id=id; (document.head||root).appendChild(st); }
+                st.textContent =
+                  'html{background:#121212!important;color-scheme:dark!important}'+
+                  'body{background-color:#121212!important;color:#e8e8e8!important}'+
+                  'body p,body span,body li,body label,body td,body th,body h1,body h2,body h3,body h4,body h5,body h6,body dt,body dd,body blockquote,body figcaption{color:#e8e8e8!important}'+
+                  'a,a:visited{color:#9fc5ff!important}'+
+                  'input,textarea,select,button,[role="button"]{background-color:#252525!important;color:#eeeeee!important;border-color:#555!important}'+
+                  'input::placeholder,textarea::placeholder{color:#bdbdbd!important}'+
+                  'table,th,td,hr,fieldset{border-color:#444!important}'+
+                  'img, picture, video, canvas, svg, iframe, object, embed{filter:none!important}'+
+                  'img,video,canvas,svg,iframe,object,embed{background-color:transparent!important}'+
+                  'pre,code,kbd,samp{background-color:#1c1c1c!important;color:#e8e8e8!important}';
+                window.__downls10NightDark=true;
+              } catch(e) {}
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
