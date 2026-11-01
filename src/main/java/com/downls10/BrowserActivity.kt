@@ -1881,56 +1881,72 @@ class BrowserActivity : Activity() {
 
                 function safeName(video) {
                   var name = '';
+                  var source = videoUrl(video);
                   try {
-                    var source = video.currentSrc || video.src ||
-                      (video.querySelector('source[src]') || {}).src || '';
-                    var path = new URL(source, document.baseURI).pathname;
+                    var parsed = new URL(source, document.baseURI);
+                    var path = parsed.pathname;
                     name = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1));
                   } catch(e) {}
-                  if (!name || name.indexOf('.') < 0) name = 'video.mp4';
-                  return name.substring(0, 120);
+                  if (!name || name.indexOf('.') < 0) {
+                    var mime = (video.getAttribute('type') ||
+                      ((video.querySelector('source[type]') || {}).type) || '').toLowerCase();
+                    var extByMime = {
+                      'video/mp4':'mp4', 'video/webm':'webm', 'video/ogg':'ogv',
+                      'video/quicktime':'mov', 'video/x-msvideo':'avi',
+                      'video/x-matroska':'mkv', 'video/x-flv':'flv',
+                      'video/3gpp':'3gp', 'video/mp2t':'ts',
+                      'application/vnd.apple.mpegurl':'m3u8',
+                      'application/x-mpegurl':'m3u8', 'application/dash+xml':'mpd'
+                    };
+                    name = 'video.' + (extByMime[mime] || 'mp4');
+                  }
+                  return name.replace(/[\\/:*?"<>|]/g, '_').substring(0, 120);
                 }
 
                 function videoUrl(video) {
-                  // Prefer a real downloadable file URL over MediaSource/blob URLs.
                   var direct = [
-                    video.currentSrc,
-                    video.src,
-                    video.getAttribute('src'),
+                    video.currentSrc, video.src, video.getAttribute('src'),
                     ...Array.from(video.querySelectorAll('source[src]')).map(function(source) {
                       return source.src || source.getAttribute('src') || '';
                     }),
-                    video.getAttribute('data-src'),
-                    video.getAttribute('data-video')
+                    video.getAttribute('data-src'), video.getAttribute('data-video'),
+                    video.getAttribute('data-url'), video.getAttribute('data-hls'),
+                    video.getAttribute('data-dash')
                   ].filter(Boolean);
 
-                  function isDirectMedia(raw) {
+                  function absolute(raw) {
                     try {
                       var u = new URL(raw, document.baseURI);
-                      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
-                      return /\.(mp4|m4v|webm|mov|3gp|ogv|avi)(?:$|[?#])/i.test(u.href);
-                    } catch(e) { return false; }
+                      return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+                    } catch(e) { return ''; }
+                  }
+                  function isMediaResource(raw) {
+                    var u = absolute(raw);
+                    if (!u) return false;
+                    return /\\.(mp4|m4v|m4a|webm|mov|3gp|3g2|ogv|ogg|avi|mkv|flv|f4v|wmv|asf|vob|mpg|mpeg|mpe|m2v|m2ts|mts|ts|mxf|divx|rm|rmvb|ivf|yuv|m3u8|mpd|ism|isml)(?:$|[?#])/i.test(u);
                   }
 
-                  var directFile = direct.find(isDirectMedia);
-                  if (directFile) return new URL(directFile, document.baseURI).href;
+                  var mediaFile = direct.find(isMediaResource);
+                  if (mediaFile) return absolute(mediaFile);
 
-                  // Some players omit the URL from <video> but load a direct media
-                  // file through XHR/fetch. Look for media resources loaded by this page.
+                  // Playlist URLs are recognized explicitly. They are manifest files,
+                  // not complete videos; segment-aware downloading is required to merge them.
+                  var manifest = direct.find(function(raw) {
+                    return /\\.(m3u8|mpd|ism|isml)(?:$|[?#])/i.test(raw);
+                  });
+                  if (manifest) return absolute(manifest);
+
                   try {
                     var resources = performance.getEntriesByType('resource')
                       .map(function(entry) { return entry.name; })
-                      .filter(isDirectMedia);
+                      .filter(isMediaResource);
                     if (resources.length) return resources[resources.length - 1];
                   } catch(e) {}
 
-                  // Last resort: native file blobs can be passed to the Blob downloader.
-                  // MediaSource/HLS/DASH streams may not be a single downloadable file.
-                  return direct.find(function(raw) {
-                    return /^blob:/i.test(raw);
-                  }) || direct.find(function(raw) {
-                    return /^https?:/i.test(raw);
-                  }) || '';
+                  var blob = direct.find(function(raw) { return /^blob:/i.test(raw); });
+                  if (blob) return blob;
+
+                  return direct.map(absolute).find(Boolean) || '';
                 }
 
                 function position(video, button) {
@@ -1978,9 +1994,19 @@ class BrowserActivity : Activity() {
                     }
                     var sourceNode = video.querySelector('source[type]');
                     var mime = video.getAttribute('type') ||
-                      (sourceNode && sourceNode.type) ||
-                      ( /\.webm(?:$|[?#])/i.test(url) ? 'video/webm' :
-                        /\.ogv(?:$|[?#])/i.test(url) ? 'video/ogg' : 'video/mp4');
+                      (sourceNode && sourceNode.type) || '';
+                    if (!mime) {
+                      if (/\\.webm(?:$|[?#])/i.test(url)) mime = 'video/webm';
+                      else if (/\\.(ogv|ogg)(?:$|[?#])/i.test(url)) mime = 'video/ogg';
+                      else if (/\\.mov(?:$|[?#])/i.test(url)) mime = 'video/quicktime';
+                      else if (/\\.avi(?:$|[?#])/i.test(url)) mime = 'video/x-msvideo';
+                      else if (/\\.mkv(?:$|[?#])/i.test(url)) mime = 'video/x-matroska';
+                      else if (/\\.flv(?:$|[?#])/i.test(url)) mime = 'video/x-flv';
+                      else if (/\\.3gp(?:$|[?#])/i.test(url)) mime = 'video/3gpp';
+                      else if (/\\.m3u8(?:$|[?#])/i.test(url)) mime = 'application/vnd.apple.mpegurl';
+                      else if (/\\.mpd(?:$|[?#])/i.test(url)) mime = 'application/dash+xml';
+                      else mime = 'video/mp4';
+                    }
                     window.DownLS10VideoDownload.downloadVideo(url, safeName(video), mime);
                   }, true);
                   (document.body || document.documentElement).appendChild(button);
