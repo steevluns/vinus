@@ -538,7 +538,7 @@ class DownloadManagerEngine {
 
                         val now = System.currentTimeMillis()
                         val elapsed = now - lastTime
-                        if (elapsed >= 3000) {
+                        if (elapsed >= 4000) {
                             val speedKb = (bytesSinceLast * 1000L / elapsed) / 1024L
                             val speedText = if (speedKb >= 1024) "${speedKb / 1024} MB/s" else "$speedKb KB/s"
                             val progress = if (totalSize > 0) ((totalRead.toDouble() * 100.0) / totalSize.toDouble()).toInt().coerceIn(0, 100) else 0
