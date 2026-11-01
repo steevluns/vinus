@@ -922,60 +922,83 @@ class BrowserActivity : Activity() {
         var lastTouchX = 0f
         var lastTouchY = 0f
 
-        // اعتراض كل ضغطة مطوّلة داخل الصفحة؛ لا نسمح لـ WebView بتنفيذ
-        // النسخ الافتراضي للصورة. إذا لم يتعرف عليها النظام، نفحص عنصر الصفحة عبر JavaScript.
+        // اترك WebView يتعامل مع الضغط المطوّل على النص حتى يحدد النص فعلياً.
+        // نعرض قائمة الصور المخصصة فقط عندما تكون اللمسة على صورة معروفة.
         webView.setOnLongClickListener {
             val hitTest = webView.hitTestResult
             val knownImageType =
                 hitTest.type == WebView.HitTestResult.IMAGE_TYPE ||
                 hitTest.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
-
-            val knownUrl = hitTest.extra
-            if (knownImageType && !knownUrl.isNullOrBlank() &&
-                (knownUrl.startsWith("http://") || knownUrl.startsWith("https://"))) {
-                showImageContextMenu(knownUrl, hitTest.type)
+            val imageUrl = hitTest.extra
+            if (knownImageType && !imageUrl.isNullOrBlank() &&
+                (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
+                showImageContextMenu(imageUrl, hitTest.type)
+                true
             } else {
-                val density = resources.displayMetrics.density
-                val x = lastTouchX / density
-                val y = lastTouchY / density
-                val script = """
-                    (function() {
-                      var e = document.elementFromPoint($x, $y);
-                      if (!e) return '';
-                      var n = e;
-                      for (var i = 0; n && i < 6; i++, n = n.parentElement) {
-                        if (n.tagName === 'IMG' && (n.currentSrc || n.src)) return n.currentSrc || n.src;
-                        if (n.tagName === 'VIDEO' && n.poster) return n.poster;
-                        if (n.tagName === 'SOURCE' && n.src) return n.src;
-                        var bg = getComputedStyle(n).backgroundImage;
-                        if (bg && bg !== 'none') {
-                          var m = bg.match(/url\(["']?(.*?)["']?\)/);
-                          if (m && m[1]) return m[1];
-                        }
-                      }
-                      var v = e.closest ? e.closest('video') : null;
-                      if (v && v.poster) return v.poster;
-                      var a = e.closest ? e.closest('a') : null;
-                      if (a) {
-                        var img = a.querySelector('img');
-                        if (img) return img.currentSrc || img.src;
-                      }
-                      return '';
-                    })();
-                """.trimIndent()
-                webView.evaluateJavascript(script) { result ->
-                    val imageUrl = try {
-                        org.json.JSONTokener(result ?: "\"\"").nextValue() as? String
-                    } catch (_: Exception) { null }
-                    if (!imageUrl.isNullOrBlank() &&
-                        (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
-                        showImageContextMenu(imageUrl, WebView.HitTestResult.IMAGE_TYPE)
+                // false يسمح لـ WebView ببدء تحديد النص وإظهار شريط الإجراءات.
+                false
+            }
+        }
+
+        // اجعل قائمة تحديد النص تحتوي حصراً على «نسخ» و«تحديد الكل».
+        webView.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
+            override fun onCreateActionMode(
+                mode: android.view.ActionMode,
+                menu: android.view.Menu
+            ): Boolean = true
+
+            override fun onPrepareActionMode(
+                mode: android.view.ActionMode,
+                menu: android.view.Menu
+            ): Boolean {
+                for (index in menu.size() - 1 downTo 0) {
+                    val item = menu.getItem(index)
+                    if (item.itemId != android.R.id.copy &&
+                        item.itemId != android.R.id.selectAll) {
+                        menu.removeItem(item.itemId)
                     }
                 }
+                return true
             }
-            // مهم: true دائمًا لمنع قائمة WebView الافتراضية ونسخ الصورة تلقائيًا.
-            true
-        }
+
+            override fun onActionItemClicked(
+                mode: android.view.ActionMode,
+                item: android.view.MenuItem
+            ): Boolean {
+                return when (item.itemId) {
+                    android.R.id.copy -> {
+                        // انسخ النص المحدد حالياً فقط، ثم أغلق شريط التحديد بعد نجاح القراءة.
+                        webView.evaluateJavascript(
+                            "(window.getSelection ? window.getSelection().toString() : '')"
+                        ) { result ->
+                            val selectedText = try {
+                                org.json.JSONTokener(result ?: "\"\"").nextValue() as? String
+                            } catch (_: Exception) { null }
+                            if (!selectedText.isNullOrEmpty()) {
+                                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                clipboard.setPrimaryClip(
+                                    android.content.ClipData.newPlainText("selected text", selectedText)
+                                )
+                            }
+                            mode.finish()
+                        }
+                        true
+                    }
+                    android.R.id.selectAll -> {
+                        webView.evaluateJavascript(
+                            "(function(){try{var s=window.getSelection();var r=document.createRange();" +
+                                "r.selectNodeContents(document.body);s.removeAllRanges();s.addRange(r);" +
+                                "return true;}catch(e){return false;}})()",
+                            null
+                        )
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            override fun onDestroyActionMode(mode: android.view.ActionMode) = Unit
+        })
 
         if (nightMode) webView.setBackgroundColor(Color.BLACK)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
