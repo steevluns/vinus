@@ -2082,10 +2082,17 @@ class BrowserActivity : Activity() {
                     ?: url.substringAfterLast('/', "").takeIf { it.isNotBlank() } 
                     ?: "download"
                 val ext = fileName.substringAfterLast(".", "bin")
-                val basicPreview = DownloadsRepository.DownloadPreview(fileName, 0L, ext)
+                val isHls = url.substringBefore('?').substringBefore('#')
+                    .endsWith(".m3u8", ignoreCase = true) ||
+                    mimeType?.contains("mpegurl", ignoreCase = true) == true ||
+                    ext.equals("m3u8", ignoreCase = true)
+                // لا تعرض حجم ملف قائمة HLS على أنه حجم الفيديو إذا تأخر فحص المقاطع.
+                val basicPreview = DownloadsRepository.DownloadPreview(
+                    fileName, if (isHls) -1L else 0L, ext
+                )
                 showDownloadDialog(basicPreview, url, userAgent, referer, mimeType, showToast)
             }
-        }, 5000)
+        }, 20000)
     }
 
     /** يعرض حوار التنزيل مع المعلومات المتاحة */
