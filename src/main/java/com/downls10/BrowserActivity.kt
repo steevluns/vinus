@@ -1015,7 +1015,9 @@ class BrowserActivity : Activity() {
         settings.blockNetworkImage = false
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        // Allow legacy HTTP pages and HTTP media/resources embedded in HTTPS pages.
+        // Cleartext traffic is enabled in the manifest for older Android versions too.
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         // النوافذ الجديدة تصل إلى onCreateWindow (مع نافذة التأكيد) فقط عند ضغط المستخدم؛
         // ما تفتحه الصفحة من نفسها بدون ضغط يبقى محجوبًا.
         settings.setSupportMultipleWindows(true)
