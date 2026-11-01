@@ -91,6 +91,20 @@ private data class Tab(
 
 class BrowserActivity : Activity() {
 
+    // تصفية قائمة تحديد النص على مستوى Activity؛ WebView لا يوفّر
+    // customSelectionActionModeCallback كخاصية مباشرة.
+    override fun onActionModeStarted(mode: android.view.ActionMode?) {
+        super.onActionModeStarted(mode)
+        val menu = mode?.menu ?: return
+        for (index in menu.size() - 1 downTo 0) {
+            val item = menu.getItem(index)
+            if (item.itemId != android.R.id.copy &&
+                item.itemId != android.R.id.selectAll) {
+                menu.removeItem(item.itemId)
+            }
+        }
+    }
+
     companion object {
         const val EXTRA_OPEN_URL = "extra_open_url"
         private const val SEARCH_PROVIDER_KEY = "searchProvider"
@@ -941,34 +955,6 @@ class BrowserActivity : Activity() {
             }
         }
 
-        // احتفظ بخياري النسخ وتحديد الكل فقط في قائمة تحديد النص.
-        // إزالة البحث والمشاركة وأي إجراءات إضافية من قائمة الضغط المطوّل.
-        webView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
-            override fun onCreateActionMode(
-                mode: android.view.ActionMode,
-                menu: android.view.Menu
-            ): Boolean = true
-
-            override fun onPrepareActionMode(
-                mode: android.view.ActionMode,
-                menu: android.view.Menu
-            ): Boolean {
-                for (index in menu.size() - 1 downTo 0) {
-                    val itemId = menu.getItem(index).itemId
-                    if (itemId != android.R.id.copy && itemId != android.R.id.selectAll) {
-                        menu.removeItem(itemId)
-                    }
-                }
-                return true
-            }
-
-            override fun onActionItemClicked(
-                mode: android.view.ActionMode,
-                item: android.view.MenuItem
-            ): Boolean = false
-
-            override fun onDestroyActionMode(mode: android.view.ActionMode) {}
-        }
         webView.isLongClickable = true
 
         // امنع سحب النص المحدد وإفلاته داخل الصفحة أو خارجها.
