@@ -944,65 +944,10 @@ class BrowserActivity : Activity() {
             }
         }
 
-        // اجعل قائمة تحديد النص تحتوي حصراً على «نسخ» و«تحديد الكل».
-        webView.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
-            override fun onCreateActionMode(
-                mode: android.view.ActionMode,
-                menu: android.view.Menu
-            ): Boolean = true
+        // WebView لا يوفّر setCustomSelectionActionModeCallback؛
+        // اترك تحديد النص الأصلي يعمل على إصدارات أندرويد المدعومة.
+        webView.isLongClickable = true
 
-            override fun onPrepareActionMode(
-                mode: android.view.ActionMode,
-                menu: android.view.Menu
-            ): Boolean {
-                for (index in menu.size() - 1 downTo 0) {
-                    val item = menu.getItem(index)
-                    if (item.itemId != android.R.id.copy &&
-                        item.itemId != android.R.id.selectAll) {
-                        menu.removeItem(item.itemId)
-                    }
-                }
-                return true
-            }
-
-            override fun onActionItemClicked(
-                mode: android.view.ActionMode,
-                item: android.view.MenuItem
-            ): Boolean {
-                return when (item.itemId) {
-                    android.R.id.copy -> {
-                        // انسخ النص المحدد حالياً فقط، ثم أغلق شريط التحديد بعد نجاح القراءة.
-                        webView.evaluateJavascript(
-                            "(window.getSelection ? window.getSelection().toString() : '')"
-                        ) { result ->
-                            val selectedText = try {
-                                org.json.JSONTokener(result ?: "\"\"").nextValue() as? String
-                            } catch (_: Exception) { null }
-                            if (!selectedText.isNullOrEmpty()) {
-                                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                clipboard.setPrimaryClip(
-                                    android.content.ClipData.newPlainText("selected text", selectedText)
-                                )
-                            }
-                            mode.finish()
-                        }
-                        true
-                    }
-                    android.R.id.selectAll -> {
-                        webView.evaluateJavascript(
-                            "(function(){try{var s=window.getSelection();var r=document.createRange();" +
-                                "r.selectNodeContents(document.body);s.removeAllRanges();s.addRange(r);" +
-                                "return true;}catch(e){return false;}})()",
-                            null
-                        )
-                        true
-                    }
-                    else -> false
-                }
-            }
-
-            override fun onDestroyActionMode(mode: android.view.ActionMode) = Unit
-        })
 
         if (nightMode) webView.setBackgroundColor(Color.BLACK)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
