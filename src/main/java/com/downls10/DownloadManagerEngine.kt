@@ -107,6 +107,116 @@ class DownloadManagerEngine {
         }
     }
 
+    /**
+     * يرجع الحجم الإجمالي لمقاطع HLS بدل حجم ملف قائمة m3u8 الصغير.
+     * إذا كانت القائمة الرئيسية يختار أعلى جودة معلنة، ثم يجمع أحجام ملفات المقاطع.
+     * يرجع -1 عندما يتعذر معرفة الحجم بدل عرض حجم القائمة على أنه حجم الفيديو.
+     */
+    fun probeHlsTotalSize(url: String, userAgent: String?, referer: String?): Long {
+        if (!url.contains(".m3u8", ignoreCase = true)) return -1L
+        val item = DownloadItem(
+            id = 0L, url = url, fileName = "", extension = "m3u8",
+            userAgent = userAgent, referer = referer
+        )
+        return try {
+            fun readPlaylist(playlistUrl: String): Pair<String, String>? {
+                val connection = openWithRedirects(item, 0L, playlistUrl)
+                return try {
+                    if (connection.responseCode !in 200..299) return null
+                    val text = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                    Pair(connection.url.toString(), text)
+                } finally {
+                    connection.disconnect()
+                }
+            }
+
+            var playlist = readPlaylist(url) ?: return -1L
+            // إذا كانت Master Playlist، اختر أعلى معدل نقل معلن (أعلى جودة).
+            if (playlist.second.contains("#EXT-X-STREAM-INF")) {
+                val lines = playlist.second.lines()
+                var bestBandwidth = -1L
+                var bestUrl: String? = null
+                for (index in lines.indices) {
+                    val line = lines[index].trim()
+                    if (!line.startsWith("#EXT-X-STREAM-INF")) continue
+                    val bandwidth = Regex("(?:AVERAGE-BANDWIDTH|BANDWIDTH)=(\\d+)")
+                        .find(line)?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+                    val next = lines.drop(index + 1).firstOrNull {
+                        it.isNotBlank() && !it.trim().startsWith("#")
+                    }?.trim() ?: continue
+                    if (bandwidth > bestBandwidth) {
+                        bestBandwidth = bandwidth
+                        bestUrl = URL(URL(playlist.first), next).toString()
+                    }
+                }
+                if (bestUrl != null) playlist = readPlaylist(bestUrl) ?: return -1L
+            }
+
+            val lines = playlist.second.lines()
+            var total = 0L
+            val segmentUrls = mutableListOf<String>()
+            var pendingRangeLength = 0L
+            for (lineValue in lines) {
+                val line = lineValue.trim()
+                if (line.startsWith("#EXT-X-BYTERANGE:", ignoreCase = true)) {
+                    pendingRangeLength = line.substringAfter(':').substringBefore('@')
+                        .toLongOrNull() ?: 0L
+                } else if (line.isNotBlank() && !line.startsWith("#")) {
+                    if (pendingRangeLength > 0L) {
+                        total += pendingRangeLength
+                        pendingRangeLength = 0L
+                    } else {
+                        segmentUrls.add(URL(URL(playlist.first), line).toString())
+                    }
+                }
+            }
+            if (segmentUrls.isEmpty()) return total.takeIf { it > 0L } ?: -1L
+
+            // استعلم عن أحجام المقاطع بالتوازي لتجنب جمع حجم قائمة التشغيل فقط.
+            val executor = java.util.concurrent.Executors.newFixedThreadPool(8)
+            try {
+                val tasks = segmentUrls.map { segmentUrl ->
+                    executor.submit<Long> {
+                        var connection: HttpURLConnection? = null
+                        try {
+                            connection = (URL(segmentUrl).openConnection() as HttpURLConnection).apply {
+                                requestMethod = "HEAD"
+                                instanceFollowRedirects = true
+                                connectTimeout = 5000
+                                readTimeout = 5000
+                                setRequestProperty("Accept-Encoding", "identity")
+                                setRequestProperty("User-Agent", userAgent ?: defaultUserAgent)
+                                setRequestProperty("Referer", playlist.first)
+                                CookieManager.getInstance().getCookie(segmentUrl)?.let {
+                                    setRequestProperty("Cookie", it)
+                                }
+                                connect()
+                            }
+                            if (connection.responseCode in 200..299) connection.contentLengthLong else -1L
+                        } catch (_: Exception) {
+                            -1L
+                        } finally {
+                            connection?.disconnect()
+                        }
+                    }
+                }
+                var measured = 0L
+                var unknown = 0
+                for (task in tasks) {
+                    val size = try { task.get(6, java.util.concurrent.TimeUnit.SECONDS) }
+                    catch (_: Exception) { task.cancel(true); -1L }
+                    if (size > 0L) measured += size else unknown++
+                }
+                if (unknown == 0 && measured > 0L) measured + total
+                else -1L
+            } finally {
+                executor.shutdownNow()
+            }
+        } catch (_: Exception) {
+            -1L
+        }
+    }
+
     fun downloadFile(
         item: DownloadItem,
         saveDir: File,
