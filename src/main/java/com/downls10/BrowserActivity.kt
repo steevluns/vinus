@@ -941,8 +941,34 @@ class BrowserActivity : Activity() {
             }
         }
 
-        // WebView لا يوفّر setCustomSelectionActionModeCallback؛
-        // اترك تحديد النص الأصلي يعمل على إصدارات أندرويد المدعومة.
+        // احتفظ بخياري النسخ وتحديد الكل فقط في قائمة تحديد النص.
+        // إزالة البحث والمشاركة وأي إجراءات إضافية من قائمة الضغط المطوّل.
+        webView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
+            override fun onCreateActionMode(
+                mode: android.view.ActionMode,
+                menu: android.view.Menu
+            ): Boolean = true
+
+            override fun onPrepareActionMode(
+                mode: android.view.ActionMode,
+                menu: android.view.Menu
+            ): Boolean {
+                for (index in menu.size() - 1 downTo 0) {
+                    val itemId = menu.getItem(index).itemId
+                    if (itemId != android.R.id.copy && itemId != android.R.id.selectAll) {
+                        menu.removeItem(itemId)
+                    }
+                }
+                return true
+            }
+
+            override fun onActionItemClicked(
+                mode: android.view.ActionMode,
+                item: android.view.MenuItem
+            ): Boolean = false
+
+            override fun onDestroyActionMode(mode: android.view.ActionMode) {}
+        }
         webView.isLongClickable = true
 
 
