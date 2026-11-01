@@ -1623,7 +1623,7 @@ class BrowserActivity : Activity() {
         val js = """
             (function() {
               try {
-                if (!(/(^|\\.)google\\./i.test(location.hostname) || location.hostname.toLowerCase().endsWith('.google.com'))) return;
+                if (!(/(^|\.)google\./i.test(location.hostname) || location.hostname.toLowerCase().endsWith('.google.com'))) return;
                 var params = new URLSearchParams(location.search);
                 if (!params.has('q')) return;
                 var currentStart = parseInt(params.get('start') || '0', 10);
@@ -1923,7 +1923,7 @@ class BrowserActivity : Activity() {
                   function isMediaResource(raw) {
                     var u = absolute(raw);
                     if (!u) return false;
-                    return /\\.(mp4|m4v|m4a|webm|mov|3gp|3g2|ogv|ogg|avi|mkv|flv|f4v|wmv|asf|vob|mpg|mpeg|mpe|m2v|m2ts|mts|ts|mxf|divx|rm|rmvb|ivf|yuv|m3u8|mpd|ism|isml)(?:$|[?#])/i.test(u);
+                    return /\.(mp4|m4v|m4a|webm|mov|3gp|3g2|ogv|ogg|avi|mkv|flv|f4v|wmv|asf|vob|mpg|mpeg|mpe|m2v|m2ts|mts|ts|mxf|divx|rm|rmvb|ivf|yuv|m3u8|mpd|ism|isml)(?:$|[?#])/i.test(u);
                   }
 
                   var mediaFile = direct.find(isMediaResource);
@@ -1932,7 +1932,7 @@ class BrowserActivity : Activity() {
                   // Playlist URLs are recognized explicitly. They are manifest files,
                   // not complete videos; segment-aware downloading is required to merge them.
                   var manifest = direct.find(function(raw) {
-                    return /\\.(m3u8|mpd|ism|isml)(?:$|[?#])/i.test(raw);
+                    return /\.(m3u8|mpd|ism|isml)(?:$|[?#])/i.test(raw);
                   });
                   if (manifest) return absolute(manifest);
 
@@ -1996,15 +1996,15 @@ class BrowserActivity : Activity() {
                     var mime = video.getAttribute('type') ||
                       (sourceNode && sourceNode.type) || '';
                     if (!mime) {
-                      if (/\\.webm(?:$|[?#])/i.test(url)) mime = 'video/webm';
-                      else if (/\\.(ogv|ogg)(?:$|[?#])/i.test(url)) mime = 'video/ogg';
-                      else if (/\\.mov(?:$|[?#])/i.test(url)) mime = 'video/quicktime';
-                      else if (/\\.avi(?:$|[?#])/i.test(url)) mime = 'video/x-msvideo';
-                      else if (/\\.mkv(?:$|[?#])/i.test(url)) mime = 'video/x-matroska';
-                      else if (/\\.flv(?:$|[?#])/i.test(url)) mime = 'video/x-flv';
-                      else if (/\\.3gp(?:$|[?#])/i.test(url)) mime = 'video/3gpp';
-                      else if (/\\.m3u8(?:$|[?#])/i.test(url)) mime = 'application/vnd.apple.mpegurl';
-                      else if (/\\.mpd(?:$|[?#])/i.test(url)) mime = 'application/dash+xml';
+                      if (/\.webm(?:$|[?#])/i.test(url)) mime = 'video/webm';
+                      else if (/\.(ogv|ogg)(?:$|[?#])/i.test(url)) mime = 'video/ogg';
+                      else if (/\.mov(?:$|[?#])/i.test(url)) mime = 'video/quicktime';
+                      else if (/\.avi(?:$|[?#])/i.test(url)) mime = 'video/x-msvideo';
+                      else if (/\.mkv(?:$|[?#])/i.test(url)) mime = 'video/x-matroska';
+                      else if (/\.flv(?:$|[?#])/i.test(url)) mime = 'video/x-flv';
+                      else if (/\.3gp(?:$|[?#])/i.test(url)) mime = 'video/3gpp';
+                      else if (/\.m3u8(?:$|[?#])/i.test(url)) mime = 'application/vnd.apple.mpegurl';
+                      else if (/\.mpd(?:$|[?#])/i.test(url)) mime = 'application/dash+xml';
                       else mime = 'video/mp4';
                     }
                     window.DownLS10VideoDownload.downloadVideo(url, safeName(video), mime);
