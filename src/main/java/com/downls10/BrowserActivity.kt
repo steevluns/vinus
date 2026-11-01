@@ -971,6 +971,9 @@ class BrowserActivity : Activity() {
         }
         webView.isLongClickable = true
 
+        // امنع سحب النص المحدد وإفلاته داخل الصفحة أو خارجها.
+        // هذا لا يعطّل الضغط المطوّل ولا تحديد النص ولا أمر النسخ.
+        webView.setOnDragListener { _, _ -> true }
 
         if (nightMode) webView.setBackgroundColor(Color.BLACK)
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
