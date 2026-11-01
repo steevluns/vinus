@@ -2861,16 +2861,16 @@ class BrowserActivity : Activity() {
                   return;
                 }
                 if(!st){ st=document.createElement('style'); st.id=id; (document.head||root).appendChild(st); }
+                // وضع ليلي محافظ: غيّر خلفية الصفحة والنصوص فقط، ولا تمسّ صور المواقع
+                // أو SVG أو أيقونات الخطوط أو صور الخلفية أو أبعاد/تخطيط عناصر الصفحة.
                 st.textContent =
-                  'html,body{background:#000!important;background-color:#000!important;background-image:none!important;color:#f2f2f2!important;color-scheme:dark!important}'+
-                  'body *:not(img):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(picture):not(source){background-color:transparent!important;background-image:none!important;color:#f0f0f0!important;-webkit-text-fill-color:#f0f0f0!important;border-color:#444!important;text-shadow:none!important;box-shadow:none!important}'+
+                  'html,body{background-color:#000!important;color:#f2f2f2!important;color-scheme:dark}'+
+                  'body{background-image:initial!important}'+
+                  'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){color:#ededed!important;-webkit-text-fill-color:currentColor!important}'+
                   'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
-                  'input,textarea,select,button,[role="button"]{background:#222!important;background-color:#222!important;background-image:none!important;color:#f5f5f5!important;-webkit-text-fill-color:#f5f5f5!important;border:1px solid #555!important}'+
+                  'input,textarea,select,button,[role="button"]{color:inherit!important;-webkit-text-fill-color:currentColor!important;color-scheme:dark}'+
                   'input::placeholder,textarea::placeholder{color:#c7c7c7!important;-webkit-text-fill-color:#c7c7c7!important}'+
-                  'table,th,td,hr,fieldset{border-color:#444!important}'+
-                  'img,picture,video,canvas,svg,iframe,object,embed{filter:none!important}'+
-                  'img,video,canvas,svg,iframe,object,embed{background-color:transparent!important;background-image:none!important}'+
-                  'pre,code,kbd,samp{background:#171717!important;background-color:#171717!important;color:#f0f0f0!important;-webkit-text-fill-color:#f0f0f0!important}';
+                  'img,picture,video,canvas,svg,iframe,object,embed,[role="img"],[aria-hidden="true"],[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"]{filter:none!important;-webkit-filter:none!important}';
                 window.__downls10NightDark=false;
               } catch(e) {}
             })();
