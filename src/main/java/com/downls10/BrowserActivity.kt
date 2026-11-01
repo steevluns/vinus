@@ -35,6 +35,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.webkit.WebChromeClient
+import android.webkit.JavascriptInterface
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -916,6 +917,8 @@ class BrowserActivity : Activity() {
 
     private fun setupWebView(webView: WebView) {
         registerForContextMenu(webView)
+        // واجهة محدودة لبدء تنزيل الفيديو بعد ضغط المستخدم على زر التنزيل الظاهر فوقه.
+        webView.addJavascriptInterface(VideoDownloadBridge(webView), "DownLS10VideoDownload")
 
         // تتبّع آخر نقطة لمس لاكتشاف الصور المصغّرة وملصقات الفيديو والصور
         // المعروضة بخلفية CSS، حتى لو لم يتعرف عليها HitTestResult كصورة.
@@ -1201,6 +1204,11 @@ class BrowserActivity : Activity() {
                     ?: url?.takeIf { it.isNotBlank() }
                     ?: "صفحة جديدة"
                 tabs.find { it.webView == view }?.title = resolvedTitle
+                // أضف زر تنزيل عائماً أعلى يسار كل عنصر فيديو HTML5.
+                injectVideoDownloadButtons(view)
+                mainHandler.postDelayed({
+                    if (!isFinishing && !isDestroyed) injectVideoDownloadButtons(view)
+                }, 900L)
                 if (nightMode) {
                     applyNightModeJs(view)
                     applySearxngNightModeJs(view)
@@ -1823,6 +1831,159 @@ class BrowserActivity : Activity() {
         val path = uri.path?.lowercase(Locale.US).orEmpty().trimEnd('/')
         val downloadPaths = setOf("/download", "/dl", "/file", "/export", "/attachment")
         return path in downloadPaths
+    }
+
+    /**
+     * زر تنزيل صغير فوق الفيديوهات داخل صفحات الويب.
+     * لا يبدأ التنزيل إلا بعد ضغط المستخدم، ثم يستخدم مسار التنزيل المعتاد في التطبيق.
+     */
+    private inner class VideoDownloadBridge(private val sourceWebView: WebView) {
+        @JavascriptInterface
+        fun downloadVideo(rawUrl: String?, rawName: String?, rawMime: String?) {
+            val videoUrl = rawUrl?.trim().orEmpty()
+            val uri = try { Uri.parse(videoUrl) } catch (_: Exception) { Uri.EMPTY }
+            if (videoUrl.isBlank() ||
+                (uri.scheme != "https" && uri.scheme != "http" && uri.scheme != "blob")) {
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "رابط الفيديو غير صالح للتنزيل", Toast.LENGTH_SHORT).show()
+                }
+                return
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                val fileName = rawName?.takeIf { it.isNotBlank() } ?: "video.mp4"
+                val mime = rawMime?.takeIf { it.isNotBlank() } ?: "video/mp4"
+                if (videoUrl.startsWith("blob:", ignoreCase = true)) {
+                    blobBridge.start(sourceWebView, videoUrl, fileName, mime)
+                } else {
+                    confirmDownload(
+                        videoUrl,
+                        suggestedFileName = fileName,
+                        userAgent = sourceWebView.settings.userAgentString,
+                        referer = sourceWebView.url,
+                        mimeType = mime,
+                        showToast = true
+                    )
+                }
+            }
+        }
+    }
+
+    private fun injectVideoDownloadButtons(webView: WebView) {
+        if (webView.url.isNullOrBlank() || webView.url!!.startsWith("about:")) return
+        val js = """
+            (function() {
+              try {
+                if (window.__downls10VideoDownloadInstalled) return;
+                window.__downls10VideoDownloadInstalled = true;
+                var buttons = new Map();
+                var scanQueued = false;
+
+                function safeName(video) {
+                  var name = '';
+                  try {
+                    var source = video.currentSrc || video.src ||
+                      (video.querySelector('source[src]') || {}).src || '';
+                    var path = new URL(source, document.baseURI).pathname;
+                    name = decodeURIComponent(path.substring(path.lastIndexOf('/') + 1));
+                  } catch(e) {}
+                  if (!name || name.indexOf('.') < 0) name = 'video.mp4';
+                  return name.substring(0, 120);
+                }
+
+                function videoUrl(video) {
+                  return video.currentSrc || video.src ||
+                    ((video.querySelector('source[src]') || {}).src || '');
+                }
+
+                function position(video, button) {
+                  if (!video.isConnected) {
+                    button.remove();
+                    buttons.delete(video);
+                    return;
+                  }
+                  var rect = video.getBoundingClientRect();
+                  var style = getComputedStyle(video);
+                  if (rect.width < 40 || rect.height < 40 ||
+                      style.display === 'none' || style.visibility === 'hidden' ||
+                      rect.bottom <= 0 || rect.right <= 0 ||
+                      rect.top >= innerHeight || rect.left >= innerWidth) {
+                    button.style.display = 'none';
+                    return;
+                  }
+                  button.style.display = 'flex';
+                  button.style.left = Math.max(4, Math.min(innerWidth - 44, rect.left + 8)) + 'px';
+                  button.style.top = Math.max(4, Math.min(innerHeight - 44, rect.top + 8)) + 'px';
+                  button.style.zIndex = '2147483647';
+                }
+
+                function addButton(video) {
+                  if (!(video instanceof HTMLVideoElement) || buttons.has(video)) return;
+                  var button = document.createElement('button');
+                  button.type = 'button';
+                  button.setAttribute('aria-label', 'تنزيل الفيديو');
+                  button.title = 'تنزيل الفيديو';
+                  button.textContent = '↓';
+                  button.style.cssText =
+                    'position:fixed;display:flex;align-items:center;justify-content:center;' +
+                    'width:40px;height:40px;padding:0;border:1px solid rgba(255,255,255,.75);' +
+                    'border-radius:50%;background:rgba(0,0,0,.72);color:#fff;' +
+                    'font: bold 27px/1 sans-serif;text-shadow:none;box-shadow:0 1px 5px #000;' +
+                    'cursor:pointer;z-index:2147483647;touch-action:manipulation;';
+                  button.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    var url = videoUrl(video);
+                    if (!url) {
+                      button.textContent = '!';
+                      setTimeout(function(){ button.textContent = '↓'; }, 1200);
+                      return;
+                    }
+                    var mime = video.getAttribute('type') ||
+                      (video.querySelector('source[type]') || {}).type || 'video/mp4';
+                    window.DownLS10VideoDownload.downloadVideo(url, safeName(video), mime);
+                  }, true);
+                  (document.body || document.documentElement).appendChild(button);
+                  buttons.set(video, button);
+                  position(video, button);
+                  video.addEventListener('loadedmetadata', function(){ position(video, button); });
+                  video.addEventListener('play', function(){ position(video, button); });
+                  video.addEventListener('pause', function(){ position(video, button); });
+                }
+
+                function walk(root) {
+                  if (!root || !root.querySelectorAll) return;
+                  root.querySelectorAll('video').forEach(addButton);
+                  root.querySelectorAll('*').forEach(function(node) {
+                    if (node.shadowRoot) walk(node.shadowRoot);
+                  });
+                }
+
+                function scan() {
+                  scanQueued = false;
+                  walk(document);
+                  buttons.forEach(function(button, video){ position(video, button); });
+                }
+                function scheduleScan() {
+                  if (scanQueued) return;
+                  scanQueued = true;
+                  requestAnimationFrame(scan);
+                }
+
+                scan();
+                window.addEventListener('scroll', scheduleScan, true);
+                window.addEventListener('resize', scheduleScan, true);
+                document.addEventListener('fullscreenchange', scheduleScan, true);
+                if (window.MutationObserver && document.documentElement) {
+                  new MutationObserver(scheduleScan).observe(document.documentElement, {
+                    childList:true, subtree:true
+                  });
+                }
+                setInterval(scheduleScan, 1500);
+              } catch(e) {}
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(js, null)
     }
 
     /** يعرض حوار تأكيد التنزيل مع اسم الملف وحجمه وامتداده، ثم ينفذ الإجراء المختار من المستخدم. */
