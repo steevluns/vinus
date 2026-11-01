@@ -77,10 +77,11 @@ class BlobDownloadBridge(context: Context) {
             return
         }
 
-        // Avoid concurrent bridge sessions on the same WebView. This keeps the
-        // temporary JavaScript interface and transfer state small and predictable.
-        if (transfers.values.any { it.webView === webView }) {
-            DownloadsRepository.showMessage(appContext, "يوجد تنزيل Blob قيد التنفيذ في هذه الصفحة.")
+        // The bridge is token-based, so multiple blob downloads can safely share
+        // the same WebView. Limit concurrency to avoid exhausting device memory/storage.
+        val activeForPage = transfers.values.count { it.webView === webView }
+        if (activeForPage >= 3) {
+            DownloadsRepository.showMessage(appContext, "هناك ثلاثة تنزيلات فيديو قيد التنفيذ؛ انتظر اكتمال أحدها ثم أعد المحاولة.")
             return
         }
 
@@ -96,30 +97,44 @@ class BlobDownloadBridge(context: Context) {
                 var bridge = window.DownLS10Blob;
                 if (!bridge) return;
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', url, true);
-                xhr.responseType = 'blob';
-                xhr.onload = function() {
-                    var blob = xhr.response;
-                    if (!blob) { bridge.fail(token, 'empty'); return; }
-                    bridge.begin(token, blob.type || '', String(blob.size));
-                    var CHUNK = 512 * 1024;
-                    var offset = 0;
-                    function next() {
-                        if (offset >= blob.size) { bridge.end(token); return; }
-                        var reader = new FileReader();
-                        reader.onload = function() {
-                            var r = String(reader.result);
-                            bridge.chunk(token, r.substring(r.indexOf(',') + 1));
-                            offset += CHUNK;
-                            next();
-                        };
-                        reader.onerror = function() { bridge.fail(token, 'read error'); };
-                        reader.readAsDataURL(blob.slice(offset, offset + CHUNK));
-                    }
-                    next();
-                };
-                xhr.onerror = function() { bridge.fail(token, 'network error'); };
-                xhr.send();
+                try {
+                    xhr.open('GET', url, true);
+                    xhr.responseType = 'blob';
+                    xhr.timeout = 90000;
+                    xhr.onload = function() {
+                        // Blob URLs commonly report status 0; accept that only when a Blob exists.
+                        var blob = xhr.response;
+                        if (!blob || (xhr.status !== 0 && (xhr.status < 200 || xhr.status >= 300))) {
+                            bridge.fail(token, 'blob request failed: ' + xhr.status);
+                            return;
+                        }
+                        bridge.begin(token, blob.type || '', String(blob.size));
+                        var CHUNK = 512 * 1024;
+                        var offset = 0;
+                        function next() {
+                            if (offset >= blob.size) { bridge.end(token); return; }
+                            var reader = new FileReader();
+                            reader.onload = function() {
+                                try {
+                                    var r = String(reader.result);
+                                    bridge.chunk(token, r.substring(r.indexOf(',') + 1));
+                                    offset += Math.min(CHUNK, blob.size - offset);
+                                    next();
+                                } catch(e) { bridge.fail(token, 'chunk transfer failed'); }
+                            };
+                            reader.onerror = function() { bridge.fail(token, 'read error'); };
+                            reader.onabort = function() { bridge.fail(token, 'read aborted'); };
+                            reader.readAsDataURL(blob.slice(offset, offset + CHUNK));
+                        }
+                        next();
+                    };
+                    xhr.onerror = function() { bridge.fail(token, 'network error'); };
+                    xhr.ontimeout = function() { bridge.fail(token, 'blob request timed out'); };
+                    xhr.onabort = function() { bridge.fail(token, 'blob request aborted'); };
+                    xhr.send();
+                } catch(e) {
+                    bridge.fail(token, 'blob request could not start');
+                }
             })();
         """.trimIndent()
         webView.evaluateJavascript(js, null)
