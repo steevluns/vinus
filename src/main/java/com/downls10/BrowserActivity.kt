@@ -3084,16 +3084,16 @@ class BrowserActivity : Activity() {
                   return;
                 }
                 if(!st){ st=document.createElement('style'); st.id=id; (document.head||root).appendChild(st); }
-                // وضع ليلي محافظ: غيّر خلفية الصفحة والنصوص فقط، ولا تمسّ صور المواقع
-                // أو SVG أو أيقونات الخطوط أو صور الخلفية أو أبعاد/تخطيط عناصر الصفحة.
+                // الوضع الليلي الحقيقي: اجعل مساحات الصفحة ونتائج البحث شفافة فوق خلفية سوداء،
+                // مع إبقاء الصور والشعارات وSVG وأيقونات المواقع بألوانها وأشكالها الأصلية.
+                // لا نستخدم invert أو grayscale ولا نمسّ background-image الخاصة بالمواقع.
                 st.textContent =
-                  'html,body{background-color:#000!important;color:#f2f2f2!important;color-scheme:dark}'+
-                  'body{background-image:initial!important}'+
+                  'html,body{background:#000!important;background-color:#000!important;color:#f2f2f2!important;color-scheme:dark}'+
+                  'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){background-color:transparent!important}'+
                   'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){color:#ededed!important;-webkit-text-fill-color:currentColor!important}'+
                   'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
-                  'input,textarea,select,button,[role="button"]{color:inherit!important;-webkit-text-fill-color:currentColor!important;color-scheme:dark}'+
-                  'button,[role="button"],[class*="icon"],[class*="Icon"],[aria-label]{border-color:transparent!important;outline-color:transparent!important;box-shadow:none!important}'+
-                  'input::placeholder,textarea::placeholder{color:#c7c7c7!important;-webkit-text-fill-color:#c7c7c7!important}'+
+                  'input,textarea,select,button,[role="button"]{background-color:#171717!important;color:#f2f2f2!important;-webkit-text-fill-color:#f2f2f2!important;color-scheme:dark;border-color:#444!important}'+
+                  'input::placeholder,textarea::placeholder{color:#bdbdbd!important;-webkit-text-fill-color:#bdbdbd!important}'+
                   'img,picture,video,canvas,svg,iframe,object,embed,[role="img"],[aria-hidden="true"],[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"]{filter:none!important;-webkit-filter:none!important}';
                 window.__downls10NightDark=false;
               } catch(e) {}
