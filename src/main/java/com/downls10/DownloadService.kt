@@ -237,7 +237,7 @@ object DownloadNotifier {
         // الأولوية للتنزيل الجاري، ثم المتوقف مؤقتاً، ثم إشعار الاكتمال.
         val category = if (active > 0) 1 else if (paused > 0) 2 else if (completed > 0) 3 else 0
         val now = SystemClock.elapsedRealtime()
-        if (!force && category == lastCategory && now - lastSync < 3000L) return
+        if (!force && category == lastCategory && now - lastSync < 4000L) return
         lastCategory = category
         lastSync = now
 
