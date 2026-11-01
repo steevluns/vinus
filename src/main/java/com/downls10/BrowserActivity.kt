@@ -2869,6 +2869,7 @@ class BrowserActivity : Activity() {
                   'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){color:#ededed!important;-webkit-text-fill-color:currentColor!important}'+
                   'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
                   'input,textarea,select,button,[role="button"]{color:inherit!important;-webkit-text-fill-color:currentColor!important;color-scheme:dark}'+
+                  'button,[role="button"],[class*="icon"],[class*="Icon"],[aria-label]{border-color:transparent!important;outline-color:transparent!important;box-shadow:none!important}'+
                   'input::placeholder,textarea::placeholder{color:#c7c7c7!important;-webkit-text-fill-color:#c7c7c7!important}'+
                   'img,picture,video,canvas,svg,iframe,object,embed,[role="img"],[aria-hidden="true"],[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"]{filter:none!important;-webkit-filter:none!important}';
                 window.__downls10NightDark=false;
