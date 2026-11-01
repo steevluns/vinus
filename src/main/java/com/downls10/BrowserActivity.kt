@@ -1892,8 +1892,45 @@ class BrowserActivity : Activity() {
                 }
 
                 function videoUrl(video) {
-                  return video.currentSrc || video.src ||
-                    ((video.querySelector('source[src]') || {}).src || '');
+                  // Prefer a real downloadable file URL over MediaSource/blob URLs.
+                  var direct = [
+                    video.currentSrc,
+                    video.src,
+                    video.getAttribute('src'),
+                    ...Array.from(video.querySelectorAll('source[src]')).map(function(source) {
+                      return source.src || source.getAttribute('src') || '';
+                    }),
+                    video.getAttribute('data-src'),
+                    video.getAttribute('data-video')
+                  ].filter(Boolean);
+
+                  function isDirectMedia(raw) {
+                    try {
+                      var u = new URL(raw, document.baseURI);
+                      if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+                      return /\.(mp4|m4v|webm|mov|3gp|ogv|avi)(?:$|[?#])/i.test(u.href);
+                    } catch(e) { return false; }
+                  }
+
+                  var directFile = direct.find(isDirectMedia);
+                  if (directFile) return new URL(directFile, document.baseURI).href;
+
+                  // Some players omit the URL from <video> but load a direct media
+                  // file through XHR/fetch. Look for media resources loaded by this page.
+                  try {
+                    var resources = performance.getEntriesByType('resource')
+                      .map(function(entry) { return entry.name; })
+                      .filter(isDirectMedia);
+                    if (resources.length) return resources[resources.length - 1];
+                  } catch(e) {}
+
+                  // Last resort: native file blobs can be passed to the Blob downloader.
+                  // MediaSource/HLS/DASH streams may not be a single downloadable file.
+                  return direct.find(function(raw) {
+                    return /^blob:/i.test(raw);
+                  }) || direct.find(function(raw) {
+                    return /^https?:/i.test(raw);
+                  }) || '';
                 }
 
                 function position(video, button) {
@@ -1939,8 +1976,11 @@ class BrowserActivity : Activity() {
                       setTimeout(function(){ button.textContent = '↓'; }, 1200);
                       return;
                     }
+                    var sourceNode = video.querySelector('source[type]');
                     var mime = video.getAttribute('type') ||
-                      (video.querySelector('source[type]') || {}).type || 'video/mp4';
+                      (sourceNode && sourceNode.type) ||
+                      ( /\.webm(?:$|[?#])/i.test(url) ? 'video/webm' :
+                        /\.ogv(?:$|[?#])/i.test(url) ? 'video/ogg' : 'video/mp4');
                     window.DownLS10VideoDownload.downloadVideo(url, safeName(video), mime);
                   }, true);
                   (document.body || document.documentElement).appendChild(button);
@@ -1951,11 +1991,20 @@ class BrowserActivity : Activity() {
                   video.addEventListener('pause', function(){ position(video, button); });
                 }
 
-                function walk(root) {
-                  if (!root || !root.querySelectorAll) return;
+                function walk(root, depth) {
+                  if (!root || !root.querySelectorAll || (depth || 0) > 4) return;
                   root.querySelectorAll('video').forEach(addButton);
                   root.querySelectorAll('*').forEach(function(node) {
-                    if (node.shadowRoot) walk(node.shadowRoot);
+                    if (node.shadowRoot) walk(node.shadowRoot, (depth || 0) + 1);
+                    // Same-origin embedded players can be scanned too. Cross-origin
+                    // frames are intentionally left to the browser's security model.
+                    if (node.tagName === 'IFRAME') {
+                      try {
+                        if (node.contentDocument && node.contentDocument.documentElement) {
+                          walk(node.contentDocument, (depth || 0) + 1);
+                        }
+                      } catch(e) {}
+                    }
                   });
                 }
 
