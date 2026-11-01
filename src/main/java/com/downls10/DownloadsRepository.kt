@@ -648,7 +648,7 @@ object DownloadsRepository {
         sink.output.write(data, 0, length)
         sink.written += length
         val now = System.currentTimeMillis()
-        if (now - sink.lastUiUpdate >= 3000) {
+        if (now - sink.lastUiUpdate >= 4000) {
             sink.lastUiUpdate = now
             val written = sink.written
             val appContext = context.applicationContext
