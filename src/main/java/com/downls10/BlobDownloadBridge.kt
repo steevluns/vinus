@@ -277,3 +277,5 @@ class BlobDownloadBridge(context: Context) {
         }
     }
 }
+
+// Build trigger: validate the latest Blob download fixes.
