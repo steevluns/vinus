@@ -3096,7 +3096,7 @@ class BrowserActivity : Activity() {
                 // لا نستخدم invert أو grayscale ولا نمسّ background-image الخاصة بالمواقع.
                 st.textContent =
                   'html,body{background:#000!important;background-color:#000!important;color:#f2f2f2!important;color-scheme:dark}'+
-                  'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){background-color:transparent!important}'+
+                  'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){background-color:#000!important}'+
                   'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){color:#ededed!important;-webkit-text-fill-color:currentColor!important}'+
                   'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
                   'input,textarea,select,button,[role="button"]{background-color:#171717!important;color:#f2f2f2!important;-webkit-text-fill-color:#f2f2f2!important;color-scheme:dark;border-color:#444!important}'+
