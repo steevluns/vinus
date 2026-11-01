@@ -1,15 +1,8 @@
 name: Build Android APK
-# Build trigger: compile the latest saved source changes.
+# Manual builds only: run this workflow when explicitly requested.
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main, master]
-    paths:
-      - '**.gradle'
-      - '**.gradle.kts'
-      - 'src/**'
-      - '.github/workflows/**'
 
 permissions:
   contents: read
@@ -60,5 +53,3 @@ jobs:
           path: build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
-
-# Fresh build requested 2026-11-01.
