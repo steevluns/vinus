@@ -258,7 +258,16 @@ object DownloadsRepository {
             val hint = suggestedFileName?.takeIf { it.isNotBlank() } ?: nameFromUrlIfReliable(typed)
             val name = resolveFileName(hint, info, typed, mimeType)
             val ext = name.substringAfterLast(".", "bin")
-            val size = info?.contentLength ?: 0L
+            val isHls = typed.substringBefore('?').substringBefore('#')
+                .endsWith(".m3u8", ignoreCase = true) ||
+                info?.contentType?.contains("mpegurl", ignoreCase = true) == true ||
+                ext.equals("m3u8", ignoreCase = true)
+            // حجم m3u8 هو حجم قائمة التشغيل فقط، وليس حجم الفيديو؛ اجمع أحجام المقاطع.
+            val size = if (isHls) {
+                downloadEngine.probeHlsTotalSize(info?.finalUrl ?: typed, userAgent, referer)
+            } else {
+                info?.contentLength ?: -1L
+            }
             mainHandler.post { onReady(DownloadPreview(name, size, ext)) }
         }
     }
