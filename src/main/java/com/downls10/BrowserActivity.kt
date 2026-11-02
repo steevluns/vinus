@@ -91,11 +91,6 @@ private data class Tab(
 
 class BrowserActivity : Activity() {
 
-    private companion object SelectionMenuIds {
-        const val ACTION_COPY_SELECTED_TEXT = 0x534501
-        const val ACTION_SELECT_ALL_PAGE_TEXT = 0x534502
-    }
-
     /** أضف أوامر واضحة لتحديد النص في شريط إجراءات WebView دون تعطيل أوامره الأصلية. */
     override fun onActionModeStarted(mode: android.view.ActionMode?) {
         super.onActionModeStarted(mode)
@@ -140,6 +135,8 @@ class BrowserActivity : Activity() {
 
 
     companion object {
+        private const val ACTION_COPY_SELECTED_TEXT = 0x534501
+        private const val ACTION_SELECT_ALL_PAGE_TEXT = 0x534502
         const val EXTRA_OPEN_URL = "extra_open_url"
         private const val SEARCH_PROVIDER_KEY = "searchProvider"
         private const val SEARCH_SEARXNG = "searxng"
