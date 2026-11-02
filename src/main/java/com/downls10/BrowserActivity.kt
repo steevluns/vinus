@@ -1135,7 +1135,7 @@ class BrowserActivity : Activity() {
                     val isUserClickedSearchResult =
                         isSearchResultsPage(view.url) &&
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
-                        request.hasGesture &&
+                        request.hasGesture() &&
                         (url.startsWith("http://", ignoreCase = true) ||
                          url.startsWith("https://", ignoreCase = true))
                     if (isUserClickedSearchResult) {
