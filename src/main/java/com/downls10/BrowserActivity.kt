@@ -2980,6 +2980,34 @@ class BrowserActivity : Activity() {
                     node.style.setProperty('background-color','#000','important');
                   }
                 }
+                // اجعل روابط عناوين النتائج الداكنة مقروءة على الخلفية السوداء،
+                // مع الحفاظ على الروابط الملونة مثل روابط التحميل والروابط البرتقالية.
+                function fixDarkTextLinks(rootNode){
+                  var links=(rootNode||document).querySelectorAll('a');
+                  for(var ai=0;ai<links.length;ai++){
+                    var link=links[ai];
+                    if(link.closest('button,[role="button"],[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"]')) continue;
+                    var rgb=colorInfo(getComputedStyle(link).color);
+                    if(rgb && rgb.lum<135){
+                      link.style.setProperty('color','#f2f2f2','important');
+                      link.style.setProperty('-webkit-text-fill-color','#f2f2f2','important');
+                    }
+                  }
+                }
+                fixDarkTextLinks(document);
+                if(!window.__downls10NightLinkObserver){
+                  window.__downls10NightLinkObserver=new MutationObserver(function(records){
+                    records.forEach(function(record){
+                      record.addedNodes.forEach(function(node){
+                        if(node.nodeType===1){
+                          if(node.matches && node.matches('a')) fixDarkTextLinks(node.parentNode||document);
+                          fixDarkTextLinks(node);
+                        }
+                      });
+                    });
+                  });
+                  window.__downls10NightLinkObserver.observe(document.documentElement,{childList:true,subtree:true});
+                }
                 window.__downls10NightDark=false;
               } catch(e) {}
             })();
