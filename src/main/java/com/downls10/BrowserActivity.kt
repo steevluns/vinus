@@ -1226,7 +1226,8 @@ class BrowserActivity : Activity() {
                 recordVisitedNavigation(url)
                 // تُحفظ حالة التبويبات بعد اكتمال الصفحة أو عند إيقاف النشاط؛
                 // تجنّب تسلسل WebView على خيط الواجهة عند بدء كل تحميل.
-                if (nightMode) { applyNightModeJs(view); applySearxngNightModeJs(view) }
+                // أظهر خلفية سوداء فور بدء التنقل؛ حقن CSS ينتظر ظهور DOM في onPageCommitVisible.
+                if (nightMode) view.setBackgroundColor(Color.BLACK)
                 if (isActiveTab(view)) editUrl.setText(url)
             }
 
@@ -1281,7 +1282,7 @@ class BrowserActivity : Activity() {
                 if (nightMode) {
                     applyNightModeJs(view)
                     applySearxngNightModeJs(view)
-                    mainHandler.postDelayed({ if (nightMode) { applyNightModeJs(view); applySearxngNightModeJs(view) } }, 500)
+                    // لا نكرر حقن CSS بعد 500ms؛ تم تطبيقه عند ظهور المحتوى وعند اكتمال الصفحة.
                     // نحفظ حكم الصفحة (داكنة/فاتحة) لتُعالج أسرع في الزيارات القادمة
                     mainHandler.postDelayed({ if (nightMode) recordNightResult(view) }, 2200)
                 }
@@ -2971,10 +2972,10 @@ class BrowserActivity : Activity() {
                   var darkSamples=0,lightSamples=0,knownSamples=0;
                   // افحص الخلفية المرئية فعلياً عبر نقاط متعددة من الشاشة، مع الصعود عبر العناصر الشفافة.
                   // هذا يمنع البطاقات البيضاء القليلة من جعل موقع أسود بالكامل يبدو فاتحاً.
-                  for(var sy=0;sy<7;sy++){
-                    for(var sx=0;sx<7;sx++){
-                      var px=Math.max(1,Math.min(innerWidth-1,Math.round((sx+0.5)*innerWidth/7)));
-                      var py=Math.max(1,Math.min(innerHeight-1,Math.round((sy+0.5)*innerHeight/7)));
+                  for(var sy=0;sy<3;sy++){
+                    for(var sx=0;sx<3;sx++){
+                      var px=Math.max(1,Math.min(innerWidth-1,Math.round((sx+0.5)*innerWidth/3)));
+                      var py=Math.max(1,Math.min(innerHeight-1,Math.round((sy+0.5)*innerHeight/3)));
                       var stack=document.elementsFromPoint ? document.elementsFromPoint(px,py) : [document.elementFromPoint(px,py)];
                       var found=null;
                       for(var si=0;si<stack.length && !found;si++){
