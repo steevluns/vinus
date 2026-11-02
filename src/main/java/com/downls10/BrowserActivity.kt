@@ -91,19 +91,6 @@ private data class Tab(
 
 class BrowserActivity : Activity() {
 
-    // أبقِ إجراءات تحديد النص الأصلية في WebView فعّالة.
-    // إخفاء العناصر الأخرى بدلاً من حذفها يحافظ على مستمعي النسخ
-    // وتحديد الكل الداخليين في WebView، خصوصاً على Android 8.1.
-    override fun onActionModeStarted(mode: android.view.ActionMode?) {
-        super.onActionModeStarted(mode)
-        val menu = mode?.menu ?: return
-        for (index in 0 until menu.size()) {
-            val item = menu.getItem(index)
-            item.isVisible = item.itemId == android.R.id.copy ||
-                item.itemId == android.R.id.selectAll
-        }
-    }
-
     companion object {
         const val EXTRA_OPEN_URL = "extra_open_url"
         private const val SEARCH_PROVIDER_KEY = "searchProvider"
@@ -957,7 +944,6 @@ class BrowserActivity : Activity() {
     // ---------------- إعداد WebView ----------------
 
     private fun setupWebView(webView: WebView) {
-        registerForContextMenu(webView)
         // تتبّع آخر نقطة لمس لاكتشاف الصور المصغّرة وملصقات الفيديو والصور
         // المعروضة بخلفية CSS، حتى لو لم يتعرف عليها HitTestResult كصورة.
         var lastTouchX = 0f
