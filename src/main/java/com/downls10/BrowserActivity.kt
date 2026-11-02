@@ -2371,7 +2371,7 @@ class BrowserActivity : Activity() {
         val providers = arrayOf(
             SEARCH_SEARXNG to "بحث SearXNG",
             SEARCH_GOOGLE to "Google",
-            SEARCH_VIDEO to "بحث فيديو"
+            SEARCH_VIDEO to "Videos"
         )
         val selected = selectedSearchProvider()
         val items = providers.map { (id, label) ->
