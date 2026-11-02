@@ -1676,7 +1676,7 @@ class BrowserActivity : Activity() {
         val host = uri.host?.lowercase(Locale.US) ?: return false
         val path = uri.path?.lowercase(Locale.US) ?: ""
 
-        // محركات البحث المعروفة، بما فيها نطاقات Google المحلية مثل google.iq وgoogle.ae.
+        // صفحات نتائج البحث المعروفة: Google ومحركات البحث الأخرى، مع نطاقات Google المحلية.
         val knownSearchHost =
             host == "google.com" || host.startsWith("google.") || host.endsWith(".google.com") ||
             host == "bing.com" || host.endsWith(".bing.com") ||
@@ -1697,11 +1697,23 @@ class BrowserActivity : Activity() {
                 uri.getQueryParameter("text") != null
         }
 
-        // دعم محركات البحث الأخرى التي تستخدم صفحة /search أو معاملات البحث الشائعة.
-        return path == "/search" || path.startsWith("/search/") ||
-            uri.getQueryParameter("q") != null ||
-            uri.getQueryParameter("query") != null ||
-            uri.getQueryParameter("search_query") != null
+        // بحث الفيديو (مثل صفحة نتائج YouTube) يُعامل كصفحة نتائج:
+        // الضغط على نتيجة منها يفتح تبويباً مباشرة بلا نافذة تأكيد.
+        val isVideoSearchHost =
+            host == "youtube.com" || host == "www.youtube.com" ||
+            host == "m.youtube.com" || host == "youtube-nocookie.com"
+        if (isVideoSearchHost && (path == "/results" || path.startsWith("/results/"))) {
+            return uri.getQueryParameter("search_query") != null ||
+                uri.getQueryParameter("q") != null
+        }
+
+        // SearXNG ومحركات البحث المستضافة على نطاقات مختلفة.
+        // لا نصنّف بقية صفحات المواقع على أنها نتائج بحث لمجرد وجود معامل q في الرابط.
+        return (path == "/search" || path.startsWith("/search/")) &&
+            (uri.getQueryParameter("q") != null ||
+             uri.getQueryParameter("query") != null ||
+             uri.getQueryParameter("search_query") != null ||
+             uri.getQueryParameter("text") != null)
     }
 
     private fun filterSearxngMicrosoftResults(webView: WebView) {
