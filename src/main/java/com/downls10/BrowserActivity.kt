@@ -1129,6 +1129,19 @@ class BrowserActivity : Activity() {
                     }
                 }
                 if (request.isForMainFrame) {
+                    // عند الضغط على أي نتيجة/رابط من صفحات بحث SearXNG أو Google أو بحث الفيديو،
+                    // افتح الموقع في تبويب جديد واترك صفحة نتائج البحث مفتوحة في تبويبها.
+                    // hasGesture يمنع تحويل التنقلات التلقائية وإعادات التوجيه إلى تبويبات جديدة.
+                    val isUserClickedSearchResult =
+                        isSearchResultsPage(view.url) &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                        request.hasGesture &&
+                        (url.startsWith("http://", ignoreCase = true) ||
+                         url.startsWith("https://", ignoreCase = true))
+                    if (isUserClickedSearchResult) {
+                        openPopupInNewTab(url)
+                        return true
+                    }
                     navigateWithSafetyCheck(view, url)
                     return true
                 }
