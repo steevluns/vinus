@@ -252,7 +252,14 @@ class DownloadManagerEngine {
         var confirmedFile = false
         val ua = item.userAgent
         // استخدم صفحة بدء التنزيل كمرجع للطلب الأول، ثم عنوان كل تحويل للطلب التالي.
+        // خوادم MajorGeeks تتحقق من Referer وترفض أحياناً الرابط المباشر إذا لم يأتِ من موقعها.
+        val initialHost = try { URL(currentUrl).host.lowercase() } catch (_: Exception) { "" }
         var requestReferer = item.referer
+        if (requestReferer.isNullOrBlank() &&
+            (initialHost == "majorgeeks.com" || initialHost == "www.majorgeeks.com" ||
+             initialHost == "m.majorgeeks.com" || initialHost.endsWith(".majorgeeks.com"))) {
+            requestReferer = "https://www.majorgeeks.com/"
+        }
         while (true) {
             val conn = URL(currentUrl).openConnection() as HttpURLConnection
             conn.connectTimeout = 60000
