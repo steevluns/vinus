@@ -2911,12 +2911,29 @@ class BrowserActivity : Activity() {
                 // لا نستخدم invert أو grayscale ولا نمسّ background-image الخاصة بالمواقع.
                 st.textContent =
                   'html,body{background:#000!important;background-color:#000!important;color:#f2f2f2!important;color-scheme:dark}'+
-                  'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){background-color:#000!important}'+
-                  'body :not(img):not(picture):not(video):not(canvas):not(svg):not(iframe):not(object):not(embed):not(source):not([role="img"]):not([aria-hidden="true"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]){color:#ededed!important;-webkit-text-fill-color:currentColor!important}'+
-                  'a,a:visited{color:#9fc5ff!important;-webkit-text-fill-color:#9fc5ff!important}'+
-                  'input,textarea,select,button,[role="button"]{background-color:#171717!important;color:#f2f2f2!important;-webkit-text-fill-color:#f2f2f2!important;color-scheme:dark;border-color:#444!important}'+
-                  'input::placeholder,textarea::placeholder{color:#bdbdbd!important;-webkit-text-fill-color:#bdbdbd!important}'+
-                  'img,picture,video,canvas,svg,iframe,object,embed,[role="img"],[aria-hidden="true"],[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"]{filter:none!important;-webkit-filter:none!important}';
+                  // غيّر لون النصوص العادية فقط؛ اترك الروابط والأزرار والأيقونات بألوان الموقع الأصلية.
+                  'body :not(a):not(button):not(input):not(textarea):not(select):not(svg):not(canvas):not(img):not(video):not(picture):not(iframe):not([role="img"]):not([role="button"]):not([class*="icon"]):not([class*="Icon"]):not([class*="logo"]):not([class*="Logo"]):not([class*="download"]):not([class*="Download"]){color:#ededed!important;-webkit-text-fill-color:currentColor!important}'+
+                  // لا نفرض لوناً على الروابط؛ تبقى الروابط المهمة بألوانها الأصلية.
+                  'a,a:visited,a:hover,a:active,button,[role="button"],svg,img,picture,video,canvas,iframe,[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"],[class*="download"],[class*="Download"]{filter:none!important;-webkit-filter:none!important}'+
+                  'input,textarea,select{background-color:#171717!important;color:#f2f2f2!important;-webkit-text-fill-color:#f2f2f2!important;color-scheme:dark;border-color:#444!important}'+
+                  'input::placeholder,textarea::placeholder{color:#bdbdbd!important;-webkit-text-fill-color:#bdbdbd!important}';
+                // سوّد الحاويات الفاتحة الكبيرة فقط، ولا تلمس خلفيات الصور أو الأيقونات أو الأزرار.
+                var protectedSelector='a,button,input,textarea,select,svg,img,picture,video,canvas,iframe,[role="img"],[role="button"],[class*="icon"],[class*="Icon"],[class*="logo"],[class*="Logo"],[class*="download"],[class*="Download"]';
+                var nodes=document.body ? document.body.querySelectorAll('*') : [];
+                for(var ni=0;ni<nodes.length;ni++){
+                  var node=nodes[ni];
+                  if(node.matches(protectedSelector)) continue;
+                  var box=node.getBoundingClientRect();
+                  if(box.width<innerWidth*0.25 || box.height<Math.max(35,innerHeight*0.045)) continue;
+                  var cs=getComputedStyle(node);
+                  if(cs.display==='none'||cs.visibility==='hidden'||parseFloat(cs.opacity||'1')<0.05) continue;
+                  if(cs.backgroundImage && cs.backgroundImage!=='none') continue;
+                  var bg=colorInfo(cs.backgroundColor);
+                  if(bg && bg.lum>170 && bg.alpha>0.15 &&
+                     box.width*box.height>innerWidth*innerHeight*0.055){
+                    node.style.setProperty('background-color','#000','important');
+                  }
+                }
                 window.__downls10NightDark=false;
               } catch(e) {}
             })();
