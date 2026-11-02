@@ -236,28 +236,75 @@ object LinkResolver {
 
     // ---------------- صفحات HTML الوسيطة ----------------
 
-    /** هل هذا الموقع يُرجع أحياناً صفحة HTML وسيطة بدل الملف (فنحتاج تحليلها)؟ */
+    /**
+     * نفحص نوع استجابة HTTP الفعلي بدلاً من الاعتماد على قائمة مواقع محددة؛
+     * كثير من مواقع التنزيل تعرض صفحة وسيطة HTML قبل إرسال الملف.
+     */
     fun needsHtmlResolution(url: String): Boolean {
-        val host = hostOf(url) ?: return false
-        val path = try { Uri.parse(url).path ?: "" } catch (_: Exception) { "" }
-        val isMajorGeeksPage =
-            (host == "majorgeeks.com" || host == "www.majorgeeks.com" || host == "m.majorgeeks.com") &&
-            path.startsWith("/files/details/")
-        return host == "drive.google.com" || host == "docs.google.com" ||
-            host == "drive.usercontent.google.com" || host.endsWith("mediafire.com") ||
-            isMajorGeeksPage
+        val scheme = try { Uri.parse(url).scheme?.lowercase() } catch (_: Exception) { null }
+        return scheme == "http" || scheme == "https"
     }
 
-    /** يستخرج رابط التنزيل الحقيقي من صفحة HTML الوسيطة، أو null. */
+    /** يستخرج رابط الملف من صفحات التنزيل الوسيطة لمواقع مختلفة. */
     fun resolveFromHtml(pageUrl: String, html: String): String? {
         val host = hostOf(pageUrl) ?: return null
-        return when {
+        val siteSpecific = when {
             host.endsWith("mediafire.com") -> mediafireUrl(html)
-            host.endsWith("google.com") -> driveConfirmUrl(html)
+            host == "drive.google.com" || host == "docs.google.com" ||
+                host == "drive.usercontent.google.com" -> driveConfirmUrl(html)
             host == "majorgeeks.com" || host == "www.majorgeeks.com" || host == "m.majorgeeks.com" ->
                 majorGeeksDownloadUrl(pageUrl, html)
             else -> null
         }
+        return siteSpecific ?: genericDownloadUrl(pageUrl, html)
+    }
+
+    /**
+     * تحليل عام لصفحات التنزيل: أزرار Download، روابط الملفات، نماذج POST،
+     * وتحويلات meta/JavaScript الشائعة. لا يتجاوز تسجيل الدخول أو CAPTCHA.
+     */
+    private fun genericDownloadUrl(pageUrl: String, html: String): String? {
+        val decoded = html.replace("&amp;", "&").replace("&#x2F;", "/").replace("\\/", "/")
+        val candidates = Regex(
+            """<(?:a|button)\\b[^>]*(?:href|data-href|data-url)\\s*=\\s*["']([^"']+)["'][^>]*>([\\s\\S]{0,800}?)</(?:a|button)>""",
+            setOf(RegexOption.IGNORE_CASE)
+        ).findAll(decoded).mapNotNull { match ->
+            val raw = match.groupValues[1].trim()
+            val label = match.groupValues[2].replace(Regex("<[^>]+>"), " ").lowercase()
+            val attrs = match.value.substringBefore(">").lowercase()
+            val score = (if (label.contains("download") || label.contains("تنزيل") || label.contains("تحميل")) 4 else 0) +
+                (if (attrs.contains("download")) 3 else 0) +
+                (if (raw.matches(Regex(""".+\\.(exe|zip|rar|7z|apk|msi|iso|pdf|dmg|deb|rpm)(?:[?#].*)?""", RegexOption.IGNORE_CASE))) 5 else 0)
+            if (score > 0) Pair(raw, score) else null
+        }.sortedByDescending { it.second }
+
+        for ((raw, _) in candidates) {
+            val resolved = resolveCandidate(pageUrl, raw) ?: continue
+            if (resolved.startsWith("http://") || resolved.startsWith("https://")) return resolved
+        }
+
+        val redirectPatterns = listOf(
+            Regex("""<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url\\s*=\\s*([^"' ;]+)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:window\\.)?location(?:\\.href)?\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:window\\.)?location\\.replace\\(\\s*["']([^"']+)["']\\s*\\)""", RegexOption.IGNORE_CASE)
+        )
+        for (pattern in redirectPatterns) {
+            val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
+            resolveCandidate(pageUrl, raw)?.let { return it }
+        }
+
+        // بعض المواقع تستخدم form action كخطوة أخيرة قبل تنزيل الملف.
+        val formAction = Regex("""<form[^>]*action=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+            .find(decoded)?.groupValues?.getOrNull(1)
+        if (!formAction.isNullOrBlank()) resolveCandidate(pageUrl, formAction)?.let { return it }
+        return null
+    }
+
+    private fun resolveCandidate(pageUrl: String, raw: String): String? {
+        val value = raw.replace("&amp;", "&").trim()
+        if (value.isBlank() || value.startsWith("javascript:", true) ||
+            value.startsWith("mailto:", true) || value.startsWith("#")) return null
+        return try { URL(URL(pageUrl), value).toString() } catch (_: Exception) { null }
     }
 
     /** يستخرج رابط تنزيل MajorGeeks من صفحة تفاصيل البرنامج. */
