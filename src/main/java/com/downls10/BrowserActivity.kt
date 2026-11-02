@@ -957,6 +957,68 @@ class BrowserActivity : Activity() {
 
         webView.isLongClickable = true
 
+        // أضف أوامر عربية واضحة عند تحديد النص بالضغط المطوّل داخل نتائج البحث والمواقع.
+        webView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
+            override fun onCreateActionMode(
+                mode: android.view.ActionMode,
+                menu: android.view.Menu
+            ): Boolean {
+                menu.add(0, 9101, 0, "نسخ")
+                    .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
+                menu.add(0, 9102, 1, "تحديد الكل")
+                    .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
+                return true
+            }
+
+            override fun onPrepareActionMode(
+                mode: android.view.ActionMode,
+                menu: android.view.Menu
+            ): Boolean = false
+
+            override fun onActionItemClicked(
+                mode: android.view.ActionMode,
+                item: android.view.MenuItem
+            ): Boolean {
+                when (item.itemId) {
+                    9101 -> {
+                        // انسخ النص المحدد فقط، ولا تنسخ محتوى الصفحة كله.
+                        webView.evaluateJavascript(
+                            "(function(){return window.getSelection ? window.getSelection().toString() : '';})()"
+                        ) { value ->
+                            try {
+                                val selectedText = org.json.JSONTokener(value ?: "\"\"").nextValue() as? String
+                                if (!selectedText.isNullOrEmpty()) {
+                                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                            as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(
+                                        android.content.ClipData.newPlainText("النص المحدد", selectedText)
+                                    )
+                                    android.widget.Toast.makeText(
+                                        this@BrowserActivity, "تم نسخ النص المحدد", android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            } catch (_: Exception) {
+                                // اترك النسخ الافتراضي في WebView متاحاً إذا تعذر استخراج النص.
+                            }
+                        }
+                        mode.finish()
+                        return true
+                    }
+                    9102 -> {
+                        // حدد النص الكامل في المستند الحالي، ثم اترك شريط التحديد ظاهراً.
+                        webView.evaluateJavascript(
+                            "(function(){document.body && document.body.focus(); if(document.execCommand){document.execCommand('selectAll');}})()",
+                            null
+                        )
+                        return true
+                    }
+                }
+                return false
+            }
+
+            override fun onDestroyActionMode(mode: android.view.ActionMode) = Unit
+        }
+
         // امنع سحب النص المحدد وإفلاته داخل الصفحة أو خارجها.
         // هذا لا يعطّل الضغط المطوّل ولا تحديد النص ولا أمر النسخ.
         webView.setOnDragListener { _, _ -> true }
