@@ -1283,7 +1283,14 @@ class BrowserActivity : Activity() {
                     if (u.isEmpty() || lower.startsWith("about:") || lower.startsWith("javascript:") ||
                         lower.startsWith("data:") || lower.startsWith("blob:")) return
                     dispose()
-                    showPopupConfirmDialog(u)
+                    // روابط نتائج البحث (SearXNG وGoogle وبحث الفيديو):
+                    // عند ضغط المستخدم على النتيجة افتحها مباشرة في تبويب جديد دون نافذة تأكيد.
+                    // أبقِ تأكيد النوافذ المنبثقة للمواقع الأخرى كما هو للحماية من الإعلانات المنبثقة.
+                    if (isUserGesture && isSearchResultsPage(view.url)) {
+                        openPopupInNewTab(u)
+                    } else {
+                        showPopupConfirmDialog(u)
+                    }
                 }
 
                 temp.webViewClient = object : WebViewClient() {
