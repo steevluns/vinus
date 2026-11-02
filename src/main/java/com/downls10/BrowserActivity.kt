@@ -247,6 +247,33 @@ class BrowserActivity : Activity() {
                 imm.showSoftInput(editUrl, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
             }
         }
+
+        // أظهر خيار "لصق" عند الضغط المطوّل على شريط العنوان،
+        // مع استبدال النص المحدد أو الإدراج عند موضع المؤشر.
+        editUrl.isLongClickable = true
+        editUrl.setOnLongClickListener { view ->
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            val clip = clipboard.primaryClip
+            if (clip == null || clip.itemCount == 0) {
+                Toast.makeText(this, "الحافظة فارغة", Toast.LENGTH_SHORT).show()
+            } else {
+                val pasteMenu = android.widget.PopupMenu(this, view)
+                pasteMenu.menu.add("لصق")
+                pasteMenu.setOnMenuItemClickListener {
+                    val pastedText = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
+                    if (pastedText.isNotEmpty()) {
+                        val start = editUrl.selectionStart.coerceAtLeast(0)
+                        val end = editUrl.selectionEnd.coerceAtLeast(0)
+                        val editable = editUrl.text
+                        editable.replace(minOf(start, end), maxOf(start, end), pastedText)
+                        editUrl.setSelection((minOf(start, end) + pastedText.length).coerceAtMost(editUrl.length()))
+                    }
+                    true
+                }
+                pasteMenu.show()
+            }
+            true
+        }
         progressBar = findViewById(R.id.progressBar)
         val btnBookmarkStar = findViewById<Button>(R.id.btnBookmarkStar)
         val btnForward = findViewById<Button>(R.id.btnForward)
