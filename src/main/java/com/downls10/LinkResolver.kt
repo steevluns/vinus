@@ -239,8 +239,13 @@ object LinkResolver {
     /** هل هذا الموقع يُرجع أحياناً صفحة HTML وسيطة بدل الملف (فنحتاج تحليلها)؟ */
     fun needsHtmlResolution(url: String): Boolean {
         val host = hostOf(url) ?: return false
+        val path = try { Uri.parse(url).path ?: "" } catch (_: Exception) { "" }
+        val isMajorGeeksPage =
+            (host == "majorgeeks.com" || host == "www.majorgeeks.com" || host == "m.majorgeeks.com") &&
+            path.startsWith("/files/details/")
         return host == "drive.google.com" || host == "docs.google.com" ||
-            host == "drive.usercontent.google.com" || host.endsWith("mediafire.com")
+            host == "drive.usercontent.google.com" || host.endsWith("mediafire.com") ||
+            isMajorGeeksPage
     }
 
     /** يستخرج رابط التنزيل الحقيقي من صفحة HTML الوسيطة، أو null. */
@@ -249,8 +254,36 @@ object LinkResolver {
         return when {
             host.endsWith("mediafire.com") -> mediafireUrl(html)
             host.endsWith("google.com") -> driveConfirmUrl(html)
+            host == "majorgeeks.com" || host == "www.majorgeeks.com" || host == "m.majorgeeks.com" ->
+                majorGeeksDownloadUrl(pageUrl, html)
             else -> null
         }
+    }
+
+    /** يستخرج رابط تنزيل MajorGeeks من صفحة تفاصيل البرنامج. */
+    private fun majorGeeksDownloadUrl(pageUrl: String, html: String): String? {
+        val decoded = html.replace("&amp;", "&").replace("&#x2F;", "/").replace("\\/", "/")
+        // أولوية لرابط الملف النهائي إن كان موجوداً في HTML.
+        val directPatterns = listOf(
+            Regex("""https?://files[0-9]*\\.majorgeeks\\.com/[^\\s"'<>]+""", RegexOption.IGNORE_CASE),
+            Regex("""//files[0-9]*\\.majorgeeks\\.com/[^\\s"'<>]+""", RegexOption.IGNORE_CASE)
+        )
+        for (pattern in directPatterns) {
+            val found = pattern.find(decoded)?.value?.trimEnd(')', ',', ';')
+            if (!found.isNullOrBlank()) return if (found.startsWith("//")) "https:$found" else found
+        }
+
+        // إذا لم يظهر الرابط النهائي، استخرج رابط Download@MajorGeeks / getmirror من الصفحة.
+        val linkPatterns = listOf(
+            Regex("""href\\s*=\\s*["']([^"']*(?:/mg/getmirror/|getmirror)[^"']*)["']""", RegexOption.IGNORE_CASE),
+            Regex("""href\\s*=\\s*["']([^"']*majorgeeks[^"']*(?:download|mirror)[^"']*)["']""", RegexOption.IGNORE_CASE)
+        )
+        for (pattern in linkPatterns) {
+            val value = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
+            val candidate = value.replace("&amp;", "&")
+            return try { URL(URL(pageUrl), candidate).toString() } catch (_: Exception) { candidate }
+        }
+        return null
     }
 
     private fun unescape(s: String) = s.replace("&amp;", "&")
