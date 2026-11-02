@@ -97,9 +97,9 @@ class BrowserActivity : Activity() {
         val menu = mode?.menu ?: return
 
         if (menu.findItem(ACTION_COPY_SELECTED_TEXT) == null) {
-            menu.add(0, ACTION_COPY_SELECTED_TEXT, 100, "نسخ")
-                .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
-                .setOnMenuItemClickListener {
+            val copyItem = menu.add(0, ACTION_COPY_SELECTED_TEXT, 100, "نسخ")
+            copyItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+            copyItem.setOnMenuItemClickListener {
                     val webView = tabs.getOrNull(currentTabIndex)?.webView
                     if (webView != null) {
                         webView.evaluateJavascript(
@@ -120,9 +120,9 @@ class BrowserActivity : Activity() {
         }
 
         if (menu.findItem(ACTION_SELECT_ALL_PAGE_TEXT) == null) {
-            menu.add(0, ACTION_SELECT_ALL_PAGE_TEXT, 101, "تحديد الكل")
-                .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
-                .setOnMenuItemClickListener {
+            val selectAllItem = menu.add(0, ACTION_SELECT_ALL_PAGE_TEXT, 101, "تحديد الكل")
+            selectAllItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+            selectAllItem.setOnMenuItemClickListener {
                     val webView = tabs.getOrNull(currentTabIndex)?.webView
                     webView?.evaluateJavascript(
                         "(function(){var r=document.createRange();r.selectNodeContents(document.body);var s=window.getSelection();s.removeAllRanges();s.addRange(r);})()",
