@@ -2369,7 +2369,7 @@ class BrowserActivity : Activity() {
 
     private fun showSearchProviderDialog() {
         val providers = arrayOf(
-            SEARCH_SEARXNG to "بحث SearXNG",
+            SEARCH_SEARXNG to "SearXNG",
             SEARCH_GOOGLE to "Google",
             SEARCH_VIDEO to "Videos"
         )
