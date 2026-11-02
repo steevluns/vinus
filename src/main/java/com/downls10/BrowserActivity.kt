@@ -91,17 +91,16 @@ private data class Tab(
 
 class BrowserActivity : Activity() {
 
-    // تصفية قائمة تحديد النص على مستوى Activity؛ WebView لا يوفّر
-    // customSelectionActionModeCallback كخاصية مباشرة.
+    // أبقِ إجراءات تحديد النص الأصلية في WebView فعّالة.
+    // إخفاء العناصر الأخرى بدلاً من حذفها يحافظ على مستمعي النسخ
+    // وتحديد الكل الداخليين في WebView، خصوصاً على Android 8.1.
     override fun onActionModeStarted(mode: android.view.ActionMode?) {
         super.onActionModeStarted(mode)
         val menu = mode?.menu ?: return
-        for (index in menu.size() - 1 downTo 0) {
+        for (index in 0 until menu.size()) {
             val item = menu.getItem(index)
-            if (item.itemId != android.R.id.copy &&
-                item.itemId != android.R.id.selectAll) {
-                menu.removeItem(item.itemId)
-            }
+            item.isVisible = item.itemId == android.R.id.copy ||
+                item.itemId == android.R.id.selectAll
         }
     }
 
