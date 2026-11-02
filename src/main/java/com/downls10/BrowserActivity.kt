@@ -91,6 +91,54 @@ private data class Tab(
 
 class BrowserActivity : Activity() {
 
+    private companion object SelectionMenuIds {
+        const val ACTION_COPY_SELECTED_TEXT = 0x534501
+        const val ACTION_SELECT_ALL_PAGE_TEXT = 0x534502
+    }
+
+    /** أضف أوامر واضحة لتحديد النص في شريط إجراءات WebView دون تعطيل أوامره الأصلية. */
+    override fun onActionModeStarted(mode: android.view.ActionMode?) {
+        super.onActionModeStarted(mode)
+        val menu = mode?.menu ?: return
+
+        if (menu.findItem(ACTION_COPY_SELECTED_TEXT) == null) {
+            menu.add(0, ACTION_COPY_SELECTED_TEXT, 100, "نسخ")
+                .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                .setOnMenuItemClickListener {
+                    val webView = tabs.getOrNull(currentTabIndex)?.webView
+                    if (webView != null) {
+                        webView.evaluateJavascript(
+                            "(function(){var s=window.getSelection();return s?s.toString():'';})()"
+                        ) { value ->
+                            val selected = runCatching {
+                                org.json.JSONTokener(value ?: "\"\"").nextValue() as? String
+                            }.getOrNull().orEmpty()
+                            if (selected.isNotEmpty()) {
+                                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("النص المحدد", selected))
+                                Toast.makeText(this, "تم نسخ النص المحدد", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    true
+                }
+        }
+
+        if (menu.findItem(ACTION_SELECT_ALL_PAGE_TEXT) == null) {
+            menu.add(0, ACTION_SELECT_ALL_PAGE_TEXT, 101, "تحديد الكل")
+                .setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+                .setOnMenuItemClickListener {
+                    val webView = tabs.getOrNull(currentTabIndex)?.webView
+                    webView?.evaluateJavascript(
+                        "(function(){var r=document.createRange();r.selectNodeContents(document.body);var s=window.getSelection();s.removeAllRanges();s.addRange(r);})()",
+                        null
+                    )
+                    true
+                }
+        }
+    }
+
+
     companion object {
         const val EXTRA_OPEN_URL = "extra_open_url"
         private const val SEARCH_PROVIDER_KEY = "searchProvider"
