@@ -265,8 +265,8 @@ object LinkResolver {
         val decoded = html.replace("&amp;", "&").replace("&#x2F;", "/").replace("\\/", "/")
         // أولوية لرابط الملف النهائي إن كان موجوداً في HTML.
         val directPatterns = listOf(
-            Regex("""https?://files[0-9]*\\.majorgeeks\\.com/[^\\s"'<>]+""", RegexOption.IGNORE_CASE),
-            Regex("""//files[0-9]*\\.majorgeeks\\.com/[^\\s"'<>]+""", RegexOption.IGNORE_CASE)
+            Regex("""https?://files[0-9]*\.majorgeeks\.com/[^\s"'<>]+""", RegexOption.IGNORE_CASE),
+            Regex("""//files[0-9]*\.majorgeeks\.com/[^\s"'<>]+""", RegexOption.IGNORE_CASE)
         )
         for (pattern in directPatterns) {
             val found = pattern.find(decoded)?.value?.trimEnd(')', ',', ';')
@@ -275,8 +275,8 @@ object LinkResolver {
 
         // إذا لم يظهر الرابط النهائي، استخرج رابط Download@MajorGeeks / getmirror من الصفحة.
         val linkPatterns = listOf(
-            Regex("""href\\s*=\\s*["']([^"']*(?:/mg/getmirror/|getmirror)[^"']*)["']""", RegexOption.IGNORE_CASE),
-            Regex("""href\\s*=\\s*["']([^"']*majorgeeks[^"']*(?:download|mirror)[^"']*)["']""", RegexOption.IGNORE_CASE)
+            Regex("""href\s*=\s*["']([^"']*(?:/mg/getmirror/|getmirror)[^"']*)["']""", RegexOption.IGNORE_CASE),
+            Regex("""href\s*=\s*["']([^"']*majorgeeks[^"']*(?:download|mirror)[^"']*)["']""", RegexOption.IGNORE_CASE)
         )
         for (pattern in linkPatterns) {
             val value = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
