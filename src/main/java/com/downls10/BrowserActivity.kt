@@ -1070,38 +1070,9 @@ class BrowserActivity : Activity() {
                 request: WebResourceRequest,
                 error: android.webkit.WebResourceError
             ) {
+                // لا تعرض نافذة منبثقة عند فشل DNS أو تعذّر فتح الموقع.
+                // اترك WebView يعرض حالة الخطأ داخل الصفحة فقط.
                 super.onReceivedError(view, request, error)
-                if (!request.isForMainFrame) return
-
-                val failedUrl = request.url?.toString().orEmpty()
-                val isDnsFailure = error.errorCode == WebViewClient.ERROR_HOST_LOOKUP
-                if (isDnsFailure) {
-                    // DNS errors happen before an HTTP connection is made. Offer a
-                    // retry and Android network settings rather than pretending HTTP
-                    // or the website's TLS settings can repair an unresolved domain.
-                    view.post {
-                        if (isFinishing || isDestroyed) return@post
-                        AlertDialog.Builder(this@BrowserActivity)
-                            .setTitle("تعذر العثور على عنوان الموقع")
-                            .setMessage(
-                                "فشل اتصال DNS لهذا النطاق، لذلك لم يتمكن الهاتف من العثور على خادم الموقع. " +
-                                "قد يكون الخلل مؤقتاً في شبكة الإنترنت أو DNS، أو قد يكون النطاق نفسه متوقفاً.\\n\\n" +
-                                "جرّب إعادة المحاولة أو افتح إعدادات الشبكة وبدّل بين Wi‑Fi وبيانات الهاتف."
-                            )
-                            .setPositiveButton("إعادة المحاولة") { _, _ ->
-                                if (failedUrl.isNotBlank()) view.loadUrl(failedUrl) else view.reload()
-                            }
-                            .setNeutralButton("إعدادات الشبكة") { _, _ ->
-                                runCatching {
-                                    startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
-                                }.onFailure {
-                                    startActivity(Intent(Settings.ACTION_SETTINGS))
-                                }
-                            }
-                            .setNegativeButton("إغلاق", null)
-                            .show()
-                    }
-                }
             }
 
             @android.annotation.TargetApi(android.os.Build.VERSION_CODES.O)
