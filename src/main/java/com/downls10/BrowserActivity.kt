@@ -958,7 +958,7 @@ class BrowserActivity : Activity() {
         webView.isLongClickable = true
 
         // أضف أوامر عربية واضحة عند تحديد النص بالضغط المطوّل داخل نتائج البحث والمواقع.
-        webView.customSelectionActionModeCallback = object : android.view.ActionMode.Callback {
+        webView.setCustomSelectionActionModeCallback(object : android.view.ActionMode.Callback {
             override fun onCreateActionMode(
                 mode: android.view.ActionMode,
                 menu: android.view.Menu
@@ -1017,7 +1017,7 @@ class BrowserActivity : Activity() {
             }
 
             override fun onDestroyActionMode(mode: android.view.ActionMode) = Unit
-        }
+        })
 
         // امنع سحب النص المحدد وإفلاته داخل الصفحة أو خارجها.
         // هذا لا يعطّل الضغط المطوّل ولا تحديد النص ولا أمر النسخ.
