@@ -2872,31 +2872,45 @@ class BrowserActivity : Activity() {
                          parseFloat(cs.opacity||'1')>0;
                 }
                 if(typeof window.__downls10NightOriginalDark==='undefined'){
-                  var candidates=[root,document.body];
-                  // بعض المواقع ترسم الخلفية على حاوية رئيسية بدل body.
-                  if(document.body){
-                    var all=document.body.querySelectorAll('*');
-                    var count=0;
-                    for(var n=0;n<all.length && count<100;n++){
-                      var el=all[n];
-                      if(!visible(el)) continue;
-                      var rect=el.getBoundingClientRect();
-                      if(rect.width*rect.height < innerWidth*innerHeight*0.18) continue;
-                      candidates.push(el); count++;
+                  // لا نحكم أثناء تحميل الصفحة؛ بعض المواقع لا تنشئ body أو تضبط خلفيتها إلا لاحقاً.
+                  if(document.readyState==='loading' || !document.body) return;
+                  var darkSamples=0,lightSamples=0,knownSamples=0;
+                  // افحص الخلفية المرئية فعلياً عبر نقاط متعددة من الشاشة، مع الصعود عبر العناصر الشفافة.
+                  // هذا يمنع البطاقات البيضاء القليلة من جعل موقع أسود بالكامل يبدو فاتحاً.
+                  for(var sy=0;sy<7;sy++){
+                    for(var sx=0;sx<7;sx++){
+                      var px=Math.max(1,Math.min(innerWidth-1,Math.round((sx+0.5)*innerWidth/7)));
+                      var py=Math.max(1,Math.min(innerHeight-1,Math.round((sy+0.5)*innerHeight/7)));
+                      var stack=document.elementsFromPoint ? document.elementsFromPoint(px,py) : [document.elementFromPoint(px,py)];
+                      var found=null;
+                      for(var si=0;si<stack.length && !found;si++){
+                        var el=stack[si];
+                        while(el && el!==root && el!==document.body){
+                          var bg=colorInfo(getComputedStyle(el).backgroundColor);
+                          if(bg && bg.alpha>=0.85){found=bg;break;}
+                          el=el.parentElement;
+                        }
+                        if(!found){
+                          var bodyBg=colorInfo(getComputedStyle(document.body).backgroundColor);
+                          var rootBg=colorInfo(getComputedStyle(root).backgroundColor);
+                          found=bodyBg || rootBg;
+                        }
+                      }
+                      if(found){
+                        knownSamples++;
+                        if(found.lum<105) darkSamples++;
+                        else if(found.lum>175) lightSamples++;
+                      }
                     }
                   }
-                  var darkScore=0,lightScore=0;
-                  for(var k=0;k<candidates.length;k++){
-                    var el=candidates[k]; if(!el) continue;
-                    var info=colorInfo(getComputedStyle(el).backgroundColor);
-                    if(!info) continue;
-                    var rect=el.getBoundingClientRect ? el.getBoundingClientRect() : {width:innerWidth,height:innerHeight};
-                    var area=Math.max(1,Math.min(innerWidth,rect.width)*Math.min(innerHeight,rect.height));
-                    var weight=Math.min(1,area/(innerWidth*innerHeight*0.5));
-                    if(info.lum<95) darkScore+=weight;
-                    else if(info.lum>185) lightScore+=weight;
-                  }
-                  window.__downls10NightOriginalDark = darkScore>0 && darkScore>=lightScore;
+                  // استخدم لون html/body كمرجع إضافي عندما تكون الخلفية مرسومة على مستوى الصفحة.
+                  var rootBg=colorInfo(getComputedStyle(root).backgroundColor);
+                  var bodyBg=colorInfo(getComputedStyle(document.body).backgroundColor);
+                  var pageBg=bodyBg || rootBg;
+                  var mostlyDark=knownSamples>0 && darkSamples/knownSamples>=0.55 &&
+                                 darkSamples>=lightSamples;
+                  window.__downls10NightOriginalDark = mostlyDark ||
+                    (!!pageBg && pageBg.lum<80 && lightSamples<=darkSamples);
                 }
                 var st=document.getElementById(id);
                 // الموقع الداكن أصلاً لا نغيّر ألوانه.
