@@ -2051,33 +2051,10 @@ class BrowserActivity : Activity() {
         val trimmedUrl = rawUrl.trim()
         val lowerUrl = trimmedUrl.lowercase(Locale.US)
 
-        // لا تسمح لرابط intent:// بتجاوز فحص التصيّد/البرمجيات الخبيثة عبر فتح تطبيق خارجي مباشرة.
-        // يُسمح فقط بالرابط الاحتياطي HTTPS، ويُمرّر إلى فحص الأمان المعتاد؛ ولا ننفّذ Intent الأصلي.
+        // روابط intent:// تُحلّل كـ Android Intent وتُفتح في التطبيق المناسب.
+        // لا نسمح بفتحها إلا بعد إزالة component/selector وفحص رابط fallback قبل استخدامه.
         if (lowerUrl.startsWith("intent:")) {
-            val fallbackUrl = runCatching {
-                Intent.parseUri(trimmedUrl, Intent.URI_INTENT_SCHEME)
-                    .getStringExtra("browser_fallback_url")
-                    ?.trim()
-            }.getOrNull()
-            val fallbackUri = runCatching { Uri.parse(fallbackUrl.orEmpty()) }.getOrNull()
-            if (!fallbackUrl.isNullOrBlank() &&
-                fallbackUri?.scheme.equals("https", ignoreCase = true) &&
-                !fallbackUri?.host.isNullOrBlank() &&
-                fallbackUri?.userInfo == null
-            ) {
-                Toast.makeText(
-                    this,
-                    "تم منع فتح التطبيق مباشرةً. يجري فحص رابط HTTPS الاحتياطي أولًا.",
-                    Toast.LENGTH_LONG
-                ).show()
-                navigateWithSafetyCheck(webView, fallbackUrl)
-            } else {
-                Toast.makeText(
-                    this,
-                    "تم حظر رابط intent:// لعدم وجود رابط HTTPS احتياطي آمن للفحص.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            openExternalAppLink(webView, trimmedUrl, Uri.parse(trimmedUrl))
             return
         }
 
@@ -2160,34 +2137,81 @@ class BrowserActivity : Activity() {
         loadAndRecord(webView, rawUrl)
     }
 
-    // يفتح روابط التطبيقات الخارجية (Google Play, تيليجرام, واتساب, ...).
-    // روابط "intent://" (مثل زر "الفتح في تطبيق Play") لها تنسيق خاص يجب فكّه
-    // بواسطة Intent.parseUri وليس ببناء Intent يدويًا من الـ Uri مباشرة.
+    // يتحقق من أن رابط الرجوع HTTPS صالح قبل تحميله داخل WebView.
+    private fun isValidExternalFallback(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        val fallback = runCatching { Uri.parse(url.trim()) }.getOrNull() ?: return false
+        return fallback.scheme.equals("https", ignoreCase = true) &&
+            !fallback.host.isNullOrBlank() &&
+            fallback.userInfo == null
+    }
+
+    // يفتح روابط التطبيقات الخارجية (Google Play، تيليجرام، واتساب وغيرها).
+    // عند غياب التطبيق أو فشل تشغيله، نعود إلى fallback HTTPS بعد تمريره بفحص الأمان.
     private fun openExternalAppLink(webView: WebView, rawUrl: String, uri: Uri) {
+        var fallbackUrl: String? = null
         try {
-            val intent: Intent
-            var fallbackUrl: String? = null
-
-            if (uri.scheme == "intent") {
-                intent = Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
-                fallbackUrl = intent.getStringExtra("browser_fallback_url")
-                // نتأكد إنه ما يرجع لنفس المتصفح إذا التطبيق موجود أصلاً
-                intent.addCategory(Intent.CATEGORY_BROWSABLE)
-                intent.component = null
-                intent.selector = null
+            val externalIntent = if (uri.scheme.equals("intent", ignoreCase = true)) {
+                val parsed = Intent.parseUri(rawUrl, Intent.URI_INTENT_SCHEME)
+                fallbackUrl = parsed.getStringExtra("browser_fallback_url")?.trim()
+                parsed.apply {
+                    // لا تسمح لرابط الويب بتحديد Activity أو Selector صريح.
+                    component = null
+                    selector = null
+                    action = Intent.ACTION_VIEW
+                    addCategory(Intent.CATEGORY_BROWSABLE)
+                    // لا نمرر صلاحيات URI أو أعلام تشغيل غير مطلوبة من الرابط.
+                    flags = 0
+                }
             } else {
-                intent = Intent(Intent.ACTION_VIEW, uri)
+                Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE)
             }
 
-            if (intent.resolveActivity(packageManager) != null) {
-                startActivity(intent)
-            } else if (!fallbackUrl.isNullOrBlank()) {
-                // التطبيق غير مثبّت: افتح الرابط الاحتياطي (عادة صفحة متجر التطبيق نفسه)
-                loadAndRecord(webView, fallbackUrl)
+            val targetUri = externalIntent.data
+            val targetScheme = targetUri?.scheme?.lowercase(Locale.US)
+            // امنع المخططات المحلية/الخطرة؛ اسمح بروابط التطبيقات والمتاجر المعتادة فقط.
+            if (targetUri == null || targetScheme.isNullOrBlank() ||
+                targetScheme in setOf("file", "content", "javascript", "data", "about")
+            ) {
+                throw SecurityException("Unsupported external URI scheme")
             }
-            // ما فيه تطبيق ولا رابط احتياطي: تجاهل بهدوء
-        } catch (e: Exception) {
-            // تجاهل بهدوء عند فشل تحليل أو فتح الرابط
+
+            try {
+                if (externalIntent.resolveActivity(packageManager) != null) {
+                    startActivity(externalIntent)
+                    return
+                }
+            } catch (_: android.content.ActivityNotFoundException) {
+                // جرّب رابط الرجوع أدناه.
+            } catch (_: SecurityException) {
+                // جرّب رابط الرجوع الآمن أدناه.
+            }
+
+            // روابط market://details?id=... تحصل على صفحة Google Play HTTPS عند غياب المتجر.
+            if (fallbackUrl.isNullOrBlank() && targetScheme == "market" &&
+                targetUri.host.equals("details", ignoreCase = true)
+            ) {
+                val appId = targetUri.getQueryParameter("id")
+                if (!appId.isNullOrBlank() && appId.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) {
+                    fallbackUrl = "https://play.google.com/store/apps/details?id=" + Uri.encode(appId)
+                }
+            }
+
+            if (isValidExternalFallback(fallbackUrl)) {
+                navigateWithSafetyCheck(webView, fallbackUrl!!.trim())
+            } else {
+                Toast.makeText(
+                    this,
+                    "لا يوجد تطبيق مثبت لفتح هذا الرابط ولا يتوفر رابط HTTPS بديل آمن.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        } catch (_: Exception) {
+            if (isValidExternalFallback(fallbackUrl)) {
+                navigateWithSafetyCheck(webView, fallbackUrl!!.trim())
+            } else {
+                Toast.makeText(this, "تعذّر فتح الرابط أو التطبيق المرتبط به.", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
