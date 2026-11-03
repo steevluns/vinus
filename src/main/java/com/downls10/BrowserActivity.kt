@@ -2090,23 +2090,9 @@ class BrowserActivity : Activity() {
         if (host != null) {
             val match = AdBlocker.matchSafetyCategory(this, host)
 
-            if (match?.category == ListCategory.MALWARE ||
-                match?.category == ListCategory.PHISHING ||
-                match?.category == ListCategory.RISK
-            ) {
-                val reason = when (match?.category) {
-                    ListCategory.MALWARE -> "الموقع موجود في قائمة المواقع المصنفة ببرمجيات خبيثة."
-                    ListCategory.PHISHING -> "الموقع موجود في قائمة مواقع التصيد الاحتيالي."
-                    else -> "الموقع موجود في قائمة المواقع المشبوهة."
-                }
-                AlertDialog.Builder(this)
-                    .setTitle("تم حظر الموقع")
-                    .setMessage("⛔ $reason\\n\\nلن يتم فتحه لحماية كلمات المرور وبياناتك.")
-                    .setPositiveButton("حسنًا", null)
-                    .show()
-                return
-            }
-
+            // لا نحظر مواقع تنزيل التطبيقات والألعاب المعدّلة لمجرد ظهور نطاقها
+            // ضمن قوائم MALWARE/PHISHING/RISK المحلية. يظل Android Safe Browsing
+            // مفعّلاً، وتظل أخطاء شهادات SSL والمخططات المحلية/الخطرة محظورة.
             if (match != null) {
                 val warningParts = mutableListOf<String>()
 
