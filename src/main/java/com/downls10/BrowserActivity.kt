@@ -96,6 +96,17 @@ class BrowserActivity : Activity() {
         super.onActionModeStarted(mode)
         val menu = mode?.menu ?: return
 
+        // اعرض أمري «نسخ» و«تحديد الكل» فقط في قائمة تحديد النص.
+        // إزالة بقية عناصر WebView/النظام تخفي SHARE وWEB SEARCH وقائمة النقاط الثلاث.
+        for (index in menu.size() - 1 downTo 0) {
+            val itemId = menu.getItem(index).itemId
+            if (itemId != ACTION_COPY_SELECTED_TEXT &&
+                itemId != ACTION_SELECT_ALL_PAGE_TEXT
+            ) {
+                menu.removeItem(itemId)
+            }
+        }
+
         if (menu.findItem(ACTION_COPY_SELECTED_TEXT) == null) {
             val copyItem = menu.add(0, ACTION_COPY_SELECTED_TEXT, 100, "نسخ")
             copyItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
