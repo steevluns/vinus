@@ -1242,6 +1242,56 @@ class BrowserActivity : Activity() {
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+
+                // امنع سحب الصور كعناصر HTML عند الضغط المطوّل، دون تعطيل
+                // النقر على الصور أو تحديد النص أو تمرير الصفحة أو تكبير الصور.
+                view.evaluateJavascript(
+                    """
+                    (function() {
+                        if (window.__vinusImageDragGuardInstalled) return;
+                        window.__vinusImageDragGuardInstalled = true;
+
+                        var disableImageDrag = function(root) {
+                            if (!root || !root.querySelectorAll) return;
+                            if (root.tagName === 'IMG') root.setAttribute('draggable', 'false');
+                            root.querySelectorAll('img').forEach(function(img) {
+                                img.setAttribute('draggable', 'false');
+                            });
+                        };
+
+                        disableImageDrag(document);
+                        document.addEventListener('dragstart', function(event) {
+                            var target = event.target;
+                            if (target && (target.tagName === 'IMG' ||
+                                (target.closest && target.closest('picture')))) {
+                                event.preventDefault();
+                                event.stopPropagation();
+                            }
+                        }, true);
+
+                        var style = document.createElement('style');
+                        style.textContent =
+                            'img, picture, svg image {' +
+                            '-webkit-user-drag: none !important;' +
+                            'user-drag: none !important;' +
+                            '}';
+                        (document.head || document.documentElement).appendChild(style);
+
+                        if (window.MutationObserver && document.documentElement) {
+                            new MutationObserver(function(records) {
+                                records.forEach(function(record) {
+                                    record.addedNodes.forEach(disableImageDrag);
+                                });
+                            }).observe(document.documentElement, {
+                                childList: true,
+                                subtree: true
+                            });
+                        }
+                    })();
+                    """.trimIndent(),
+                    null
+                )
+
                 // عند الرجوع إلى نتائج البحث لا نعيد توجيه Google لإضافة num=20؛
                 // لأن تغيير الرابط أثناء الاستعادة يغيّر سجل WebView ويعيد التمرير إلى البداية.
                 val restoringPreviousPosition = tabs.find { it.webView == view }?.pendingRestoreY ?: -1
