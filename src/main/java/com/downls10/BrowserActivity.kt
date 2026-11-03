@@ -297,24 +297,45 @@ class BrowserActivity : Activity() {
         editUrl.setOnLongClickListener { view ->
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
             val clip = clipboard.primaryClip
-            if (clip == null || clip.itemCount == 0) {
-                Toast.makeText(this, "الحافظة فارغة", Toast.LENGTH_SHORT).show()
-            } else {
-                val pasteMenu = android.widget.PopupMenu(this, view)
-                pasteMenu.menu.add("لصق")
-                pasteMenu.setOnMenuItemClickListener {
-                    val pastedText = clip.getItemAt(0).coerceToText(this)?.toString().orEmpty()
-                    if (pastedText.isNotEmpty()) {
-                        val start = editUrl.selectionStart.coerceAtLeast(0)
-                        val end = editUrl.selectionEnd.coerceAtLeast(0)
-                        val editable = editUrl.text
-                        editable.replace(minOf(start, end), maxOf(start, end), pastedText)
-                        editUrl.setSelection((minOf(start, end) + pastedText.length).coerceAtMost(editUrl.length()))
+            val pasteMenu = android.widget.PopupMenu(this, view)
+            val pasteItem = pasteMenu.menu.add(0, 1, 0, "لصق")
+            pasteItem.isEnabled = clip != null && clip.itemCount > 0
+            pasteMenu.menu.add(0, 2, 1, "نسخ")
+            pasteMenu.menu.add(0, 3, 2, "تحديد الكل")
+
+            pasteMenu.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> {
+                        val pastedText = clip?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+                        if (pastedText.isNotEmpty()) {
+                            val start = editUrl.selectionStart.coerceAtLeast(0)
+                            val end = editUrl.selectionEnd.coerceAtLeast(0)
+                            val insertAt = minOf(start, end)
+                            editUrl.text.replace(insertAt, maxOf(start, end), pastedText)
+                            editUrl.setSelection((insertAt + pastedText.length).coerceAtMost(editUrl.length()))
+                        }
                     }
-                    true
+                    2 -> {
+                        val start = editUrl.selectionStart
+                        val end = editUrl.selectionEnd
+                        val selectedText = if (start >= 0 && end > start) {
+                            editUrl.text.substring(start, end)
+                        } else {
+                            editUrl.text.toString()
+                        }
+                        if (selectedText.isNotEmpty()) {
+                            clipboard.setPrimaryClip(
+                                android.content.ClipData.newPlainText("النص المنسوخ", selectedText)
+                            )
+                            Toast.makeText(this, "تم النسخ", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    3 -> editUrl.selectAll()
                 }
-                pasteMenu.show()
+                true
             }
+            pasteMenu.show()
             true
         }
         progressBar = findViewById(R.id.progressBar)
