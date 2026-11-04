@@ -1155,8 +1155,32 @@ class BrowserActivity : Activity() {
                 handler: android.webkit.SslErrorHandler,
                 error: android.net.http.SslError
             ) {
-                // Never allow a page with an invalid/expired certificate to continue.
-                handler.cancel()
+                // لا توقف الصفحة تلقائياً عند خطأ الشهادة؛ أعطِ المستخدم خيار المتابعة.
+                // تجاوز SSL يقلل أمان الاتصال، لذلك لا يتم إلا بموافقة صريحة لكل حالة.
+                val details = when (error.primaryError) {
+                    android.net.http.SslError.SSL_EXPIRED -> "الشهادة منتهية الصلاحية"
+                    android.net.http.SslError.SSL_IDMISMATCH -> "اسم الموقع لا يطابق الشهادة"
+                    android.net.http.SslError.SSL_NOTYETVALID -> "الشهادة لم تصبح صالحة بعد"
+                    android.net.http.SslError.SSL_DATE_INVALID -> "تاريخ الشهادة غير صالح"
+                    android.net.http.SslError.SSL_UNTRUSTED -> "جهة إصدار الشهادة غير موثوقة"
+                    else -> "يوجد خطأ في شهادة أمان الموقع"
+                }
+
+                AlertDialog.Builder(this@BrowserActivity)
+                    .setTitle("تحذير شهادة SSL")
+                    .setMessage(
+                        "$details. قد يكون الاتصال مراقباً أو غير آمن. هل تريد المتابعة إلى هذا الموقع رغم المخاطرة؟"
+                    )
+                    .setPositiveButton("متابعة رغم المخاطرة") { _, _ ->
+                        handler.proceed()
+                    }
+                    .setNegativeButton("رجوع") { _, _ ->
+                        handler.cancel()
+                    }
+                    .setOnCancelListener {
+                        handler.cancel()
+                    }
+                    .show()
             }
 
             override fun onReceivedError(
