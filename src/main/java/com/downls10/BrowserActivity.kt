@@ -1061,9 +1061,8 @@ class BrowserActivity : Activity() {
         var lastTouchX = 0f
         var lastTouchY = 0f
 
-        // النقرة الواحدة تبقى من اختصاص WebView وتفتح الرابط بشكل طبيعي.
-        // الضغط المطوّل على نص رابط يحدد عنوانه بدلاً من إظهار قائمة الرابط
-        // أو سحب الصفحة؛ أما الصور فتبقى لها قائمتها الخاصة.
+        // النقرة الواحدة تظل من اختصاص WebView وتفتح الرابط بشكل طبيعي.
+        // عند الضغط المطوّل على رابط نحدد نصه فقط، ولا نسمح بسحبه أو تشغيله.
         webView.setOnLongClickListener {
             val hitTest = webView.hitTestResult
             val imageType =
@@ -1076,46 +1075,53 @@ class BrowserActivity : Activity() {
                 showImageContextMenu(imageUrl, hitTest.type)
                 true
             } else if (hitTest.type == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
-                // إحداثيات اللمس تتحول إلى CSS pixels حتى يحدد JavaScript
-                // النص الموجود تحت الإصبع، دون تفعيل الرابط.
+                // نستخدم إحداثيات بداية اللمس (ACTION_DOWN)، لا إحداثيات حركة الإصبع،
+                // حتى لا تقفز نقطة التحديد إلى مكان آخر أثناء الضغط المطوّل.
                 val density = resources.displayMetrics.density
                 val cssScale = (density * webView.scale).coerceAtLeast(0.1f)
                 val x = lastTouchX / cssScale
                 val y = lastTouchY / cssScale
                 val script = """
                     (function(x, y) {
-                        var el = document.elementFromPoint(x, y);
-                        var link = el && el.closest ? el.closest('a') : null;
-                        var selection = window.getSelection();
-                        if (!selection) return false;
-                        var range = document.createRange();
-                        if (link && (link.innerText || link.textContent || '').trim()) {
-                            range.selectNodeContents(link);
-                        } else if (document.caretRangeFromPoint) {
-                            range = document.caretRangeFromPoint(x, y);
-                            if (!range) return false;
-                            var node = range.startContainer;
-                            if (node && node.nodeType === Node.TEXT_NODE) {
-                                var text = node.textContent || '';
-                                var start = range.startOffset;
-                                var end = start;
-                                while (start > 0 && !/\\s/.test(text.charAt(start - 1))) start--;
-                                while (end < text.length && !/\\s/.test(text.charAt(end))) end++;
-                                range.setStart(node, start);
-                                range.setEnd(node, end);
+                        try {
+                            var el = document.elementFromPoint(x, y);
+                            var link = el && el.closest ? el.closest('a') : null;
+                            var selection = window.getSelection();
+                            if (!selection) return false;
+
+                            var range = document.createRange();
+                            if (link && (link.innerText || link.textContent || '').trim()) {
+                                // حدّد عنوان النتيجة الظاهر بالكامل، وليس الرابط أو الصفحة.
+                                range.selectNodeContents(link);
+                            } else if (document.caretRangeFromPoint) {
+                                range = document.caretRangeFromPoint(x, y);
+                                if (!range) return false;
+                                var node = range.startContainer;
+                                if (node && node.nodeType === Node.TEXT_NODE) {
+                                    var text = node.textContent || '';
+                                    var start = range.startOffset;
+                                    var end = range.endOffset;
+                                    while (start > 0 && !/\\s/.test(text.charAt(start - 1))) start--;
+                                    while (end < text.length && !/\\s/.test(text.charAt(end))) end++;
+                                    range.setStart(node, start);
+                                    range.setEnd(node, end);
+                                }
+                            } else {
+                                return false;
                             }
-                        } else {
+
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            return true;
+                        } catch (e) {
                             return false;
                         }
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                        return true;
                     })($x, $y);
                 """.trimIndent()
                 webView.evaluateJavascript(script, null)
                 true
             } else {
-                // اترك WebView ينفذ تحديد النص العادي بالطريقة الأصلية.
+                // اترك WebView يحدد النصوص العادية بالطريقة الأصلية.
                 false
             }
         }
@@ -1180,8 +1186,9 @@ class BrowserActivity : Activity() {
 
         // إذا لمس المستخدم الشاشة أثناء الاستعادة نوقفها حتى لا نتحكم بتمريره
         webView.setOnTouchListener { v, event ->
-            if (event.actionMasked == MotionEvent.ACTION_DOWN ||
-                event.actionMasked == MotionEvent.ACTION_MOVE) {
+            // احتفظ بنقطة بداية اللمس فقط؛ لا تحدّثها أثناء حركة الإصبع
+            // لأن ذلك يسبب تحديد جزء خاطئ من عنوان الرابط أو تحريك موضع التحديد.
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                 lastTouchX = event.x
                 lastTouchY = event.y
             }
