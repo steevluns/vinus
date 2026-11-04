@@ -3591,17 +3591,23 @@ class BrowserActivity : Activity() {
         menuInfo: android.view.ContextMenu.ContextMenuInfo?
     ) {
         if (view is WebView) {
-            // لا تسمح بقائمة WebView الافتراضية؛ حتى لا تظهر خيارات نسخ/سحب/نقل الصورة.
-            // قائمة الصور الوحيدة المسموح بها تُعرض من setOnLongClickListener أعلاه.
             val hitTest = view.getHitTestResult()
-            if (hitTest.type == WebView.HitTestResult.IMAGE_TYPE ||
-                hitTest.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+            val isImage = hitTest.type == WebView.HitTestResult.IMAGE_TYPE ||
+                hitTest.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+
+            if (isImage) {
+                // احتفظ بقائمة الصور الخاصة بالتطبيق كما هي.
                 val imageUrl = hitTest.extra
                 if (!imageUrl.isNullOrBlank() &&
                     (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
                     showImageContextMenu(imageUrl, hitTest.type)
                 }
+                return
             }
+
+            // لا تبتلع قائمة السياق للنصوص. ترك WebView/Android يكمل مسار
+            // تحديد النص يسمح بإظهار ActionMode المخصص (نسخ/لصق/تحديد الكل).
+            super.onCreateContextMenu(menu, view, menuInfo)
             return
         }
         super.onCreateContextMenu(menu, view, menuInfo)
