@@ -380,14 +380,6 @@ class BrowserActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         DownloadsRepository.ensureLoaded(this)
         AdBlocker.cleanupRemovedLists(this)
-        // Refresh the phishing feed if it has never been downloaded or is older than 12 hours.
-        if (AdBlocker.isEnabled(this, "openphish")) {
-            val feedPrefs = getSharedPreferences("adblock_prefs", Context.MODE_PRIVATE)
-            val lastFeedUpdate = feedPrefs.getLong("updated_openphish", 0L)
-            if (lastFeedUpdate == 0L || System.currentTimeMillis() - lastFeedUpdate > 12L * 60L * 60L * 1000L) {
-                AdBlocker.updateList(this, "openphish") { _, _, _ -> }
-            }
-        }
         hideMedia = settingsPrefs().getBoolean("hideMedia", false)
         hideImages = settingsPrefs().getBoolean("hideImages", hideMedia)
         hideVideos = settingsPrefs().getBoolean("hideVideos", false)
@@ -3263,7 +3255,7 @@ class BrowserActivity : Activity() {
                     layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 }
                 val updateBtn = Button(this).apply {
-                    text = "تحديث"
+                    text = if (def.id == "openphish") "تحديث يدوي" else "تحديث"
                     setOnClickListener {
                         AdBlocker.updateList(this@BrowserActivity, def.id) { success, count, error ->
                             if (!success) {
