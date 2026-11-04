@@ -2162,78 +2162,48 @@ class BrowserActivity : Activity() {
 
     private fun navigateWithSafetyCheck(webView: WebView, rawUrl: String) {
         val trimmedUrl = rawUrl.trim()
+        if (trimmedUrl.isBlank()) return
         val lowerUrl = trimmedUrl.lowercase(Locale.US)
 
-        // روابط intent:// تُحلّل كـ Android Intent وتُفتح في التطبيق المناسب.
-        // لا نسمح بفتحها إلا بعد إزالة component/selector وفحص رابط fallback قبل استخدامه.
+        // روابط التطبيقات (intent:// وغيرها) تحتاج Android أو التطبيق المرتبط بها؛
+        // لا يمكن لمحرك WebView عرض مخطط تطبيق غير ويب كصفحة إنترنت.
         if (lowerUrl.startsWith("intent:")) {
             openExternalAppLink(webView, trimmedUrl, Uri.parse(trimmedUrl))
             return
         }
 
-        // روابط magnet وftp لا يفتحها المتصفح: تذهب لمدير التنزيل
+        // المخططات التي تمثل ملفات/تنزيلات تذهب إلى مدير التنزيل.
         if (lowerUrl.startsWith("magnet:") || lowerUrl.startsWith("ftp://")) {
-            DownloadsRepository.startNewDownload(this, rawUrl.trim(), showToast = true, referer = webView.url)
+            DownloadsRepository.startNewDownload(this, trimmedUrl, showToast = true, referer = webView.url)
             return
         }
-        // روابط ملفات Mega: صفحة Mega لا تستطيع التنزيل داخل WebView، فيتولاها مدير التنزيل مباشرة
-        if (MegaSupport.isMegaFileLink(rawUrl.trim())) {
-            DownloadsRepository.startNewDownload(this, rawUrl.trim(), showToast = true, referer = webView.url)
+        if (MegaSupport.isMegaFileLink(trimmedUrl)) {
+            DownloadsRepository.startNewDownload(this, trimmedUrl, showToast = true, referer = webView.url)
             return
         }
-        // أي تنقل جديد (ضغط رابط/شريط العنوان) يستخدم الكاش الافتراضي وليس وضع الرجوع
+
         webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
         tabs.find { it.webView == webView }?.let { cancelScrollRestore(it) }
-        if (rawUrl == lastConfirmedSafetyUrl) {
+
+        val uri = runCatching { Uri.parse(trimmedUrl) }.getOrNull()
+        val scheme = uri?.scheme?.lowercase(Locale.US)
+
+        // أزلنا فحص تصنيفات المواقع المحلي ورسائل التحذير التي كانت تمنع فتحها.
+        // روابط HTTP وHTTPS تُحمّل مباشرة داخل المتصفح دون فحص قائمة النطاقات.
+        if (scheme == "http" || scheme == "https") {
             lastConfirmedSafetyUrl = null
-            loadAndRecord(webView, rawUrl)
+            loadAndRecord(webView, trimmedUrl)
             return
         }
 
-        val uri = try { Uri.parse(rawUrl) } catch (e: Exception) { null }
-
-        // رابط مخصص (غير http/https): افتح التطبيق المثبّت إذا قدر يتعامل معه، وإلا تجاهله بهدوء
-        if (uri?.scheme != null && uri.scheme != "http" && uri.scheme != "https") {
-            openExternalAppLink(webView, rawUrl, uri)
+        // الروابط الأخرى مثل tel/mailto/sms/geo تفتح عبر التطبيق المناسب في Android.
+        if (!scheme.isNullOrBlank()) {
+            openExternalAppLink(webView, trimmedUrl, uri!!)
             return
         }
 
-        val host = uri?.host
-
-        if (host != null) {
-            val match = AdBlocker.matchSafetyCategory(this, host)
-
-            // لا نحظر مواقع تنزيل التطبيقات والألعاب المعدّلة لمجرد ظهور نطاقها
-            // ضمن قوائم MALWARE/PHISHING/RISK المحلية. يظل Android Safe Browsing
-            // مفعّلاً، وتظل أخطاء شهادات SSL والمخططات المحلية/الخطرة محظورة.
-            if (match != null) {
-                val warningParts = mutableListOf<String>()
-
-                if (match.category == ListCategory.PORN) {
-                    warningParts.add("⚠️ هذا الموقع موجود في قائمة المحتوى الإباحي.")
-                }
-
-                AlertDialog.Builder(this)
-                    .setTitle("تحذير قبل فتح الموقع")
-                    .setMessage(
-                        warningParts.joinToString("\\n\\n") +
-                            "\\n\\nهل تريد فتح هذا الموقع؟"
-                    )
-                    .setPositiveButton("متابعة") { _, _ ->
-                        lastConfirmedSafetyUrl = rawUrl
-                        loadAndRecord(webView, rawUrl)
-                    }
-                    .setNegativeButton("رفض", null)
-                    .show()
-                return
-            }
-        }
-
-        if (uri?.scheme == "http") {
-            Toast.makeText(this, "⚠️ هذا الموقع غير آمن (اتصال HTTP غير مشفّر)", Toast.LENGTH_SHORT).show()
-        }
-
-        loadAndRecord(webView, rawUrl)
+        // اترك WebView يتعامل مع الروابط النسبية أو العناوين التي لا تحتوي مخططاً.
+        loadAndRecord(webView, trimmedUrl)
     }
 
     // يتحقق من أن رابط الرجوع HTTPS صالح قبل تحميله داخل WebView.
