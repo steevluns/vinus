@@ -91,56 +91,86 @@ private data class Tab(
 
 class BrowserActivity : Activity() {
 
-    /** أضف أوامر واضحة لتحديد النص في شريط إجراءات WebView دون تعطيل أوامره الأصلية. */
+    /** تخصيص قائمة الضغط المطوّل على النص داخل صفحات الويب. */
     override fun onActionModeStarted(mode: android.view.ActionMode?) {
         super.onActionModeStarted(mode)
         val menu = mode?.menu ?: return
 
-        // اعرض أمري «نسخ» و«تحديد الكل» فقط في قائمة تحديد النص.
-        // إزالة بقية عناصر WebView/النظام تخفي SHARE وWEB SEARCH وقائمة النقاط الثلاث.
         for (index in menu.size() - 1 downTo 0) {
-            val itemId = menu.getItem(index).itemId
-            if (itemId != ACTION_COPY_SELECTED_TEXT &&
-                itemId != ACTION_SELECT_ALL_PAGE_TEXT
-            ) {
-                menu.removeItem(itemId)
-            }
+            menu.removeItem(menu.getItem(index).itemId)
         }
 
-        if (menu.findItem(ACTION_COPY_SELECTED_TEXT) == null) {
-            val copyItem = menu.add(0, ACTION_COPY_SELECTED_TEXT, 100, "نسخ")
-            copyItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
-            copyItem.setOnMenuItemClickListener {
-                    val webView = tabs.getOrNull(currentTabIndex)?.webView
-                    if (webView != null) {
-                        webView.evaluateJavascript(
-                            "(function(){var s=window.getSelection();return s?s.toString():'';})()"
-                        ) { value ->
-                            val selected = runCatching {
-                                org.json.JSONTokener(value ?: "\"\"").nextValue() as? String
-                            }.getOrNull().orEmpty()
-                            if (selected.isNotEmpty()) {
-                                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("النص المحدد", selected))
-                                Toast.makeText(this, "تم نسخ النص المحدد", Toast.LENGTH_SHORT).show()
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = clipboard.primaryClip
+        val pasteItem = menu.add(0, ACTION_PASTE_PAGE_TEXT, 99, "لصق")
+        pasteItem.isEnabled = clip != null && clip.itemCount > 0
+        pasteItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        pasteItem.setOnMenuItemClickListener {
+            val pastedText = clipboard.primaryClip?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+            val webView = tabs.getOrNull(currentTabIndex)?.webView
+            if (pastedText.isNotEmpty() && webView != null) {
+                val quotedText = org.json.JSONObject.quote(pastedText)
+                val script = """
+                    (function(text) {
+                        var el = document.activeElement;
+                        if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+                            var start = typeof el.selectionStart === 'number' ? el.selectionStart : el.value.length;
+                            var end = typeof el.selectionEnd === 'number' ? el.selectionEnd : start;
+                            if (typeof el.setRangeText === 'function') {
+                                el.setRangeText(text, start, end, 'end');
+                            } else {
+                                el.value = el.value.substring(0, start) + text + el.value.substring(end);
                             }
+                            el.dispatchEvent(new Event('input', {bubbles:true}));
+                            el.dispatchEvent(new Event('change', {bubbles:true}));
+                            return true;
                         }
+                        if (el && el.isContentEditable) {
+                            document.execCommand('insertText', false, text);
+                            return true;
+                        }
+                        return false;
+                    })($quotedText);
+                """.trimIndent()
+                webView.evaluateJavascript(script) { result ->
+                    if (result != "true") {
+                        Toast.makeText(this, "اضغط داخل مربع الكتابة أولاً للصق النص", Toast.LENGTH_SHORT).show()
                     }
-                    true
                 }
+            }
+            true
         }
 
-        if (menu.findItem(ACTION_SELECT_ALL_PAGE_TEXT) == null) {
-            val selectAllItem = menu.add(0, ACTION_SELECT_ALL_PAGE_TEXT, 101, "تحديد الكل")
-            selectAllItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
-            selectAllItem.setOnMenuItemClickListener {
-                    val webView = tabs.getOrNull(currentTabIndex)?.webView
-                    webView?.evaluateJavascript(
-                        "(function(){var r=document.createRange();r.selectNodeContents(document.body);var s=window.getSelection();s.removeAllRanges();s.addRange(r);})()",
-                        null
-                    )
-                    true
+        val copyItem = menu.add(0, ACTION_COPY_SELECTED_TEXT, 100, "نسخ")
+        copyItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        copyItem.setOnMenuItemClickListener {
+            val webView = tabs.getOrNull(currentTabIndex)?.webView
+            if (webView != null) {
+                webView.evaluateJavascript(
+                    "(function(){var s=window.getSelection();return s?s.toString():'';})()"
+                ) { value ->
+                    val selected = runCatching {
+                        org.json.JSONTokener(value ?: "\"\\"").nextValue() as? String
+                    }.getOrNull().orEmpty()
+                    if (selected.isNotEmpty()) {
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("النص المحدد", selected))
+                        Toast.makeText(this, "تم نسخ النص المحدد", Toast.LENGTH_SHORT).show()
+                    }
                 }
+            }
+            true
+        }
+
+        val selectAllItem = menu.add(0, ACTION_SELECT_ALL_PAGE_TEXT, 101, "تحديد الكل")
+        selectAllItem.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_IF_ROOM)
+        selectAllItem.setOnMenuItemClickListener {
+            val webView = tabs.getOrNull(currentTabIndex)?.webView
+            webView?.evaluateJavascript(
+                "(function(){var r=document.createRange();r.selectNodeContents(document.body);var s=window.getSelection();s.removeAllRanges();s.addRange(r);})()",
+                null
+            )
+            true
         }
     }
 
@@ -148,6 +178,7 @@ class BrowserActivity : Activity() {
     companion object {
         private const val ACTION_COPY_SELECTED_TEXT = 0x534501
         private const val ACTION_SELECT_ALL_PAGE_TEXT = 0x534502
+        private const val ACTION_PASTE_PAGE_TEXT = 0x534503
         const val EXTRA_OPEN_URL = "extra_open_url"
         private const val SEARCH_PROVIDER_KEY = "searchProvider"
         private const val SEARCH_SEARXNG = "searxng"
