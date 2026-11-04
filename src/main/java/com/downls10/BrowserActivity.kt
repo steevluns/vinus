@@ -1061,20 +1061,61 @@ class BrowserActivity : Activity() {
         var lastTouchX = 0f
         var lastTouchY = 0f
 
-        // اترك WebView يتعامل مع الضغط المطوّل على النص حتى يحدد النص فعلياً.
-        // نعرض قائمة الصور المخصصة فقط عندما تكون اللمسة على صورة معروفة.
+        // النقرة الواحدة تبقى من اختصاص WebView وتفتح الرابط بشكل طبيعي.
+        // الضغط المطوّل على نص رابط يحدد عنوانه بدلاً من إظهار قائمة الرابط
+        // أو سحب الصفحة؛ أما الصور فتبقى لها قائمتها الخاصة.
         webView.setOnLongClickListener {
             val hitTest = webView.hitTestResult
-            val knownImageType =
+            val imageType =
                 hitTest.type == WebView.HitTestResult.IMAGE_TYPE ||
                 hitTest.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
             val imageUrl = hitTest.extra
-            if (knownImageType && !imageUrl.isNullOrBlank() &&
+
+            if (imageType && !imageUrl.isNullOrBlank() &&
                 (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
                 showImageContextMenu(imageUrl, hitTest.type)
                 true
+            } else if (hitTest.type == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
+                // إحداثيات اللمس تتحول إلى CSS pixels حتى يحدد JavaScript
+                // النص الموجود تحت الإصبع، دون تفعيل الرابط.
+                val density = resources.displayMetrics.density
+                val cssScale = (density * webView.scale).coerceAtLeast(0.1f)
+                val x = lastTouchX / cssScale
+                val y = lastTouchY / cssScale
+                val script = """
+                    (function(x, y) {
+                        var el = document.elementFromPoint(x, y);
+                        var link = el && el.closest ? el.closest('a') : null;
+                        var selection = window.getSelection();
+                        if (!selection) return false;
+                        var range = document.createRange();
+                        if (link && (link.innerText || link.textContent || '').trim()) {
+                            range.selectNodeContents(link);
+                        } else if (document.caretRangeFromPoint) {
+                            range = document.caretRangeFromPoint(x, y);
+                            if (!range) return false;
+                            var node = range.startContainer;
+                            if (node && node.nodeType === Node.TEXT_NODE) {
+                                var text = node.textContent || '';
+                                var start = range.startOffset;
+                                var end = start;
+                                while (start > 0 && !/\\s/.test(text.charAt(start - 1))) start--;
+                                while (end < text.length && !/\\s/.test(text.charAt(end))) end++;
+                                range.setStart(node, start);
+                                range.setEnd(node, end);
+                            }
+                        } else {
+                            return false;
+                        }
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                        return true;
+                    })($x, $y);
+                """.trimIndent()
+                webView.evaluateJavascript(script, null)
+                true
             } else {
-                // false يسمح لـ WebView ببدء تحديد النص وإظهار شريط الإجراءات.
+                // اترك WebView ينفذ تحديد النص العادي بالطريقة الأصلية.
                 false
             }
         }
