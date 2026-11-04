@@ -2,6 +2,8 @@ name: Build Android APK
 # Manual builds only: run this workflow when explicitly requested.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
