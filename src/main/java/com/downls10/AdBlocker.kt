@@ -63,7 +63,7 @@ object AdBlocker {
         "pgl", "pgl_list", "nocoin", "no_coin", "peter", "peter_lowe", "peter_lowe_ads_tracking",
         "ublock_filters", "ublock_filters_ads", "ublock_origin", "ublock-origin", "ubo",
         "malware", "malware_domains", "phishing", "phishing_domains", "risk", "suspicious",
-        "urlhaus", "openphish", "ublock_annoyances", "easylist_annoyances", "easylist", "youtube_ads"
+        "urlhaus", "ublock_annoyances", "easylist_annoyances", "easylist", "youtube_ads"
     )
 
     /** يحذف نهائياً بيانات القوائم التي أزيلت من التطبيق حتى لا تبقى في التخزين المحلي. */
