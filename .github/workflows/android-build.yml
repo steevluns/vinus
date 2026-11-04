@@ -1,5 +1,5 @@
 name: Build Android APK
-# Manual builds only: run this workflow when explicitly requested.
+# Build requested by the repository owner; push to main also starts the build.
 
 on:
   push:
