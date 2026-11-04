@@ -246,6 +246,27 @@ object AdBlocker {
         return out
     }
 
+    // Keep authentication pages functional when an enabled ad list accidentally
+    // includes an identity-provider host. This exemption affects AD rules only;
+    // Android Safe Browsing and SSL certificate checks remain enabled.
+    private val AUTHENTICATION_HOSTS = setOf(
+        "github.com",
+        "accounts.google.com",
+        "login.microsoftonline.com",
+        "login.live.com",
+        "appleid.apple.com",
+        "replit.com",
+        "auth0.com",
+        "clerk.com"
+    )
+
+    private fun isAuthenticationHost(host: String): Boolean {
+        val normalizedHost = host.trim().trimEnd('.').lowercase()
+        return AUTHENTICATION_HOSTS.any { authHost ->
+            normalizedHost == authHost || normalizedHost.endsWith(".$authHost")
+        }
+    }
+
     private fun isHostInDomainSet(host: String, domains: Set<String>): Boolean {
         var h = host.lowercase()
         if (h.startsWith("www.")) h = h.substring(4)
@@ -263,6 +284,8 @@ object AdBlocker {
      * قائمة مفعّلة تُفحص فوراً حسب نطاقاتها المحدّثة.
      */
     fun isAdBlocked(context: Context, host: String): Boolean {
+        // Do not let ad-filter lists break common OAuth and federated sign-in pages.
+        if (isAuthenticationHost(host)) return false
         if (!isGloballyEnabled(context)) return false
         for (def in LISTS) {
             if (def.category != ListCategory.AD) continue
