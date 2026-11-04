@@ -1118,7 +1118,7 @@ class BrowserActivity : Activity() {
         settings.blockNetworkImage = hideImages
         settings.loadsImagesAutomatically = !hideImages
 
-        // Third-party cookies are disabled above; first-party login cookies remain supported.
+        // Third-party cookies are enabled on the main browser WebView for OAuth redirects.
 
         // تسجيل موضع التمرير أثناء التصفح لكل رابط (يُستخدم عند الرجوع)
         webView.setOnScrollChangeListener { v, _, scrollY, _, _ ->
