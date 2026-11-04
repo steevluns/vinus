@@ -1484,14 +1484,9 @@ class BrowserActivity : Activity() {
                     if (u.isEmpty() || lower.startsWith("about:") || lower.startsWith("javascript:") ||
                         lower.startsWith("data:") || lower.startsWith("blob:")) return
                     dispose()
-                    // روابط نتائج البحث (SearXNG وGoogle وبحث الفيديو):
-                    // عند ضغط المستخدم على النتيجة افتحها مباشرة في تبويب جديد دون نافذة تأكيد.
-                    // أبقِ تأكيد النوافذ المنبثقة للمواقع الأخرى كما هو للحماية من الإعلانات المنبثقة.
-                    if (isUserGesture && isSearchResultsPage(view.url)) {
-                        openPopupInNewTab(u)
-                    } else {
-                        showPopupConfirmDialog(u)
-                    }
+                    // كل نافذة منبثقة تحتاج موافقة صريحة، حتى لو طلبها الموقع
+                    // أثناء نقرة على صفحة نتائج البحث. لا توجد استثناءات للفتح التلقائي.
+                    showPopupConfirmDialog(u)
                 }
 
                 temp.webViewClient = object : WebViewClient() {
@@ -2642,19 +2637,39 @@ class BrowserActivity : Activity() {
         if (newValue) ensureAndroidPermissions(androidPerms, anyOf) { }
     }
 
-    /** نافذة تأكيد فتح نافذة منبثقة؛ عند «سماح» يُفتح الرابط في تبويب جديد. */
+    /** لا يُفتح أي Popup قبل موافقة المستخدم؛ تُصفّ الطلبات حتى لا يُهمل أي طلب. */
     private var popupDialogShowing = false
+    private val pendingPopupUrls = java.util.ArrayDeque<String>()
 
     private fun showPopupConfirmDialog(url: String) {
-        if (popupDialogShowing || isFinishing || isDestroyed) return   // نافذة واحدة في كل مرة
+        if (isFinishing || isDestroyed) return
+        if (url.isBlank()) return
+        // لا نسمح بتجاوز نافذة التأكيد عند وصول عدة نوافذ منبثقة بسرعة.
+        if (!pendingPopupUrls.contains(url)) pendingPopupUrls.addLast(url)
+        showNextPopupConfirmDialog()
+    }
+
+    private fun showNextPopupConfirmDialog() {
+        if (popupDialogShowing || isFinishing || isDestroyed || pendingPopupUrls.isEmpty()) return
+
+        val url = pendingPopupUrls.removeFirst()
         popupDialogShowing = true
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("نافذة منبثقة")
-            .setMessage("هل تريد فتح نافذة منبثقة؟")
-            .setPositiveButton("سماح") { _, _ -> openPopupInNewTab(url) }
+            .setMessage("طلب هذا الموقع فتح نافذة جديدة. هل تسمح بفتحها؟")
+            .setPositiveButton("سماح") { _, _ ->
+                // لا يُفتح الرابط إلا من هذا الزر.
+                openPopupInNewTab(url)
+            }
             .setNegativeButton("رفض", null)
-            .setOnDismissListener { popupDialogShowing = false }
-            .show()
+            .create()
+
+        dialog.setOnDismissListener {
+            popupDialogShowing = false
+            // اعرض الطلب التالي بعد إغلاق النافذة الحالية.
+            mainHandler.post { showNextPopupConfirmDialog() }
+        }
+        dialog.show()
     }
 
     private fun openPopupInNewTab(rawUrl: String) {
