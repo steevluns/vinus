@@ -226,9 +226,10 @@ class BrowserActivity : Activity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingBookmarkExportContent: String? = null
     private var lastConfirmedSafetyUrl: String? = null
-    // النطاقات التي وافق المستخدم على تجاوز خطأ SSL فيها خلال جلسة المتصفح الحالية.
-    // يمنع تكرار نافذة التحذير لكل مورد فرعي تابع للموقع نفسه.
-    private val sslApprovedHosts = mutableSetOf<String>()
+    // قرار واحد لكل مضيف خلال جلسة المتصفح: true = سماح، false = رفض.
+    // نجمع طلبات SSL المتزامنة للمضيف نفسه خلف نافذة واحدة فقط.
+    private val sslHostDecisions = mutableMapOf<String, Boolean>()
+    private val pendingSslHandlers = mutableMapOf<String, MutableList<android.webkit.SslErrorHandler>>()
     private val bgExecutor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -1209,8 +1210,31 @@ class BrowserActivity : Activity() {
                 handler: android.webkit.SslErrorHandler,
                 error: android.net.http.SslError
             ) {
-                // لا توقف الصفحة تلقائياً عند خطأ الشهادة؛ أعطِ المستخدم خيار المتابعة.
-                // تجاوز SSL يقلل أمان الاتصال، لذلك لا يتم إلا بموافقة صريحة لكل حالة.
+                // قرار SSL يُتخذ مرة واحدة لكل مضيف خلال جلسة المتصفح.
+                // الطلبات المتزامنة للمضيف نفسه تنتظر نافذة واحدة ولا تنشئ نوافذ متكررة.
+                val sslHost = runCatching {
+                    Uri.parse(error.url).host?.lowercase(Locale.US)
+                }.getOrNull() ?: error.url.lowercase(Locale.US)
+
+                when (sslHostDecisions[sslHost]) {
+                    true -> {
+                        handler.proceed()
+                        return
+                    }
+                    false -> {
+                        handler.cancel()
+                        return
+                    }
+                    null -> Unit
+                }
+
+                val pending = pendingSslHandlers[sslHost]
+                if (pending != null) {
+                    pending.add(handler)
+                    return
+                }
+                pendingSslHandlers[sslHost] = mutableListOf(handler)
+
                 val details = when (error.primaryError) {
                     android.net.http.SslError.SSL_EXPIRED -> "الشهادة منتهية الصلاحية"
                     android.net.http.SslError.SSL_IDMISMATCH -> "اسم الموقع لا يطابق الشهادة"
@@ -1220,36 +1244,32 @@ class BrowserActivity : Activity() {
                     else -> "يوجد خطأ في شهادة أمان الموقع"
                 }
 
-                // إذا وافق المستخدم سابقاً على هذا النطاق، تابع مباشرةً دون إظهار
-                // نافذة جديدة لكل صورة أو ملف أو مورد فرعي يطلبه الموقع.
-                val sslHost = runCatching {
-                    Uri.parse(error.url).host?.lowercase(Locale.US)
-                }.getOrNull()
-
-                if (!sslHost.isNullOrBlank() && sslHost in sslApprovedHosts) {
-                    handler.proceed()
-                    return
+                fun finishSslDecision(allow: Boolean) {
+                    // خزّن السماح أو الرفض حتى لا تتكرر الرسالة لهذا المضيف.
+                    sslHostDecisions[sslHost] = allow
+                    val waitingHandlers = pendingSslHandlers.remove(sslHost).orEmpty()
+                    waitingHandlers.forEach { sslHandler ->
+                        if (allow) sslHandler.proceed() else sslHandler.cancel()
+                    }
                 }
 
-                AlertDialog.Builder(this@BrowserActivity)
+                val dialog = AlertDialog.Builder(this@BrowserActivity)
                     .setTitle("تحذير شهادة SSL")
                     .setMessage(
                         "$details. قد يكون الاتصال مراقباً أو غير آمن. هل تريد المتابعة إلى هذا الموقع رغم المخاطرة؟"
                     )
                     .setPositiveButton("متابعة رغم المخاطرة") { _, _ ->
-                        // تذكر الموافقة لهذا النطاق طوال جلسة المتصفح الحالية فقط.
-                        if (!sslHost.isNullOrBlank()) {
-                            sslApprovedHosts.add(sslHost)
-                        }
-                        handler.proceed()
+                        finishSslDecision(true)
                     }
                     .setNegativeButton("رجوع") { _, _ ->
-                        handler.cancel()
+                        finishSslDecision(false)
                     }
-                    .setOnCancelListener {
-                        handler.cancel()
-                    }
-                    .show()
+                    .create()
+
+                dialog.setOnCancelListener {
+                    finishSslDecision(false)
+                }
+                dialog.show()
             }
 
             override fun onReceivedError(
