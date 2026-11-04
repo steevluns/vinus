@@ -380,6 +380,14 @@ class BrowserActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         DownloadsRepository.ensureLoaded(this)
         AdBlocker.cleanupRemovedLists(this)
+        // Refresh the phishing feed if it has never been downloaded or is older than 12 hours.
+        if (AdBlocker.isEnabled(this, "openphish")) {
+            val feedPrefs = getSharedPreferences("adblock_prefs", Context.MODE_PRIVATE)
+            val lastFeedUpdate = feedPrefs.getLong("updated_openphish", 0L)
+            if (lastFeedUpdate == 0L || System.currentTimeMillis() - lastFeedUpdate > 12L * 60L * 60L * 1000L) {
+                AdBlocker.updateList(this, "openphish") { _, _, _ -> }
+            }
+        }
         hideMedia = settingsPrefs().getBoolean("hideMedia", false)
         hideImages = settingsPrefs().getBoolean("hideImages", hideMedia)
         hideVideos = settingsPrefs().getBoolean("hideVideos", false)
@@ -2195,6 +2203,15 @@ class BrowserActivity : Activity() {
         // لا يمكن لمحرك WebView عرض مخطط تطبيق غير ويب كصفحة إنترنت.
         if (lowerUrl.startsWith("intent:")) {
             openExternalAppLink(webView, trimmedUrl, Uri.parse(trimmedUrl))
+            return
+        }
+
+        // Block confirmed phishing URLs from the OpenPhish feed before navigation.
+        // Android Safe Browsing remains an independent, non-bypassable protection layer.
+        if ((lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://")) &&
+            AdBlocker.isHighRiskUrl(this, trimmedUrl)
+        ) {
+            Toast.makeText(this, "تم منع فتح هذا الرابط لأنه مُدرج في قاعدة بيانات OpenPhish للتصيّد.", Toast.LENGTH_LONG).show()
             return
         }
 
