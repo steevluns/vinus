@@ -155,10 +155,11 @@ class BrowserActivity : Activity() {
                     }.getOrNull().orEmpty()
                     if (selected.isNotEmpty()) {
                         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("النص المحدد", selected))
-                        Toast.makeText(this, "تم نسخ النص المحدد", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
+            // إغلاق قائمة التحديد بعد تنفيذ النسخ، من دون إظهار رسالة تأكيد.
+            mode?.finish()
             true
         }
 
