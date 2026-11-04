@@ -2275,15 +2275,17 @@ class BrowserActivity : Activity() {
                 throw SecurityException("Unsupported external URI scheme")
             }
 
+            // لا تستخدم resolveActivity هنا: قد يعيد null على Android 11+
+            // بسبب قيود رؤية التطبيقات (Package Visibility)، حتى عندما يكون
+            // هناك تطبيق قادر فعلاً على فتح الرابط. جرّب التشغيل مباشرةً
+            // ودع Android يختار التطبيق المناسب، ثم التقط فشل التشغيل أدناه.
             try {
-                if (externalIntent.resolveActivity(packageManager) != null) {
-                    startActivity(externalIntent)
-                    return
-                }
+                startActivity(externalIntent)
+                return
             } catch (_: android.content.ActivityNotFoundException) {
-                // جرّب رابط الرجوع أدناه.
+                // لا يوجد تطبيق لهذا المخطط؛ جرّب رابط HTTPS البديل إن وجد.
             } catch (_: SecurityException) {
-                // جرّب رابط الرجوع الآمن أدناه.
+                // رفض النظام التشغيل؛ جرّب رابط HTTPS البديل الآمن.
             }
 
             // روابط market://details?id=... تحصل على صفحة Google Play HTTPS عند غياب المتجر.
