@@ -49,6 +49,8 @@ object AdBlocker {
             fallbackUrl = "https://cdn.jsdelivr.net/gh/badmojr/1Hosts@master/Lite/hosts.txt"
         ),
         BlockListDef("porn", "Porn", "https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts", ListFormat.HOSTS, ListCategory.PORN),
+        // OpenPhish Community Feed: phishing URLs; non-commercial use under its terms.
+        BlockListDef("openphish", "OpenPhish (تصيّد)", "https://openphish.com/feed.txt", ListFormat.URL_LIST, ListCategory.PHISHING),
         // قائمتان مستقلتان لحجب نطاقات إعلانات YouTube المعروفة.
         BlockListDef("youtube_ads_extra", "YouTube AdBlock 2", "https://raw.githubusercontent.com/AdguardTeam/AdGuardFilters/master/BaseFilter/sections/adservers.txt", ListFormat.ABP, ListCategory.AD),
     )
@@ -238,9 +240,14 @@ object AdBlocker {
                 val line = rawLine.trim()
                 if (line.isEmpty() || line.startsWith("#")) return@forEach
                 try {
-                    val host = URI(line).host
-                    if (!host.isNullOrEmpty()) out.add(host.lowercase())
-                } catch (e: Exception) { /* تجاهل السطر */ }
+                    val parsed = URI(line)
+                    val scheme = parsed.scheme?.lowercase()
+                    val host = parsed.host?.lowercase()
+                    if ((scheme == "http" || scheme == "https") && !host.isNullOrBlank()) {
+                        // Keep the full URL/path to avoid blocking unrelated sites sharing a hosting domain.
+                        out.add(parsed.normalize().toString().trimEnd('/').lowercase())
+                    }
+                } catch (e: Exception) { /* تجاهل السطر غير الصالح */ }
             }
         }
         return out
@@ -295,16 +302,27 @@ object AdBlocker {
         return false
     }
 
-    /** يفحص تصنيف نطاق الصفحة كاملة (إباحي/ضار/احتيالي/مشبوه) - أول قائمة مطابقة مفعّلة فقط */
-    fun matchSafetyCategory(context: Context, host: String): BlockListDef? {
-        if (!isGloballyEnabled(context)) return null
-        for (def in LISTS) {
-            if (def.category == ListCategory.AD) continue
-            if (!isEnabled(context, def.id)) continue
-            if (isHostInDomainSet(host, domainsFor(context, def.id))) return def
-        }
-        return null
+    /**
+     * Blocks only exact phishing URLs present in the enabled OpenPhish feed.
+     * The feed does not assign severity grades; verified feed matches are treated
+     * as high-risk phishing indicators. Other categories (including PORN) are not security blocks.
+     */
+    fun isHighRiskUrl(context: Context, rawUrl: String): Boolean {
+        if (!isGloballyEnabled(context)) return false
+        val def = LISTS.firstOrNull { it.id == "openphish" } ?: return false
+        if (!isEnabled(context, def.id)) return false
+        val candidate = try {
+            val uri = URI(rawUrl.trim())
+            val scheme = uri.scheme?.lowercase() ?: return false
+            val host = uri.host?.lowercase() ?: return false
+            if (scheme != "http" && scheme != "https") return false
+            uri.normalize().toString().trimEnd('/').lowercase()
+        } catch (_: Exception) { return false }
+        return domainsFor(context, def.id).any { candidate == it || candidate.startsWith("$it?") || candidate.startsWith("$it#") }
     }
+
+    /** Compatibility helper: only security categories are considered, never the adult-content list. */
+    fun matchSafetyCategory(context: Context, host: String): BlockListDef? = null
 
     private val blockedResponse: WebResourceResponse
         get() = WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
