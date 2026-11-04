@@ -3234,6 +3234,7 @@ class BrowserActivity : Activity() {
                 val toggleBtn = Button(this).apply {
                     val enabled = AdBlocker.isEnabled(this@BrowserActivity, def.id)
                     text = if (enabled) "مفعّل" else "متوقف"
+                    contentDescription = if (def.id == "openphish") "تفعيل أو إيقاف حماية التصيّد" else "تفعيل أو إيقاف ${def.displayName}"
                     setOnClickListener {
                         val newVal = !AdBlocker.isEnabled(this@BrowserActivity, def.id)
                         AdBlocker.setEnabled(this@BrowserActivity, def.id, newVal)
