@@ -151,7 +151,7 @@ class BrowserActivity : Activity() {
                     "(function(){var s=window.getSelection();return s?s.toString():'';})()"
                 ) { value ->
                     val selected = runCatching {
-                        org.json.JSONTokener(value ?: "\"\\"").nextValue() as? String
+                        org.json.JSONTokener(value ?: "\"\"").nextValue() as? String
                     }.getOrNull().orEmpty()
                     if (selected.isNotEmpty()) {
                         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("النص المحدد", selected))
