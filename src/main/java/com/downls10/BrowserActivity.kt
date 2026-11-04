@@ -226,6 +226,9 @@ class BrowserActivity : Activity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingBookmarkExportContent: String? = null
     private var lastConfirmedSafetyUrl: String? = null
+    // النطاقات التي وافق المستخدم على تجاوز خطأ SSL فيها خلال جلسة المتصفح الحالية.
+    // يمنع تكرار نافذة التحذير لكل مورد فرعي تابع للموقع نفسه.
+    private val sslApprovedHosts = mutableSetOf<String>()
     private val bgExecutor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -1169,12 +1172,27 @@ class BrowserActivity : Activity() {
                     else -> "يوجد خطأ في شهادة أمان الموقع"
                 }
 
+                // إذا وافق المستخدم سابقاً على هذا النطاق، تابع مباشرةً دون إظهار
+                // نافذة جديدة لكل صورة أو ملف أو مورد فرعي يطلبه الموقع.
+                val sslHost = runCatching {
+                    Uri.parse(error.url).host?.lowercase(Locale.US)
+                }.getOrNull()
+
+                if (!sslHost.isNullOrBlank() && sslHost in sslApprovedHosts) {
+                    handler.proceed()
+                    return
+                }
+
                 AlertDialog.Builder(this@BrowserActivity)
                     .setTitle("تحذير شهادة SSL")
                     .setMessage(
                         "$details. قد يكون الاتصال مراقباً أو غير آمن. هل تريد المتابعة إلى هذا الموقع رغم المخاطرة؟"
                     )
                     .setPositiveButton("متابعة رغم المخاطرة") { _, _ ->
+                        // تذكر الموافقة لهذا النطاق طوال جلسة المتصفح الحالية فقط.
+                        if (!sslHost.isNullOrBlank()) {
+                            sslApprovedHosts.add(sslHost)
+                        }
                         handler.proceed()
                     }
                     .setNegativeButton("رجوع") { _, _ ->
