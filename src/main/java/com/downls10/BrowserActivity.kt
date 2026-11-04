@@ -1109,8 +1109,10 @@ class BrowserActivity : Activity() {
         settings.allowFileAccessFromFileURLs = false
         settings.allowUniversalAccessFromFileURLs = false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) settings.safeBrowsingEnabled = true
-        // Prevent remote websites from silently receiving third-party tracking cookies.
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, false)
+        // OAuth providers may rely on cross-site cookies during redirects and sign-in.
+        // Keep first-party cookies enabled and allow third-party cookies for login compatibility.
+        // This improves federated sign-in but may permit additional cross-site tracking.
+        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         // Keep WebView remote debugging disabled in user-facing builds.
         WebView.setWebContentsDebuggingEnabled(false)
         settings.blockNetworkImage = hideImages
