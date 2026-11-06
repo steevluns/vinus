@@ -7,8 +7,8 @@ enum class DownloadState {
 data class DownloadItem(
     val id: Long,
     var url: String,
-    val fileName: String,
-    val extension: String,
+    var fileName: String,
+    var extension: String,
     var progress: Int = 0,
     var status: String = "في الانتظار...",
     var speed: String = "0 KB/s",
