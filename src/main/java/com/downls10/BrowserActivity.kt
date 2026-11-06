@@ -1797,36 +1797,65 @@ class BrowserActivity : Activity() {
         val js = """
             (function() {
               try {
-                var selectors = [
+                var menuSelectors = [
                   '[aria-label="About this result"]',
                   '[aria-label="حول هذه النتيجة"]',
                   '[data-tooltip="About this result"]',
                   '[aria-label*="About this result" i]',
                   '[aria-label*="حول هذه النتيجة"]'
                 ];
+
                 function removeResultMenus(root) {
-                  (root || document).querySelectorAll(selectors.join(',')).forEach(function(node) {
-                    // احذف زر القائمة نفسه، مع تجنب حذف بطاقة نتيجة البحث كاملة.
+                  (root || document).querySelectorAll(menuSelectors.join(',')).forEach(function(node) {
                     var button = node.closest('button,[role="button"]') || node;
-                    if (button && button !== document.body && button !== document.documentElement) {
-                      button.remove();
+                    if (button && button !== document.body && button !== document.documentElement) button.remove();
+                  });
+                }
+
+                // إخفاء كتلة "تم البحث أيضًا عن" وروابط عمليات البحث ذات الصلة أسفلها.
+                function removeRelatedSearches(root) {
+                  var scope = root || document;
+                  var headings = scope.querySelectorAll
+                    ? scope.querySelectorAll('h1,h2,h3,h4,[role="heading"],div,span')
+                    : [];
+                  var labels = [
+                    'تم البحث أيضًا عن', 'تم البحث ايضا عن',
+                    'بحث أيضًا عن', 'بحث ايضا عن',
+                    'people also search for', 'related searches'
+                  ];
+                  headings.forEach(function(el) {
+                    if (!el || !el.textContent) return;
+                    var label = el.textContent.replace(/\\s+/g, ' ').trim().toLowerCase();
+                    if (!labels.some(function(x) { return label === x || label.indexOf(x) === 0; })) return;
+
+                    var candidate = el;
+                    // اصعد إلى أصغر حاوية تضم عنوان القسم وروابطه، دون حذف الصفحة كلها.
+                    for (var level = 0; level < 6 && candidate.parentElement; level++) {
+                      var parent = candidate.parentElement;
+                      if (parent === document.body || parent === document.documentElement) break;
+                      candidate = parent;
+                      var links = candidate.querySelectorAll ? candidate.querySelectorAll('a') : [];
+                      var textLength = (candidate.innerText || candidate.textContent || '').length;
+                      if (links.length >= 2 && textLength < 1800) break;
+                    }
+                    if (candidate && candidate !== document.body &&
+                        candidate !== document.documentElement && candidate.parentElement) {
+                      candidate.remove();
                     }
                   });
                 }
-                removeResultMenus(document);
+
+                function clean(root) {
+                  removeResultMenus(root);
+                  removeRelatedSearches(root);
+                }
+
+                clean(document);
                 if (!window.__vinusGoogleResultMenuObserver) {
                   window.__vinusGoogleResultMenuObserver = new MutationObserver(function(records) {
                     records.forEach(function(record) {
                       record.addedNodes.forEach(function(node) {
-                        if (node.nodeType === 1) {
-                          if (node.matches && selectors.some(function(sel) {
-                            try { return node.matches(sel); } catch(e) { return false; }
-                          })) {
-                            var button = node.closest('button,[role="button"]') || node;
-                            if (button !== document.body && button !== document.documentElement) button.remove();
-                          }
-                          removeResultMenus(node);
-                        }
+                        if (node.nodeType === 1) clean(node);
                       });
                     });
                   });
