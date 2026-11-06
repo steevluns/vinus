@@ -3493,6 +3493,7 @@ class BrowserActivity : Activity() {
             setPadding(24, 16, 24, 16)
         }
         val scroll = ScrollView(this).apply { addView(container) }
+        var historyDialog: AlertDialog? = null
 
         history.forEach { entry ->
             val displayText = entry.title.ifBlank { entry.url }
@@ -3503,7 +3504,10 @@ class BrowserActivity : Activity() {
                 maxLines = 2
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(0, 20, 0, 20)
-                setOnClickListener { createBrowsingTab(entry.url) }
+                setOnClickListener {
+                    historyDialog?.dismiss()
+                    createBrowsingTab(entry.url)
+                }
             }
             container.addView(row)
             container.addView(View(this).apply {
@@ -3512,7 +3516,7 @@ class BrowserActivity : Activity() {
             })
         }
 
-        AlertDialog.Builder(this)
+        historyDialog = AlertDialog.Builder(this)
             .setTitle("سجل التصفح")
             .setView(scroll)
             .setPositiveButton("مسح السجل") { _, _ -> BrowserStorage.clearHistory(this) }
