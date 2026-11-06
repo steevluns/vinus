@@ -30,6 +30,7 @@ object DownloadPersistence {
                 put("downloadedBytes", item.downloadedBytes)
                 put("totalBytes", item.totalBytes)
                 put("localUri", item.localUri ?: "")
+                put("referer", item.referer ?: "")
             })
         }
         prefs(context).edit().putString(KEY_ITEMS, arr.toString()).apply()
@@ -65,7 +66,8 @@ object DownloadPersistence {
                     state = state,
                     downloadedBytes = obj.optLong("downloadedBytes", 0L).coerceAtLeast(0L),
                     totalBytes = obj.optLong("totalBytes", 0L).coerceAtLeast(0L),
-                    localUri = obj.optString("localUri", "").takeIf { it.isNotBlank() && it != "null" }
+                    localUri = obj.optString("localUri", "").takeIf { it.isNotBlank() && it != "null" },
+                    referer = obj.optString("referer", "").takeIf { it.isNotBlank() && it != "null" }
                 ))
             }
             interruptedIds = interrupted
