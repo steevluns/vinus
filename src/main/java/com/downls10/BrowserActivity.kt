@@ -2864,45 +2864,117 @@ class BrowserActivity : Activity() {
     }
 
     private fun applyHideMediaJs(webView: WebView) {
+        // الإخفاء يعتمد على عناصر HTML وخصائص MIME وليس على امتداد الملف فقط،
+        // لذلك يشمل WebP/AVIF/GIF/SVG وغيرها وأي صيغة فيديو تعرض داخل عنصر فيديو.
         val hideImagesCss = if (hideImages) """
-            img, picture, svg, canvas, [role="img"], input[type="image"] {
+            img, picture, svg, canvas, image, [role="img"], input[type="image"],
+            video[poster], [style*="background-image"], [style*="background:"],
+            *::before, *::after {
                 visibility: hidden !important;
+                background-image: none !important;
+                -webkit-mask-image: none !important;
+                mask-image: none !important;
             }
             * { background-image: none !important; }
         """ else """
-            img, picture, svg, canvas, [role="img"], input[type="image"] {
+            img, picture, svg, canvas, image, [role="img"], input[type="image"],
+            video[poster] {
                 visibility: visible !important;
             }
         """
-        // opacity يخفي صورة الفيديو دون إزالة عنصر الفيديو أو إيقاف تشغيله.
+
+        // إخفاء الفيديوهات مهما كان امتدادها، وكذلك مشغلات الفيديو المضمّنة المعروفة.
+        // لا نحذف العناصر ولا نوقف التنزيل أو التشغيل؛ نخفي العرض فقط.
         val hideVideosCss = if (hideVideos) """
-            video { opacity: 0 !important; }
-            video::-webkit-media-controls { opacity: 0 !important; }
+            video, video *, video[poster],
+            iframe.__downls10_video_frame,
+            object.__downls10_video_object,
+            embed.__downls10_video_embed {
+                visibility: hidden !important;
+                opacity: 0 !important;
+            }
         """ else """
-            video { opacity: 1 !important; }
-            video::-webkit-media-controls { opacity: 1 !important; }
+            video, video *, video[poster],
+            iframe.__downls10_video_frame,
+            object.__downls10_video_object,
+            embed.__downls10_video_embed {
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
         """
+
         val cssJson = org.json.JSONObject.quote(hideImagesCss + "\n" + hideVideosCss)
         val js = """
             (function(){
                 var css = $cssJson;
-                var style = document.getElementById('__downls10_hide_media__');
-                if (!style) {
-                    style = document.createElement('style');
-                    style.id = '__downls10_hide_media__';
-                    (document.head || document.documentElement).appendChild(style);
-                }
-                style.textContent = css;
-                function apply() {
-                    var s = document.getElementById('__downls10_hide_media__');
-                    if (s && !s.parentNode && (document.head || document.documentElement)) {
-                        (document.head || document.documentElement).appendChild(s);
+                var styleId = '__downls10_hide_media__';
+
+                function installStyle() {
+                    var root = document.head || document.documentElement;
+                    if (!root) return;
+                    var style = document.getElementById(styleId);
+                    if (!style) {
+                        style = document.createElement('style');
+                        style.id = styleId;
+                        root.appendChild(style);
                     }
+                    style.textContent = css;
                 }
-                apply();
+
+                function isVideoResource(value, mime) {
+                    var v = String(value || '').toLowerCase();
+                    var m = String(mime || '').toLowerCase();
+                    return m.indexOf('video/') === 0 ||
+                        /\.(mp4|m4v|webm|ogv|ogg|mov|qt|avi|mkv|flv|wmv|mpg|mpeg|mpe|m2v|3gp|3g2|ts|m2ts|mts|vob|mxf|asf|f4v|f4p|f4a|f4b|m3u8|mpd)(?:$|[?#&])/.test(v) ||
+                        /(youtube\.com|youtu\.be|youtube-nocookie\.com|vimeo\.com|dailymotion\.com|twitch\.tv|facebook\.com\/.*video|fb\.watch|player\.bilibili\.com|streamable\.com|wistia\.com|jwplayer)/.test(v);
+                }
+
+                function markVideoEmbeds(root) {
+                    var scope = root && root.querySelectorAll ? root : document;
+                    scope.querySelectorAll('iframe, object, embed').forEach(function(el) {
+                        var src = el.getAttribute('src') || el.getAttribute('data') || el.getAttribute('data-src') || '';
+                        var type = el.getAttribute('type') || '';
+                        var isVideo = isVideoResource(src, type);
+                        if (!isVideo && el.tagName === 'IFRAME') {
+                            var title = (el.getAttribute('title') || '').toLowerCase();
+                            isVideo = /video|player|مشغل/.test(title);
+                        }
+                        if (isVideo) el.classList.add('__downls10_video_' + el.tagName.toLowerCase());
+                    });
+                    // بعض المواقع تضع رابط الفيديو في data-src أو تنشئ عناصر الفيديو بعد التحميل.
+                    scope.querySelectorAll('video, source').forEach(function(el) {
+                        var src = el.getAttribute('src') || el.getAttribute('data-src') || '';
+                        if (el.tagName === 'VIDEO' || isVideoResource(src, el.getAttribute('type'))) {
+                            var parent = el.tagName === 'VIDEO' ? el : el.closest('video');
+                            if (parent) parent.classList.add('__downls10_video_element');
+                        }
+                    });
+                }
+
+                function apply(root) {
+                    installStyle();
+                    markVideoEmbeds(root || document);
+                }
+
+                apply(document);
                 if (!window.__downls10MediaObserver && document.documentElement) {
-                    window.__downls10MediaObserver = new MutationObserver(apply);
-                    window.__downls10MediaObserver.observe(document.documentElement, {childList:true,subtree:true});
+                    window.__downls10MediaObserver = new MutationObserver(function(records) {
+                        records.forEach(function(record) {
+                            if (record.type === 'childList') {
+                                record.addedNodes.forEach(function(node) {
+                                    if (node.nodeType === 1) apply(node);
+                                });
+                            } else if (record.type === 'attributes') {
+                                apply(record.target && record.target.parentNode);
+                            }
+                        });
+                    });
+                    window.__downls10MediaObserver.observe(document.documentElement, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['src', 'data-src', 'data', 'type', 'title']
+                    });
                 }
             })();
         """
