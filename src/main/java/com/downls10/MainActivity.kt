@@ -32,13 +32,19 @@ class DownLS10MainActivity : Activity() {
     private var storagePermissionAsked = false
 
     private lateinit var adapter: DownloadAdapter
-    private val refreshListener: () -> Unit = { runOnUiThread { if (::adapter.isInitialized) adapter.notifyDataSetChanged() } }
+    private val refreshListener: () -> Unit = { runOnUiThread {
+        if (::adapter.isInitialized) {
+            adapter.notifyDataSetChanged()
+            updateDownloadCount()
+        }
+    } }
     private val refreshHandler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
             if (!isFinishing && ::adapter.isInitialized) {
                 DownloadsRepository.restoreListIfEmpty(this@DownLS10MainActivity)
                 adapter.notifyDataSetChanged()
+                updateDownloadCount()
                 refreshHandler.postDelayed(this, 3000L)
             }
         }
@@ -76,6 +82,7 @@ class DownLS10MainActivity : Activity() {
             onMoreClick = { item -> showDownloadItemMenu(item) }
         )
         listView.adapter = adapter
+        updateDownloadCount()
 
         // إعداد قائمة ملفات التنزيلات
         downloadFileAdapter = DownloadFileAdapter(
@@ -116,6 +123,7 @@ class DownLS10MainActivity : Activity() {
         DownloadsRepository.restoreListIfEmpty(this)
         DownloadsRepository.addListener(refreshListener)
         adapter.notifyDataSetChanged()
+        updateDownloadCount()
         refreshHandler.removeCallbacks(refreshRunnable)
         refreshHandler.post(refreshRunnable)
     }
@@ -185,12 +193,19 @@ class DownLS10MainActivity : Activity() {
         }
     }
 
+    /** يعرض العدد الإجمالي للعناصر الموجودة في قائمة التنزيلات فقط. */
+    private fun updateDownloadCount() {
+        val countView = findViewById<TextView>(R.id.tvDownloadCount) ?: return
+        countView.text = "عدد الملفات: ${DownloadsRepository.downloadList.size}"
+    }
+
     private fun confirmDeleteCompletedDownloads() {
         val completed = DownloadsRepository.downloadList.filter { it.state == DownloadState.COMPLETED }
         completed.toList().forEach {
             DownloadsRepository.deleteDownload(this, it, deleteFileOnDisk = false)
         }
         adapter.notifyDataSetChanged()
+        updateDownloadCount()
     }
 
     private fun confirmDeleteAllDownloads() {
@@ -199,6 +214,7 @@ class DownLS10MainActivity : Activity() {
             DownloadsRepository.deleteDownload(this, it, deleteFileOnDisk = false)
         }
         adapter.notifyDataSetChanged()
+        updateDownloadCount()
     }
 
     private fun showAddUrlDialog() {
@@ -474,6 +490,7 @@ class DownLS10MainActivity : Activity() {
 
         DownloadsRepository.downloadList.add(newItem)
         adapter.notifyDataSetChanged()
+        updateDownloadCount()
 
         Toast.makeText(this, "تمت إضافة ${item.fileName} إلى قائمة التنزيلات", Toast.LENGTH_SHORT).show()
     }
@@ -510,6 +527,7 @@ class DownLS10MainActivity : Activity() {
 
             DownloadsRepository.downloadList.add(newItem)
             adapter.notifyDataSetChanged()
+            updateDownloadCount()
 
             // بدء التنزيل
             DownloadsRepository.resumeDownload(this, newItem)
@@ -523,6 +541,7 @@ class DownLS10MainActivity : Activity() {
         if (existingItem != null) {
             DownloadsRepository.deleteDownload(this, existingItem, deleteFileOnDisk = false)
             adapter.notifyDataSetChanged()
+            updateDownloadCount()
             Toast.makeText(this, "تم إلغاء ${item.fileName}", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "الملف ${item.fileName} غير موجود في قائمة التنزيلات", Toast.LENGTH_SHORT).show()
