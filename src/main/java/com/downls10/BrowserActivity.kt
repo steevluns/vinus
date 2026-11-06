@@ -1825,7 +1825,7 @@ class BrowserActivity : Activity() {
                   ];
                   headings.forEach(function(el) {
                     if (!el || !el.textContent) return;
-                    var label = el.textContent.replace(/\\s+/g, ' ').trim().toLowerCase();
+                    var label = el.textContent.replace(/\s+/g, ' ').trim().toLowerCase();
                     if (!labels.some(function(x) { return label === x || label.indexOf(x) === 0; })) return;
 
                     var candidate = el;
