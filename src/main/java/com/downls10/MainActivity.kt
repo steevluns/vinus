@@ -72,7 +72,8 @@ class DownLS10MainActivity : Activity() {
             DownloadsRepository.downloadList,
             showSpeed,
             onPauseResumeClick = { item -> handlePauseResume(item) },
-            onDeleteClick = { item -> showDeleteDialog(item) }
+            onDeleteClick = { item -> showDeleteDialog(item) },
+            onMoreClick = { item -> showDownloadItemMenu(item) }
         )
         listView.adapter = adapter
 
@@ -329,6 +330,50 @@ class DownLS10MainActivity : Activity() {
             .setItems(options) { _, which ->
                 DownloadsRepository.deleteDownload(this, item, deleteFileOnDisk = (which == 1))
             }
+            .show()
+    }
+
+    /** قائمة الإجراءات الخاصة بكل ملف تنزيل. */
+    private fun showDownloadItemMenu(item: DownloadItem) {
+        val options = arrayOf("إعادة تسمية", "نسخ رابط الصفحة")
+        AlertDialog.Builder(this)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showRenameDownloadDialog(item)
+                    1 -> {
+                        val pageUrl = item.referer?.trim().orEmpty()
+                        if (pageUrl.isBlank()) {
+                            Toast.makeText(this, "رابط الصفحة غير متوفر لهذا التنزيل", Toast.LENGTH_SHORT).show()
+                        } else {
+                            copyToClipboard(pageUrl)
+                        }
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun showRenameDownloadDialog(item: DownloadItem) {
+        val input = EditText(this).apply {
+            setText(item.fileName)
+            setSelection(text.length)
+            hint = "اسم الملف الجديد"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("إعادة تسمية الملف")
+            .setView(input)
+            .setPositiveButton("حفظ") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isBlank()) {
+                    Toast.makeText(this, "اكتب اسماً صالحاً", Toast.LENGTH_SHORT).show()
+                } else if (DownloadsRepository.renameDownloadFile(this, item, newName)) {
+                    adapter.notifyDataSetChanged()
+                    Toast.makeText(this, "تمت إعادة تسمية الملف", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "تعذرت إعادة التسمية. تحقق من الاسم أو حالة الملف", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("إلغاء", null)
             .show()
     }
 
