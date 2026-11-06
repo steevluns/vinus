@@ -2887,7 +2887,7 @@ class BrowserActivity : Activity() {
         // لا نحذف العناصر ولا نوقف التنزيل أو التشغيل؛ نخفي العرض فقط.
         val hideVideosCss = if (hideVideos) """
             video, video *, video[poster],
-            iframe.__downls10_video_frame,
+            iframe.__downls10_video_iframe,
             object.__downls10_video_object,
             embed.__downls10_video_embed {
                 visibility: hidden !important;
@@ -2895,7 +2895,7 @@ class BrowserActivity : Activity() {
             }
         """ else """
             video, video *, video[poster],
-            iframe.__downls10_video_frame,
+            iframe.__downls10_video_iframe,
             object.__downls10_video_object,
             embed.__downls10_video_embed {
                 visibility: visible !important;
