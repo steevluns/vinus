@@ -836,6 +836,8 @@ object DownloadsRepository {
         val storedUri = item.localUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
         val contentUri = when {
             storedUri?.scheme == "content" -> storedUri
+            storedUri?.scheme == "file" -> null
+            storedUri?.scheme == null && !item.localUri.isNullOrBlank() -> null
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> findDownloadUriByName(resolver, item.fileName)
             else -> null
         }
