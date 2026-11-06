@@ -1248,7 +1248,7 @@ class BrowserActivity : Activity() {
                 fun finishSslDecision(allow: Boolean) {
                     // خزّن السماح أو الرفض حتى لا تتكرر الرسالة لموارد هذه الصفحة.
                     sslSiteDecisions[sslSiteKey] = allow
-                    val waitingHandlers = pendingSslHandlers.remove(sslHost).orEmpty()
+                    val waitingHandlers = pendingSslHandlers.remove(sslSiteKey).orEmpty()
                     waitingHandlers.forEach { sslHandler ->
                         if (allow) sslHandler.proceed() else sslHandler.cancel()
                     }
