@@ -59,16 +59,6 @@
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/btnForward"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginStart="2dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:text="▶"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp" />
-
-        <Button
             android:id="@+id/btnDownloads"
             android:layout_width="36dp"
             android:layout_height="36dp"
