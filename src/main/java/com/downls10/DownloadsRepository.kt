@@ -818,6 +818,54 @@ object DownloadsRepository {
         executeDownload(context, item)
     }
 
+    /**
+     * يعيد تسمية الملف الفعلي ثم يحدّث اسم العنصر المحفوظ في قائمة التنزيلات.
+     * لا يسمح بتغيير الاسم أثناء الكتابة في الملف.
+     */
+    fun renameDownloadFile(context: Context, item: DownloadItem, requestedName: String): Boolean {
+        ensureLoaded(context.applicationContext)
+        if (item.state == DownloadState.DOWNLOADING) return false
+
+        val newName = sanitizeFileName(requestedName)
+        if (newName.isBlank()) return false
+        if (newName == item.fileName) return true
+        if (downloadList.any { it !== item && it.fileName.equals(newName, ignoreCase = true) }) return false
+
+        val appContext = context.applicationContext
+        val resolver = appContext.contentResolver
+        val storedUri = item.localUri?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        val contentUri = when {
+            storedUri?.scheme == "content" -> storedUri
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> findDownloadUriByName(resolver, item.fileName)
+            else -> null
+        }
+
+        val renamed = if (contentUri != null) {
+            // MediaStore يحتفظ بنفس URI بعد تغيير DISPLAY_NAME.
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, newName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeTypeFor(newName))
+            }
+            runCatching { resolver.update(contentUri, values, null, null) > 0 }.getOrDefault(false)
+        } else {
+            val source = if (storedUri?.scheme == "file") {
+                File(storedUri.path.orEmpty())
+            } else if (storedUri?.scheme == null && !item.localUri.isNullOrBlank()) {
+                File(item.localUri!!)
+            } else {
+                File(getCustomDownloadDir(), item.fileName)
+            }
+            val destination = File(source.parentFile ?: getCustomDownloadDir(), newName)
+            !destination.exists() && source.exists() && source.renameTo(destination)
+        }
+
+        if (!renamed) return false
+        item.fileName = newName
+        item.extension = newName.substringAfterLast('.', "").ifBlank { "bin" }
+        notifyChanged(appContext, forceSave = true)
+        return true
+    }
+
     fun deleteDownload(context: Context, item: DownloadItem, deleteFileOnDisk: Boolean) {
         val appContext = context.applicationContext
         downloadEngine.pauseDownload(item.id)
