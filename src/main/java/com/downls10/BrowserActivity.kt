@@ -226,9 +226,9 @@ class BrowserActivity : Activity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var pendingBookmarkExportContent: String? = null
     private var lastConfirmedSafetyUrl: String? = null
-    // قرار واحد لكل مضيف خلال جلسة المتصفح: true = سماح، false = رفض.
-    // نجمع طلبات SSL المتزامنة للمضيف نفسه خلف نافذة واحدة فقط.
-    private val sslHostDecisions = mutableMapOf<String, Boolean>()
+    // قرار واحد لمضيف الصفحة الرئيسية خلال جلسة المتصفح: true = سماح، false = رفض.
+    // تشترك أخطاء SSL لموارد الصفحة في القرار نفسه حتى لو اختلف مضيف المورد.
+    private val sslSiteDecisions = mutableMapOf<String, Boolean>()
     private val pendingSslHandlers = mutableMapOf<String, MutableList<android.webkit.SslErrorHandler>>()
     private val bgExecutor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -1210,13 +1210,14 @@ class BrowserActivity : Activity() {
                 handler: android.webkit.SslErrorHandler,
                 error: android.net.http.SslError
             ) {
-                // قرار SSL يُتخذ مرة واحدة لكل مضيف خلال جلسة المتصفح.
-                // الطلبات المتزامنة للمضيف نفسه تنتظر نافذة واحدة ولا تنشئ نوافذ متكررة.
-                val sslHost = runCatching {
-                    Uri.parse(error.url).host?.lowercase(Locale.US)
-                }.getOrNull() ?: error.url.lowercase(Locale.US)
+                // استخدم مضيف الصفحة الرئيسية حتى لا تتكرر النافذة بسبب موارد من مضيفين مختلفين.
+                val sslSiteKey = runCatching {
+                    Uri.parse(view.url ?: error.url).host?.lowercase(Locale.US)
+                }.getOrNull()
+                    ?: runCatching { Uri.parse(error.url).host?.lowercase(Locale.US) }.getOrNull()
+                    ?: error.url.lowercase(Locale.US)
 
-                when (sslHostDecisions[sslHost]) {
+                when (sslSiteDecisions[sslSiteKey]) {
                     true -> {
                         handler.proceed()
                         return
@@ -1228,12 +1229,12 @@ class BrowserActivity : Activity() {
                     null -> Unit
                 }
 
-                val pending = pendingSslHandlers[sslHost]
+                val pending = pendingSslHandlers[sslSiteKey]
                 if (pending != null) {
                     pending.add(handler)
                     return
                 }
-                pendingSslHandlers[sslHost] = mutableListOf(handler)
+                pendingSslHandlers[sslSiteKey] = mutableListOf(handler)
 
                 val details = when (error.primaryError) {
                     android.net.http.SslError.SSL_EXPIRED -> "الشهادة منتهية الصلاحية"
@@ -1245,8 +1246,8 @@ class BrowserActivity : Activity() {
                 }
 
                 fun finishSslDecision(allow: Boolean) {
-                    // خزّن السماح أو الرفض حتى لا تتكرر الرسالة لهذا المضيف.
-                    sslHostDecisions[sslHost] = allow
+                    // خزّن السماح أو الرفض حتى لا تتكرر الرسالة لموارد هذه الصفحة.
+                    sslSiteDecisions[sslSiteKey] = allow
                     val waitingHandlers = pendingSslHandlers.remove(sslHost).orEmpty()
                     waitingHandlers.forEach { sslHandler ->
                         if (allow) sslHandler.proceed() else sslHandler.cancel()
