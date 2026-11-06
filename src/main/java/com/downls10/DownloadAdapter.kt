@@ -16,7 +16,8 @@ class DownloadAdapter(
     private val items: List<DownloadItem>,
     private var showSpeed: Boolean,
     private val onPauseResumeClick: (DownloadItem) -> Unit,
-    private val onDeleteClick: (DownloadItem) -> Unit
+    private val onDeleteClick: (DownloadItem) -> Unit,
+    private val onMoreClick: (DownloadItem) -> Unit
 ) : BaseAdapter() {
 
     fun setShowSpeed(visible: Boolean) {
@@ -39,6 +40,7 @@ class DownloadAdapter(
         val tvSpeed = view.findViewById<TextView>(R.id.tvSpeed)
         val btnPauseResume = view.findViewById<Button>(R.id.btnPauseResume)
         val btnDelete = view.findViewById<Button>(R.id.btnDelete)
+        val btnMore = view.findViewById<Button>(R.id.btnMore)
 
         tvFileName.text = item.fileName
         tvFileIcon.text = getIconForExtension(item.extension)
@@ -79,6 +81,7 @@ class DownloadAdapter(
             }
         }
         btnDelete.setOnClickListener { onDeleteClick(item) }
+        btnMore.setOnClickListener { onMoreClick(item) }
 
         view.setOnLongClickListener {
             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
