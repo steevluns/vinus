@@ -2730,8 +2730,16 @@ class BrowserActivity : Activity() {
                 // لا يُفتح الرابط إلا من هذا الزر.
                 openPopupInNewTab(url)
             }
-            .setNegativeButton("رفض", null)
+            .setNegativeButton("رفض") { _, _ ->
+                // الرفض نهائي لهذا الطلب: لا تفتح الرابط ولا تنشئ تبويبًا.
+                // لا نعيد محاولة الرابط عند إغلاق مربع الحوار.
+            }
             .create()
+
+        // إغلاق النافذة بزر الرجوع أو بالضغط خارجها يُعامل كرفض أيضًا.
+        dialog.setOnCancelListener {
+            // لا تنفّذ أي إجراء لفتح الرابط عند الإلغاء.
+        }
 
         dialog.setOnDismissListener {
             popupDialogShowing = false
