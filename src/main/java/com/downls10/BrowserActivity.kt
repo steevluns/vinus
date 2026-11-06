@@ -376,7 +376,6 @@ class BrowserActivity : Activity() {
         }
         progressBar = findViewById(R.id.progressBar)
         val btnBookmarkStar = findViewById<Button>(R.id.btnBookmarkStar)
-        val btnForward = findViewById<Button>(R.id.btnForward)
         val btnDownloads = findViewById<Button>(R.id.btnDownloads)
         btnTabs = findViewById(R.id.btnTabs)
         val btnBrowserMenu = findViewById<Button>(R.id.btnBrowserMenu)
@@ -401,14 +400,6 @@ class BrowserActivity : Activity() {
         }
 
         btnBookmarkStar.setOnClickListener { addCurrentPageToBookmarks() }
-        btnForward.setOnClickListener {
-            val tab = currentTab()
-            if (!tab.isHome && tab.webView.canGoForward()) {
-                tab.webView.goForward()
-            } else {
-                Toast.makeText(this, "لا توجد صفحة للتقدّم إليها", Toast.LENGTH_SHORT).show()
-            }
-        }
         btnTabs.setOnClickListener { showTabsDialog() }
         btnDownloads.setOnClickListener { openDownLS10() }
         btnBrowserMenu.setOnClickListener { showBrowserMenu() }
