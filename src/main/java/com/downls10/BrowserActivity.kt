@@ -1567,20 +1567,20 @@ class BrowserActivity : Activity() {
             ): Boolean {
                 val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
 
-                // استخدم WebView مؤقتًا حقيقيًا لتنفيذ صفحة النافذة المنبثقة وتحويلاتها،
-                // بدلاً من تعطيل JavaScript أو حظر موارد الصفحة؛ كثير من مواقع التحميل
-                // تنشئ about:blank أولاً ثم تغيّر العنوان بواسطة JavaScript.
+                // Run the popup's complete waiting/redirect page in a temporary WebView.
+                // Crucially, do not move it to another tab after a short delay: sites such
+                // as download hosts often show a countdown before triggering the real file.
                 val temp = WebView(this@BrowserActivity)
                 temp.settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    // Allow the popup's own JavaScript redirect chain after the user's click.
-                    // The main browser WebView still blocks unsolicited popups.
                     javaScriptCanOpenWindowsAutomatically = true
                     setSupportMultipleWindows(false)
                     loadsImagesAutomatically = true
                     blockNetworkImage = false
                     mixedContentMode = view.settings.mixedContentMode
+                    userAgentString = view.settings.userAgentString
+                    cacheMode = WebSettings.LOAD_DEFAULT
                     allowFileAccess = false
                     allowContentAccess = false
                     allowFileAccessFromFileURLs = false
@@ -1589,8 +1589,6 @@ class BrowserActivity : Activity() {
                 }
                 CookieManager.getInstance().setAcceptThirdPartyCookies(temp, true)
 
-                // handedOver: سُلّم الرابط لنافذة السؤال؛ نُبقي النافذة المؤقتة حيّة حتى يقرر
-                // المستخدم، كي لا تظن الصفحة الأصلية أن النافذة أُغلقت أو حُجبت فتتوقف.
                 var handedOver = false
                 var destroyed = false
                 var latestPopupUrl: String? = null
@@ -1614,23 +1612,46 @@ class BrowserActivity : Activity() {
                         lower.startsWith("javascript:") || lower.startsWith("data:") ||
                         lower.startsWith("blob:")) return
 
-                    // حدّث الوجهة مع كل تحويل، ثم انتظر حتى تستقر سلسلة التحويلات.
-                    // تثبيت أول عنوان كان يلتقط صفحات وسيطة وإعلانات بدلاً من رابط التنزيل.
                     latestPopupUrl = candidate
                     confirmRunnable?.let(mainHandler::removeCallbacks)
+                    // Give countdowns, JavaScript redirects and automatic download buttons
+                    // enough time to finish inside the popup before offering a tab fallback.
                     confirmRunnable = Runnable {
                         val confirmedUrl = latestPopupUrl
                         if (!destroyed && !handedOver && !confirmedUrl.isNullOrBlank()) {
                             handedOver = true
-                            // لا نُتلف النافذة المؤقتة الآن؛ تُتلف بعد قرار المستخدم.
                             showPopupConfirmDialog(confirmedUrl) { destroyTemp() }
                         }
-                    }.also { mainHandler.postDelayed(it, 2800L) }
+                    }.also { mainHandler.postDelayed(it, 25000L) }
+                }
+
+                // Popup windows need their own DownloadListener. Without it, the file
+                // response from the countdown page is silently lost because this WebView
+                // is not the visible/main browser WebView.
+                temp.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+                    if (destroyed || handedOver || url.isNullOrBlank()) return@setDownloadListener
+                    handedOver = true
+                    confirmRunnable?.let(mainHandler::removeCallbacks)
+                    val suggestedName =
+                        DownloadsRepository.fileNameFromContentDispositionOrNull(contentDisposition)
+                    if (url.startsWith("blob:", ignoreCase = true)) {
+                        blobBridge.start(temp, url, suggestedName, mimeType)
+                    } else {
+                        confirmDownload(
+                            url,
+                            suggestedFileName = suggestedName,
+                            userAgent = userAgent ?: temp.settings.userAgentString,
+                            referer = temp.url ?: latestPopupUrl ?: view.url,
+                            mimeType = mimeType
+                        )
+                    }
+                    // Keep the popup alive while the download preview is being prepared
+                    // and while the user decides in the confirmation dialog.
+                    mainHandler.postDelayed({ destroyTemp() }, 120000L)
                 }
 
                 temp.webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
-                        // اسمح للصفحة المؤقتة بمتابعة التحويل الحقيقي، والتقط الرابط الرئيسي فقط.
                         if (request.isForMainFrame) scheduleConfirmation(request.url.toString())
                         return false
                     }
@@ -1640,18 +1661,15 @@ class BrowserActivity : Activity() {
                     }
 
                     override fun onPageFinished(v: WebView, url: String?) {
-                        // بعض المواقع تغيّر location عبر JavaScript بعد بدء الصفحة؛
-                        // التقط العنوان النهائي بعد اكتمال التحميل وأعد مهلة الاستقرار.
                         scheduleConfirmation(url)
                     }
                 }
 
-                // نافذة فارغة لم يصل لها أي رابط حقيقي: تخلّص منها.
+                // Empty popup guard and long-lived fallback guard.
                 mainHandler.postDelayed({
                     if (!handedOver && latestPopupUrl == null) destroyTemp()
-                }, 8000L)
-                // حماية من بقاء نافذة معلّقة إلى الأبد قبل أن تُسلَّم لنافذة السؤال.
-                mainHandler.postDelayed({ if (!handedOver) destroyTemp() }, 15000L)
+                }, 30000L)
+                mainHandler.postDelayed({ if (!handedOver) destroyTemp() }, 120000L)
 
                 transport.webView = temp
                 resultMsg.sendToTarget()
@@ -3434,8 +3452,10 @@ class BrowserActivity : Activity() {
                   var style = document.createElement('style');
                   style.id = STYLE_ID;
                   style.textContent = [
-                    'html, body { background-color:#000 !important; color:#eee !important; }',
+                    'html, body { background-color:#000 !important; color:#eee !important; color-scheme:dark !important; }',
                     'body { min-height:100vh; }',
+                    'input, textarea, select, option, button, [role="button"] { color:#eee !important; }',
+                    'input::placeholder, textarea::placeholder { color:#aaa !important; opacity:1 !important; }',
                     '::selection { background:#315b91 !important; color:#fff !important; }'
                   ].join('\n');
                   (document.head || document.documentElement).appendChild(style);
@@ -3444,8 +3464,8 @@ class BrowserActivity : Activity() {
                 function isProtected(el) {
                   if (!el || !el.tagName) return true;
                   var tag = el.tagName.toLowerCase();
-                  if (/^(img|picture|video|canvas|svg|path|use|input|textarea|select|option|button|iframe|object|embed)$/i.test(tag)) return true;
-                  if (el.closest && el.closest('svg, [role="img"], [role="button"], button, input, textarea, select, [class*="icon" i], [class*="logo" i], [aria-hidden="true"]')) return true;
+                  if (/^(img|picture|video|canvas|svg|path|use|iframe|object|embed)$/i.test(tag)) return true;
+                  if (el.closest && el.closest('svg, [role="img"], [class*="icon" i], [class*="logo" i], [aria-hidden="true"]')) return true;
                   return false;
                 }
                 function rgb(value) {
@@ -3460,7 +3480,14 @@ class BrowserActivity : Activity() {
                   // but preserve colored panels, icons, images and controls.
                   return min >= 215 && (max - min) <= 28;
                 }
-                function nearBlack(c) { return c && c[0] < 65 && c[1] < 65 && c[2] < 65; }
+                function nearBlack(c) {
+                  if (!c) return false;
+                  var min = Math.min(c[0], c[1], c[2]);
+                  var max = Math.max(c[0], c[1], c[2]);
+                  // Recolor neutral black/dark-gray text even inside links and controls,
+                  // while preserving distinctly colored brand text and icons.
+                  return max < 105 && (max - min) <= 32;
+                }
 
                 function setOwnedStyle(el, prop, value) {
                   var key = prop === 'background-color' ? 'bg' : (prop === 'box-shadow' ? 'shadow' : 'fg');
@@ -3487,8 +3514,8 @@ class BrowserActivity : Activity() {
                       setOwnedStyle(el, 'background-color', '#000000');
                     }
                     // Keep link colors, brand colors and all non-neutral text colors.
-                    if (!el.closest('a') && nearBlack(fg)) {
-                      setOwnedStyle(el, 'color', '#eee');
+                    if (nearBlack(fg)) {
+                      setOwnedStyle(el, 'color', '#eeeeee');
                     }
                     // Avoid retaining a light shadow that looks like a white border.
                     if (cs.boxShadow && cs.boxShadow !== 'none' && /rgba?\(\s*255\s*,\s*255\s*,\s*255/i.test(cs.boxShadow)) {
@@ -3508,7 +3535,7 @@ class BrowserActivity : Activity() {
                 });
                 if (document.documentElement) {
                   window.__pureNightObserver.observe(document.documentElement, {
-                    childList:true, subtree:true, attributes:true,
+                    childList:true, subtree:true, attributes:true, characterData:true,
                     attributeFilter:['class','style','hidden','aria-expanded']
                   });
                 }
