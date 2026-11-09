@@ -324,12 +324,12 @@ object LinkResolver {
             }
         }
         val scriptUrlPatterns = listOf(
-            Regex("""["'](?:url|redirect|target|download|file)["']\\s*:\\s*["'](https?:\\\\?/\\\\?/[^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""["'](?:url|redirect|target|download|file)["']\\s*:\\s*["'](https?:\\?/\\?/[^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""(?:window\\.)?open\\(\\s*['"]((?:https?:)?//[^'"]+)['"]""", RegexOption.IGNORE_CASE)
         )
         for (pattern in scriptUrlPatterns) {
             val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
-            resolveCandidate(pageUrl, raw.replace("\\\\/", "/"))?.let { return it }
+            resolveCandidate(pageUrl, raw.replace("\\/", "/"))?.let { return it }
         }
         for (pattern in redirectPatterns) {
             val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
