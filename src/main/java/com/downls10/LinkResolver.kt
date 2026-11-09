@@ -317,6 +317,8 @@ object LinkResolver {
         val onclickValues = Regex("""\bonclick\s*=\s*["']([^"']{1,2000})["']""", RegexOption.IGNORE_CASE)
             .findAll(decoded).map { it.groupValues[1] }
         for (script in onclickValues) {
+            if (!script.contains("download", ignoreCase = true) &&
+                !script.contains("file", ignoreCase = true)) continue
             for (pattern in clickPatterns) {
                 val raw = pattern.find(script)?.groupValues?.getOrNull(1) ?: continue
                 resolveCandidate(pageUrl, raw)?.let { return it }
