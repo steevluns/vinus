@@ -287,16 +287,16 @@ object LinkResolver {
         // بدلاً من عنصر <a>. نستخرج الروابط المعلنة صراحةً فقط، ولا ننفذ
         // JavaScript ولا نحاول تجاوز CAPTCHA أو تسجيل الدخول.
         val embeddedPatterns = listOf(
-            Regex("""data-(?:download-url|file-url|direct-url)\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
-            Regex("""["'](?:downloadUrl|download_url|fileUrl|file_url|directUrl|direct_url)["']\\s*:\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
-            Regex("""(?:downloadUrl|download_url|fileUrl|file_url|directUrl|direct_url)\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+            Regex("""data-(?:download-url|file-url|direct-url)\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""["'](?:downloadUrl|download_url|fileUrl|file_url|directUrl|direct_url)["']\s*:\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:downloadUrl|download_url|fileUrl|file_url|directUrl|direct_url)\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
         )
         for (pattern in embeddedPatterns) {
             val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
             val resolved = resolveCandidate(pageUrl, raw) ?: continue
             val path = try { Uri.parse(resolved).path.orEmpty() } catch (_: Exception) { "" }
             val looksLikeFile = path.matches(
-                Regex(""".+\\.(exe|zip|rar|7z|apk|msi|iso|pdf|dmg|deb|rpm|mp4|mp3|mkv)(?:/)?$""", RegexOption.IGNORE_CASE)
+                Regex(""".+\.(exe|zip|rar|7z|apk|msi|iso|pdf|dmg|deb|rpm|mp4|mp3|mkv)(?:/)?$""", RegexOption.IGNORE_CASE)
             )
             if (looksLikeFile) return resolved
         }
@@ -306,6 +306,31 @@ object LinkResolver {
             Regex("""(?:window\.)?location(?:\.href)?\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
             Regex("""(?:window\.)?location\.replace\(\s*["']([^"']+)["']\s*\)""", RegexOption.IGNORE_CASE)
         )
+        
+        // صفحات العدّ التنازلي قد تخفي الوجهة داخل onclick أو window.open.
+        // نستخرج الوجهة المعلنة فقط؛ لا ننفذ JavaScript ولا نتجاوز التحقق أو تسجيل الدخول.
+        val clickPatterns = listOf(
+            Regex("""(?:window\\.)?open\\(\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:window\\.)?location(?:\\.href)?\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:document\\.)?location\\.assign\\(\\s*["']([^"']+)["']\\s*\\)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:document\\.)?location\\.replace\\(\\s*["']([^"']+)["']\\s*\\)""", RegexOption.IGNORE_CASE)
+        )
+        val onclickValues = Regex("""\\bonclick\\s*=\\s*["']([^"']{1,2000})["']""", RegexOption.IGNORE_CASE)
+            .findAll(decoded).map { it.groupValues[1] }
+        for (script in onclickValues) {
+            for (pattern in clickPatterns) {
+                val raw = pattern.find(script)?.groupValues?.getOrNull(1) ?: continue
+                resolveCandidate(pageUrl, raw)?.let { return it }
+            }
+        }
+        val scriptUrlPatterns = listOf(
+            Regex("""["'](?:url|redirect|target|download|file)["']\\s*:\\s*["'](https?:\\\\?/\\\\?/[^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:window\\.)?open\\(\\s*['"]((?:https?:)?//[^'"]+)['"]""", RegexOption.IGNORE_CASE)
+        )
+        for (pattern in scriptUrlPatterns) {
+            val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
+            resolveCandidate(pageUrl, raw.replace("\\\\/", "/"))?.let { return it }
+        }
         for (pattern in redirectPatterns) {
             val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
             resolveCandidate(pageUrl, raw)?.let { return it }
