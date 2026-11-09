@@ -3438,7 +3438,7 @@ class BrowserActivity : Activity() {
                   var m = String(value || '').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);
                   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
                 }
-                function nearWhite(c) { return c && c[0] > 232 && c[1] > 232 && c[2] > 232; }
+                function nearWhite(c) {\n                  if (!c) return false;\n                  var min = Math.min(c[0], c[1], c[2]);\n                  var max = Math.max(c[0], c[1], c[2]);\n                  // Darken light neutral surfaces, including off-white search cards,\n                  // but preserve colored panels, icons, images and controls.\n                  return min >= 215 && (max - min) <= 28;\n                }
                 function nearBlack(c) { return c && c[0] < 65 && c[1] < 65 && c[2] < 65; }
 
                 function setOwnedStyle(el, prop, value) {
@@ -3462,7 +3462,7 @@ class BrowserActivity : Activity() {
                     var bg = rgb(cs.backgroundColor);
                     var fg = rgb(cs.color);
                     if (nearWhite(bg)) {
-                      setOwnedStyle(el, 'background-color', '#101010');
+                      setOwnedStyle(el, 'background-color', '#000000');
                     }
                     // Keep link colors, brand colors and all non-neutral text colors.
                     if (!el.closest('a') && nearBlack(fg)) {
@@ -3487,7 +3487,7 @@ class BrowserActivity : Activity() {
                 if (document.documentElement) {
                   window.__pureNightObserver.observe(document.documentElement, {
                     childList:true, subtree:true, attributes:true,
-                    attributeFilter:['class']
+                    attributeFilter:['class','style','hidden','aria-expanded']
                   });
                 }
               } catch (e) {}
