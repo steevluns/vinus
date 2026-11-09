@@ -266,7 +266,7 @@ object LinkResolver {
     private fun genericDownloadUrl(pageUrl: String, html: String): String? {
         val decoded = html.replace("&amp;", "&").replace("&#x2F;", "/").replace("\\/", "/")
         val candidates = Regex(
-            """<(?:a|button)\\b[^>]*(?:href|data-href|data-url)\\s*=\\s*["']([^"']+)["'][^>]*>([\\s\\S]{0,800}?)</(?:a|button)>""",
+            """<(?:a|button)\b[^>]*(?:href|data-href|data-url)\s*=\s*["']([^"']+)["'][^>]*>([\s\S]{0,800}?)</(?:a|button)>""",
             setOf(RegexOption.IGNORE_CASE)
         ).findAll(decoded).mapNotNull { match ->
             val raw = match.groupValues[1].trim()
@@ -274,7 +274,7 @@ object LinkResolver {
             val attrs = match.value.substringBefore(">").lowercase()
             val score = (if (label.contains("download") || label.contains("تنزيل") || label.contains("تحميل")) 4 else 0) +
                 (if (attrs.contains("download")) 3 else 0) +
-                (if (raw.matches(Regex(""".+\\.(exe|zip|rar|7z|apk|msi|iso|pdf|dmg|deb|rpm)(?:[?#].*)?""", RegexOption.IGNORE_CASE))) 5 else 0)
+                (if (raw.matches(Regex(""".+\.(exe|zip|rar|7z|apk|msi|iso|pdf|dmg|deb|rpm)(?:[?#].*)?""", RegexOption.IGNORE_CASE))) 5 else 0)
             if (score > 0) Pair(raw, score) else null
         }.sortedByDescending { it.second }
 
@@ -284,9 +284,9 @@ object LinkResolver {
         }
 
         val redirectPatterns = listOf(
-            Regex("""<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url\\s*=\\s*([^"' ;]+)""", RegexOption.IGNORE_CASE),
-            Regex("""(?:window\\.)?location(?:\\.href)?\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
-            Regex("""(?:window\\.)?location\\.replace\\(\\s*["']([^"']+)["']\\s*\\)""", RegexOption.IGNORE_CASE)
+            Regex("""<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url\s*=\s*([^"' ;]+)""", RegexOption.IGNORE_CASE),
+            Regex("""(?:window\.)?location(?:\.href)?\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:window\.)?location\.replace\(\s*["']([^"']+)["']\s*\)""", RegexOption.IGNORE_CASE)
         )
         for (pattern in redirectPatterns) {
             val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
