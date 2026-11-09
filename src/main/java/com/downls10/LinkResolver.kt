@@ -283,6 +283,24 @@ object LinkResolver {
             if (resolved.startsWith("http://") || resolved.startsWith("https://")) return resolved
         }
 
+        // بعض الصفحات تضع رابط الملف في خصائص data-* أو متغير JavaScript
+        // بدلاً من عنصر <a>. نستخرج الروابط المعلنة صراحةً فقط، ولا ننفذ
+        // JavaScript ولا نحاول تجاوز CAPTCHA أو تسجيل الدخول.
+        val embeddedPatterns = listOf(
+            Regex("""data-(?:download-url|file-url|direct-url)\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""["'](?:downloadUrl|download_url|fileUrl|file_url|directUrl|direct_url)["']\\s*:\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
+            Regex("""(?:downloadUrl|download_url|fileUrl|file_url|directUrl|direct_url)\\s*=\\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+        )
+        for (pattern in embeddedPatterns) {
+            val raw = pattern.find(decoded)?.groupValues?.getOrNull(1) ?: continue
+            val resolved = resolveCandidate(pageUrl, raw) ?: continue
+            val path = try { Uri.parse(resolved).path.orEmpty() } catch (_: Exception) { "" }
+            val looksLikeFile = path.matches(
+                Regex(""".+\\.(exe|zip|rar|7z|apk|msi|iso|pdf|dmg|deb|rpm|mp4|mp3|mkv)(?:/)?$""", RegexOption.IGNORE_CASE)
+            )
+            if (looksLikeFile) return resolved
+        }
+
         val redirectPatterns = listOf(
             Regex("""<meta[^>]+http-equiv=["']?refresh["']?[^>]+content=["'][^"']*url\s*=\s*([^"' ;]+)""", RegexOption.IGNORE_CASE),
             Regex("""(?:window\.)?location(?:\.href)?\s*=\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE),
