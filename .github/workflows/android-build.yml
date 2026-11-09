@@ -1,5 +1,6 @@
 name: Build Android APK
 # Build on every main-branch update and allow manual runs.
+# Rebuild requested after the Android XML resource fix.
 
 on:
   push:
