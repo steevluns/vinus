@@ -326,7 +326,7 @@ class DownloadManagerEngine {
                     }
                     conn.disconnect()
                     htmlHops++
-                    val next = if (htmlHops <= 3) LinkResolver.resolveFromHtml(currentUrl, html.take(400_000)) else null
+                    val next = if (htmlHops <= 8) LinkResolver.resolveFromHtml(currentUrl, html.take(400_000)) else null
                     if (next == null) {
                         throw NonRetryableDownloadException("تعذّر الحصول على رابط التنزيل المباشر (قد يكون الملف خاصاً أو غير متاح)")
                     }
