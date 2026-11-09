@@ -3437,7 +3437,7 @@ class BrowserActivity : Activity() {
                     'html, body { background-color:#000 !important; color:#eee !important; }',
                     'body { min-height:100vh; }',
                     '::selection { background:#315b91 !important; color:#fff !important; }'
-                  ].join('\\n');
+                  ].join('\n');
                   (document.head || document.documentElement).appendChild(style);
                 }
 
@@ -3449,14 +3449,17 @@ class BrowserActivity : Activity() {
                   return false;
                 }
                 function rgb(value) {
-                  var m = String(value || '').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);
+                  var m = String(value || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
                   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
                 }
                 function nearWhite(c) {
                   if (!c) return false;
                   var min = Math.min(c[0], c[1], c[2]);
                   var max = Math.max(c[0], c[1], c[2]);
-                  // Darken light neutral surfaces, including off-white search cards,\n                  // but preserve colored panels, icons, images and controls.\n                  return min >= 215 && (max - min) <= 28;\n                }
+                  // Darken light neutral surfaces, including off-white search cards,
+                  // but preserve colored panels, icons, images and controls.
+                  return min >= 215 && (max - min) <= 28;
+                }
                 function nearBlack(c) { return c && c[0] < 65 && c[1] < 65 && c[2] < 65; }
 
                 function setOwnedStyle(el, prop, value) {
@@ -3467,6 +3470,7 @@ class BrowserActivity : Activity() {
                     el.setAttribute('data-pure-night-' + key + '-value', el.style.getPropertyValue(prop));
                     el.setAttribute('data-pure-night-' + key + '-priority', el.style.getPropertyPriority(prop));
                   }
+                  if (el.style.getPropertyValue(prop) === value && el.style.getPropertyPriority(prop) === 'important') return;
                   el.style.setProperty(prop, value, 'important');
                 }
                 function darkenPage() {
@@ -3487,7 +3491,7 @@ class BrowserActivity : Activity() {
                       setOwnedStyle(el, 'color', '#eee');
                     }
                     // Avoid retaining a light shadow that looks like a white border.
-                    if (cs.boxShadow && cs.boxShadow !== 'none' && /rgba?\\(\\s*255\\s*,\\s*255\\s*,\\s*255/i.test(cs.boxShadow)) {
+                    if (cs.boxShadow && cs.boxShadow !== 'none' && /rgba?\(\s*255\s*,\s*255\s*,\s*255/i.test(cs.boxShadow)) {
                       setOwnedStyle(el, 'box-shadow', 'none');
                     }
                   }
