@@ -1614,12 +1614,10 @@ class BrowserActivity : Activity() {
                         lower.startsWith("javascript:") || lower.startsWith("data:") ||
                         lower.startsWith("blob:")) return
 
-                    // ثبّت أول رابط ويب حقيقي فتحته النافذة المنبثقة.
-                    // أي تحويل لاحق إلى نطاق آخر لا يستبدل صفحة الموقع الأصلية.
-                    if (latestPopupUrl != null) return
+                    // حدّث الوجهة مع كل تحويل، ثم انتظر حتى تستقر سلسلة التحويلات.
+                    // تثبيت أول عنوان كان يلتقط صفحات وسيطة وإعلانات بدلاً من رابط التنزيل.
                     latestPopupUrl = candidate
-
-                    // انتظر مهلة قصيرة بعد أول رابط، مع الاحتفاظ به حتى لو حدث تحويل لاحق.
+                    confirmRunnable?.let(mainHandler::removeCallbacks)
                     confirmRunnable = Runnable {
                         val confirmedUrl = latestPopupUrl
                         if (!destroyed && !handedOver && !confirmedUrl.isNullOrBlank()) {
@@ -1627,7 +1625,7 @@ class BrowserActivity : Activity() {
                             // لا نُتلف النافذة المؤقتة الآن؛ تُتلف بعد قرار المستخدم.
                             showPopupConfirmDialog(confirmedUrl) { destroyTemp() }
                         }
-                    }.also { mainHandler.postDelayed(it, 1200L) }
+                    }.also { mainHandler.postDelayed(it, 2800L) }
                 }
 
                 temp.webViewClient = object : WebViewClient() {
@@ -1638,6 +1636,12 @@ class BrowserActivity : Activity() {
                     }
 
                     override fun onPageStarted(v: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                        scheduleConfirmation(url)
+                    }
+
+                    override fun onPageFinished(v: WebView, url: String?) {
+                        // بعض المواقع تغيّر location عبر JavaScript بعد بدء الصفحة؛
+                        // التقط العنوان النهائي بعد اكتمال التحميل وأعد مهلة الاستقرار.
                         scheduleConfirmation(url)
                     }
                 }
@@ -1743,10 +1747,12 @@ class BrowserActivity : Activity() {
             val responseMime = mimeType?.substringBefore(';')?.trim().orEmpty()
             val isHtmlPage = extension in setOf("html", "htm") ||
                 responseMime.equals("text/html", ignoreCase = true)
-            // تجاهل تنزيل صفحات HTML غير المرغوبة مثل download.htm حتى لو أرسل الموقع
-            // اسم ملف في Content-Disposition؛ مع الإبقاء على حوار تنزيل الملفات الحقيقية.
-            // ملفات blob تبقى ضمن مسار التنزيل المعتاد.
-            if (isHtmlPage && !url.startsWith("blob:", ignoreCase = true)) {
+            val isExplicitAttachment = contentDisposition
+                ?.contains("attachment", ignoreCase = true) == true ||
+                contentDisposition?.contains("filename", ignoreCase = true) == true
+            // تجاهل صفحات HTML الوسيطة فقط؛ اسمح بملفات HTML التي يرسلها الخادم
+            // صراحةً كمرفقات قابلة للتنزيل.
+            if (isHtmlPage && !isExplicitAttachment && !url.startsWith("blob:", ignoreCase = true)) {
                 return@setDownloadListener
             }
             if (url.startsWith("blob:", ignoreCase = true)) {
@@ -3449,7 +3455,8 @@ class BrowserActivity : Activity() {
                 function nearWhite(c) {
                   if (!c) return false;
                   var min = Math.min(c[0], c[1], c[2]);
-                  var max = Math.max(c[0], c[1], c[2]);\n                  // Darken light neutral surfaces, including off-white search cards,\n                  // but preserve colored panels, icons, images and controls.\n                  return min >= 215 && (max - min) <= 28;\n                }
+                  var max = Math.max(c[0], c[1], c[2]);
+                  // Darken light neutral surfaces, including off-white search cards,\n                  // but preserve colored panels, icons, images and controls.\n                  return min >= 215 && (max - min) <= 28;\n                }
                 function nearBlack(c) { return c && c[0] < 65 && c[1] < 65 && c[2] < 65; }
 
                 function setOwnedStyle(el, prop, value) {
