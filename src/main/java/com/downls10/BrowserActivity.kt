@@ -2416,6 +2416,18 @@ class BrowserActivity : Activity() {
 
             val targetUri = externalIntent.data
             val targetScheme = targetUri?.scheme?.lowercase(Locale.US)
+            // روابط intent التي تحتوي عنوان ويب فعلياً (مثل روابط التنزيل في مواقع
+            // استضافة التطبيقات) يجب أن تبقى داخل Vinus، لا أن تُرسل إلى تطبيق خارجي.
+            // هذا يمنع رسالة "لا يوجد تطبيق مثبت..." عندما يكون المقصود صفحة تنزيل HTTPS.
+            if (targetUri != null &&
+                (targetScheme == "https" || targetScheme == "http") &&
+                !targetUri.host.isNullOrBlank() &&
+                targetUri.userInfo == null
+            ) {
+                navigateWithSafetyCheck(webView, targetUri.toString())
+                return
+            }
+
             // امنع المخططات المحلية/الخطرة؛ اسمح بروابط التطبيقات والمتاجر المعتادة فقط.
             if (targetUri == null || targetScheme.isNullOrBlank() ||
                 targetScheme in setOf("file", "content", "javascript", "data", "about")
