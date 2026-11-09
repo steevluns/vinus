@@ -1612,10 +1612,17 @@ class BrowserActivity : Activity() {
                         lower.startsWith("javascript:") || lower.startsWith("data:") ||
                         lower.startsWith("blob:")) return
 
+                    // تجاهل نطاقات الإعلانات/التحويلات غير المرغوبة داخل النافذة المؤقتة.
+                    // لا تستبدل رابط صفحة التحميل الأصلية إذا حاولت الصفحة تحويل النافذة إلى wickradio.
+                    val candidateHost = runCatching { Uri.parse(candidate).host?.lowercase(Locale.US) }.getOrNull().orEmpty()
+                    if (candidateHost == "wickradio.com" || candidateHost.endsWith(".wickradio.com")) {
+                        return
+                    }
+
                     latestPopupUrl = candidate
                     confirmRunnable?.let(mainHandler::removeCallbacks)
                     // انتظر استقرار الرابط قليلاً حتى تكتمل تحويلات JavaScript
-                    // المتتابعة، ثم اعرض الرابط النهائي للمستخدم.
+                    // داخل نطاق صفحة التحميل، مع تجاهل تحويلات wickradio الإعلانية.
                     confirmRunnable = Runnable {
                         val confirmedUrl = latestPopupUrl
                         if (!destroyed && !handedOver && !confirmedUrl.isNullOrBlank()) {
