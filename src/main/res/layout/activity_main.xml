@@ -112,6 +112,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_below="@id/downloadActions"
+        android:scrollbars="none"
+        android:verticalScrollBarEnabled="false"
         android:divider="#222222"
         android:dividerHeight="1dp" />
 
@@ -140,6 +142,8 @@
             android:id="@+id/downloadFilesList"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:scrollbars="none"
+            android:verticalScrollBarEnabled="false"
             android:divider="#222222"
             android:dividerHeight="1dp"
             android:clipToPadding="false" />
