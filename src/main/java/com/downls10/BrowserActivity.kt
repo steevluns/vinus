@@ -1574,7 +1574,9 @@ class BrowserActivity : Activity() {
                 temp.settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    javaScriptCanOpenWindowsAutomatically = false
+                    // Allow the popup's own JavaScript redirect chain after the user's click.
+                    // The main browser WebView still blocks unsolicited popups.
+                    javaScriptCanOpenWindowsAutomatically = true
                     setSupportMultipleWindows(false)
                     loadsImagesAutomatically = true
                     blockNetworkImage = false
@@ -2239,17 +2241,9 @@ class BrowserActivity : Activity() {
         ) { preview ->
             if (isFinishing || isDestroyed) return@probeAndConfirm
 
-            // لا تعرض نافذة التأكيد البديلة التي تحتوي «حجم غير معروف».
-            // نافذة التأكيد الأصلية تبقى كما هي للملفات ذات الحجم الحقيقي المعروف.
-            if (preview.totalSize < 0L) {
-                Toast.makeText(
-                    this@BrowserActivity,
-                    "تعذر تحديد حجم الملف؛ لم يتم بدء التنزيل",
-                    Toast.LENGTH_SHORT
-                ).show()
-                return@probeAndConfirm
-            }
-
+            // بعض خوادم التنزيل لا تكشف الحجم مسبقًا (chunked/anti-bot/HEAD محدود).
+            // اسمح للمستخدم ببدء التنزيل مع إظهار «حجم غير معروف» بدل إيقافه قبل المحاولة.
+            // يبقى التحقق من استجابة الملف الفعلية داخل DownloadManagerEngine.
             showDownloadDialog(preview, url, userAgent, referer, mimeType, showToast)
         }
     }
@@ -3452,7 +3446,10 @@ class BrowserActivity : Activity() {
                   var m = String(value || '').match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/i);
                   return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
                 }
-                function nearWhite(c) {\n                  if (!c) return false;\n                  var min = Math.min(c[0], c[1], c[2]);\n                  var max = Math.max(c[0], c[1], c[2]);\n                  // Darken light neutral surfaces, including off-white search cards,\n                  // but preserve colored panels, icons, images and controls.\n                  return min >= 215 && (max - min) <= 28;\n                }
+                function nearWhite(c) {
+                  if (!c) return false;
+                  var min = Math.min(c[0], c[1], c[2]);
+                  var max = Math.max(c[0], c[1], c[2]);\n                  // Darken light neutral surfaces, including off-white search cards,\n                  // but preserve colored panels, icons, images and controls.\n                  return min >= 215 && (max - min) <= 28;\n                }
                 function nearBlack(c) { return c && c[0] < 65 && c[1] < 65 && c[2] < 65; }
 
                 function setOwnedStyle(el, prop, value) {
