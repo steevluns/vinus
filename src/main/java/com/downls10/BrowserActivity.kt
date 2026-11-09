@@ -1567,112 +1567,20 @@ class BrowserActivity : Activity() {
             ): Boolean {
                 val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
 
-                // Run the popup's complete waiting/redirect page in a temporary WebView.
-                // Crucially, do not move it to another tab after a short delay: sites such
-                // as download hosts often show a countdown before triggering the real file.
-                val temp = WebView(this@BrowserActivity)
-                temp.settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    javaScriptCanOpenWindowsAutomatically = true
-                    setSupportMultipleWindows(false)
-                    loadsImagesAutomatically = true
-                    blockNetworkImage = false
-                    mixedContentMode = view.settings.mixedContentMode
-                    userAgentString = view.settings.userAgentString
-                    cacheMode = WebSettings.LOAD_DEFAULT
-                    allowFileAccess = false
-                    allowContentAccess = false
-                    allowFileAccessFromFileURLs = false
-                    allowUniversalAccessFromFileURLs = false
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) safeBrowsingEnabled = true
-                }
-                CookieManager.getInstance().setAcceptThirdPartyCookies(temp, true)
+                // Use a normal, visible browser tab as the popup WebView.
+                // This preserves the page's real JS context, cookies, POST state and
+                // countdown page, and reuses the normal DownloadListener. A hidden
+                // temporary WebView was losing downloads and interrupting countdowns.
+                // Block popups that were not initiated by a user gesture.
+                if (!isUserGesture) return false
 
-                var handedOver = false
-                var destroyed = false
-                var latestPopupUrl: String? = null
-                var confirmRunnable: Runnable? = null
+                createTabInternal(isHome = false, url = null)
+                val popupTab = tabs.lastOrNull() ?: return false
+                switchToTab(tabs.lastIndex)
 
-                fun destroyTemp() {
-                    if (destroyed) return
-                    destroyed = true
-                    confirmRunnable?.let(mainHandler::removeCallbacks)
-                    mainHandler.post {
-                        try { temp.stopLoading() } catch (_: Exception) { }
-                        try { temp.destroy() } catch (_: Exception) { }
-                    }
-                }
-
-                fun scheduleConfirmation(rawUrl: String?) {
-                    if (destroyed || handedOver) return
-                    val candidate = rawUrl?.trim().orEmpty()
-                    val lower = candidate.lowercase(Locale.US)
-                    if (candidate.isBlank() || lower.startsWith("about:") ||
-                        lower.startsWith("javascript:") || lower.startsWith("data:") ||
-                        lower.startsWith("blob:")) return
-
-                    latestPopupUrl = candidate
-                    confirmRunnable?.let(mainHandler::removeCallbacks)
-                    // Give countdowns, JavaScript redirects and automatic download buttons
-                    // enough time to finish inside the popup before offering a tab fallback.
-                    confirmRunnable = Runnable {
-                        val confirmedUrl = latestPopupUrl
-                        if (!destroyed && !handedOver && !confirmedUrl.isNullOrBlank()) {
-                            handedOver = true
-                            showPopupConfirmDialog(confirmedUrl) { destroyTemp() }
-                        }
-                    }.also { mainHandler.postDelayed(it, 25000L) }
-                }
-
-                // Popup windows need their own DownloadListener. Without it, the file
-                // response from the countdown page is silently lost because this WebView
-                // is not the visible/main browser WebView.
-                temp.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
-                    if (destroyed || handedOver || url.isNullOrBlank()) return@setDownloadListener
-                    handedOver = true
-                    confirmRunnable?.let(mainHandler::removeCallbacks)
-                    val suggestedName =
-                        DownloadsRepository.fileNameFromContentDispositionOrNull(contentDisposition)
-                    if (url.startsWith("blob:", ignoreCase = true)) {
-                        blobBridge.start(temp, url, suggestedName, mimeType)
-                    } else {
-                        confirmDownload(
-                            url,
-                            suggestedFileName = suggestedName,
-                            userAgent = userAgent ?: temp.settings.userAgentString,
-                            referer = temp.url ?: latestPopupUrl ?: view.url,
-                            mimeType = mimeType
-                        )
-                    }
-                    // Keep the popup alive while the download preview is being prepared
-                    // and while the user decides in the confirmation dialog.
-                    mainHandler.postDelayed({ destroyTemp() }, 120000L)
-                }
-
-                temp.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(v: WebView, request: WebResourceRequest): Boolean {
-                        if (request.isForMainFrame) scheduleConfirmation(request.url.toString())
-                        return false
-                    }
-
-                    override fun onPageStarted(v: WebView, url: String?, favicon: android.graphics.Bitmap?) {
-                        scheduleConfirmation(url)
-                    }
-
-                    override fun onPageFinished(v: WebView, url: String?) {
-                        scheduleConfirmation(url)
-                    }
-                }
-
-                // Empty popup guard and long-lived fallback guard.
-                mainHandler.postDelayed({
-                    if (!handedOver && latestPopupUrl == null) destroyTemp()
-                }, 30000L)
-                mainHandler.postDelayed({ if (!handedOver) destroyTemp() }, 120000L)
-
-                transport.webView = temp
+                transport.webView = popupTab.webView
                 resultMsg.sendToTarget()
+                persistTabs()
                 return true
             }
 
