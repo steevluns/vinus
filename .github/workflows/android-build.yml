@@ -1,7 +1,5 @@
 name: Build Android APK
-# Build on every main-branch update and allow manual runs.
-# Rebuild requested after the Android XML resource fix.
-# Trigger a fresh APK build on user request.
+# Build, install, and smoke-test Vinus in an Android emulator before publishing the APK.
 
 on:
   push:
@@ -12,10 +10,10 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build debug APK
+  build-and-emulator-test:
+    name: Build and test on Android emulator
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout source
         uses: actions/checkout@v7
@@ -48,13 +46,61 @@ jobs:
           gradle --version
           sdkmanager --list_installed
 
-      - name: Build APK
+      - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
 
-      - name: Upload APK
+      - name: Install and launch Vinus in Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            set -eu
+            mkdir -p artifacts
+            trap 'adb logcat -d -t 5000 > artifacts/logcat.txt 2>&1 || true; adb shell dumpsys activity activities > artifacts/activities.txt 2>&1 || true; adb exec-out screencap -p > artifacts/vinus-screen.png 2>/dev/null || true' EXIT
+
+            APK="$(find build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+            if [ -z "$APK" ]; then
+              echo "Debug APK was not found."
+              exit 1
+            fi
+
+            adb wait-for-device
+            adb install -r "$APK"
+            adb shell am force-stop com.downls10 || true
+            adb shell am start -W -n com.downls10/.BrowserActivity
+            sleep 15
+
+            if ! adb shell pidof com.downls10 >/dev/null 2>&1; then
+              echo "Vinus did not remain running after launch."
+              exit 1
+            fi
+
+            adb logcat -d -t 5000 > artifacts/logcat-check.txt 2>&1
+            if grep -q "FATAL EXCEPTION" artifacts/logcat-check.txt && grep -q "Process: com.downls10" artifacts/logcat-check.txt; then
+              echo "Vinus crashed during emulator startup."
+              exit 1
+            fi
+
+            echo "PASS: APK installed and BrowserActivity stayed running for 15 seconds."
+
+      - name: Upload emulator diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: vinus-emulator-diagnostics
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload debug APK
+        if: always()
         uses: actions/upload-artifact@v6
         with:
           name: vinus-debug-apk
           path: build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
