@@ -1218,6 +1218,36 @@ class BrowserActivity : Activity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            @android.annotation.TargetApi(android.os.Build.VERSION_CODES.O)
+            override fun onRenderProcessGone(
+                view: WebView,
+                detail: android.webkit.RenderProcessGoneDetail
+            ): Boolean {
+                // A renderer crash must not terminate the whole browser app.
+                // Remove only the affected tab and reopen its page when it was active.
+                val failedUrl = view.url?.takeIf {
+                    it.startsWith("https://", ignoreCase = true) ||
+                    it.startsWith("http://", ignoreCase = true)
+                }
+                val wasActive = tabs.getOrNull(currentTabIndex)?.webView === view
+                mainHandler.post {
+                    val failedIndex = tabs.indexOfFirst { it.webView === view }
+                    if (failedIndex >= 0 && !isFinishing && !isDestroyed) {
+                        closeTab(failedIndex)
+                        if (wasActive && !failedUrl.isNullOrBlank() &&
+                            !isFinishing && !isDestroyed) {
+                            createBrowsingTab(failedUrl)
+                        }
+                        Toast.makeText(
+                            this@BrowserActivity,
+                            "تعطلت صفحة الموقع وتمت إعادة فتحها. يمكنك المحاولة مرة أخرى.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                return true
+            }
+
             override fun onReceivedSslError(
                 view: WebView,
                 handler: android.webkit.SslErrorHandler,
@@ -1576,11 +1606,19 @@ class BrowserActivity : Activity() {
 
                 createTabInternal(isHome = false, url = null)
                 val popupTab = tabs.lastOrNull() ?: return false
-                switchToTab(tabs.lastIndex)
 
+                // Attach the popup WebView to the transport before switching UI tabs.
+                // This avoids changing/detaching the opener while Chromium is creating
+                // the new window, which can leave a blank popup or destabilize WebView.
                 transport.webView = popupTab.webView
                 resultMsg.sendToTarget()
-                persistTabs()
+                mainHandler.post {
+                    val popupIndex = tabs.indexOfFirst { it === popupTab }
+                    if (popupIndex >= 0 && !isFinishing && !isDestroyed) {
+                        switchToTab(popupIndex)
+                        persistTabs()
+                    }
+                }
                 return true
             }
 
