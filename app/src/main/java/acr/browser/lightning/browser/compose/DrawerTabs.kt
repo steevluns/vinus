@@ -254,13 +254,8 @@ fun DrawerTabs(
                             contentDescription = ""
                         )
                     }
-                    IconButton(
-                        enabled = browserViewState.isBookmarkEnabled,
-                        onClick = { presenter.onEvent(BrowserUiEvent.StarClick) }
-                    ) {
-                        BookmarkIcon(browserViewState.isBookmarked)
-                    }
-                    IconButton(onClick = { presenter.onEvent(BrowserUiEvent.NewTabClick) }) {
+
+IconButton(onClick = { presenter.onEvent(BrowserUiEvent.NewTabClick) }) {
                         Icon(
                             painter = painterResource(R.drawable.ic_action_plus),
                             contentDescription = ""
@@ -360,6 +355,12 @@ fun TopTabNavigationBar(
         ) {
             TabCountButton(browserViewState) {
                 presenter.onEvent(BrowserUiEvent.TabCountClick)
+            }
+            IconButton(
+                enabled = browserViewState.isBookmarkEnabled,
+                onClick = { presenter.onEvent(BrowserUiEvent.StarClick) }
+            ) {
+                BookmarkIcon(browserViewState.isBookmarked)
             }
             BrowserSearchBar(browserViewState, presenter, suggestionsModel)
             BrowserOverflowMenu(presenter, browserViewState)
