@@ -50,27 +50,11 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
             expanded = dropDownExpanded,
             onDismissRequest = { dropDownExpanded = false }
         ) {
-            DropdownMenuItem(
-                text = { DropdownText(stringResource(R.string.action_new_tab)) },
-                onClick = {
-                    presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.NEW_TAB))
-                    dropDownExpanded = false
-                }
-            )
             if (!browserViewState.isIncognito) {
                 DropdownMenuItem(
                     text = { DropdownText(stringResource(R.string.action_incognito)) },
                     onClick = {
                         presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.NEW_INCOGNITO_TAB))
-                        dropDownExpanded = false
-                    }
-                )
-            }
-            if (browserViewState.enableFullMenu) {
-                DropdownMenuItem(
-                    text = { DropdownText(stringResource(R.string.action_share)) },
-                    onClick = {
-                        presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.SHARE))
                         dropDownExpanded = false
                     }
                 )
@@ -83,25 +67,11 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                         dropDownExpanded = false
                     }
                 )
-                DropdownMenuItem(
-                    text = { DropdownText(stringResource(R.string.action_downloads)) },
-                    onClick = {
-                        context.startActivity(Intent(context, DownloadsActivity::class.java))
-                        dropDownExpanded = false
-                    }
-                )
             }
             DropdownMenuItem(
                 text = { DropdownText(stringResource(R.string.action_translate_to_arabic)) },
                 onClick = {
                     presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.TRANSLATE_TO_ARABIC))
-                    dropDownExpanded = false
-                }
-            )
-            DropdownMenuItem(
-                text = { DropdownText(stringResource(R.string.action_find)) },
-                onClick = {
-                    presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.FIND))
                     dropDownExpanded = false
                 }
             )
@@ -113,14 +83,6 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                         dropDownExpanded = false
                     }
                 )
-                if (!browserViewState.isIncognito) {
-                    DropdownMenuItem(
-                        text = { DropdownText(stringResource(R.string.action_add_to_homescreen)) },
-                        onClick = {
-                            presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.ADD_TO_HOME))
-                            dropDownExpanded = false
-                        }
-                    )
                 }
             }
             DropdownMenuItem(
@@ -130,15 +92,6 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                     dropDownExpanded = false
                 }
             )
-            if (browserViewState.enableFullMenu && !browserViewState.isIncognito) {
-                DropdownMenuItem(
-                    text = { DropdownText(stringResource(R.string.action_add_bookmark)) },
-                    onClick = {
-                        presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.ADD_BOOKMARK))
-                        dropDownExpanded = false
-                    }
-                )
-            }
             if (!browserViewState.isIncognito) {
                 DropdownMenuItem(
                     text = { DropdownText(stringResource(R.string.settings)) },
