@@ -811,8 +811,11 @@ class BrowserPresenter @Inject constructor(
                     )
                 }
             } ?: run {
-                selectTab(tabModel = null)
-                navigator.closeBrowser()
+                // Keep the browser activity alive when the last tab is closed.
+                // Replace it with a fresh home tab instead of finishing the activity.
+                val newTab = model.createTab(homePageInitializer)
+                state.updateSelf { updateTabViewState() }
+                selectTab(model.selectTab(newTab.id))
             }
         }
     }
@@ -1432,8 +1435,9 @@ class BrowserPresenter @Inject constructor(
 
             BrowserContract.CloseTabEvent.CLOSE_ALL -> {
                 model.deleteAllTabs()
+                val newTab = model.createTab(homePageInitializer)
                 state.updateSelf { updateTabViewState() }
-                navigator.closeBrowser()
+                selectTab(model.selectTab(newTab.id))
             }
         }
     }
