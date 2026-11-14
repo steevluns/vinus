@@ -53,24 +53,8 @@ class DisplaySettingsScreen @Inject constructor(
                     null
                 }
             ),
-            ToggleState(
-                title = resourceProvider.stringResource(R.string.hide_images),
-                summary = { resourceProvider.stringResource(R.string.hide_images_summary) },
-                isChecked = { userPreferencesDataStore.blockImagesEnabled.get() },
-                onToggle = {
-                    userPreferencesDataStore.blockImagesEnabled.set(it)
-                    null
-                }
-            ),
-            ToggleState(
-                title = resourceProvider.stringResource(R.string.hide_videos),
-                summary = { resourceProvider.stringResource(R.string.hide_videos_summary) },
-                isChecked = { userPreferencesDataStore.blockVideosEnabled.get() },
-                onToggle = {
-                    userPreferencesDataStore.blockVideosEnabled.set(it)
-                    null
-                }
-            ),
+
+
             ToggleState(
                 title = resourceProvider.stringResource(R.string.wideViewPort),
                 summary = { resourceProvider.stringResource(R.string.recommended) },
