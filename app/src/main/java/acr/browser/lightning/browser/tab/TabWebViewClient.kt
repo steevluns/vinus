@@ -317,12 +317,6 @@ class TabWebViewClient @AssistedInject constructor(
             sslStateFlow.emit(sslState)
         }
 
-        when (sslWarningPreferences.recallBehaviorForDomain(webView.url)) {
-            SslWarningPreferences.Behavior.PROCEED -> return handler.proceed()
-            SslWarningPreferences.Behavior.CANCEL -> return handler.cancel()
-            null -> Unit
-        }
-
         val errorCodeMessageCodes = error.getAllSslErrorMessageCodes()
 
         val stringBuilder = StringBuilder()
@@ -334,40 +328,52 @@ class TabWebViewClient @AssistedInject constructor(
 
         AlertDialog.Builder(context).apply {
             val view = DialogSslWarningBinding.inflate(LayoutInflater.from(context))
-            val dontAskAgain = view.checkBoxDontAskAgain
+            // Always show the certificate warning; never remember an approval that
+            // could silently bypass future SSL warnings for this domain.
+            view.checkBoxDontAskAgain.visibility = android.view.View.GONE
             setTitle(context.getString(R.string.title_warning))
             setMessage(alertMessage)
-            setCancelable(true)
+            setCancelable(false)
             setView(view.root)
             setOnCancelListener { handler.cancel() }
             setPositiveButton(context.getString(R.string.action_yes)) { _, _ ->
-                if (dontAskAgain.isChecked) {
-                    sslWarningPreferences.rememberBehaviorForDomain(
-                        webView.url.orEmpty(),
-                        SslWarningPreferences.Behavior.PROCEED
-                    )
-                }
                 handler.proceed()
             }
             setNegativeButton(context.getString(R.string.action_no)) { _, _ ->
-                if (dontAskAgain.isChecked) {
-                    sslWarningPreferences.rememberBehaviorForDomain(
-                        webView.url.orEmpty(),
-                        SslWarningPreferences.Behavior.CANCEL
-                    )
-                }
                 handler.cancel()
             }
         }.resizeAndShow()
     }
 
-    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-        urlHandler.shouldOverrideLoading(
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        val targetUrl = request.url.toString()
+        val handledByExternalApp = urlHandler.shouldOverrideLoading(
             tabSettings.openAvailableAppsEnabled,
             view,
-            request.url.toString(),
+            targetUrl,
             headers
-        ) || super.shouldOverrideUrlLoading(view, request)
+        )
+        if (handledByExternalApp) return true
+
+        if (request.isForMainFrame && request.url.scheme.equals("http", ignoreCase = true)) {
+            AlertDialog.Builder(view.context).apply {
+                setTitle("تحذير: اتصال غير مشفّر")
+                setMessage(
+                    "هذا الموقع يستخدم HTTP ولا يشفّر الاتصال. لا تدخل كلمات مرور أو بيانات شخصية.\n\n$targetUrl\n\nهل تريد المتابعة رغم المخاطر؟"
+                )
+                setCancelable(false)
+                setPositiveButton("متابعة") { _, _ ->
+                    view.loadUrl(targetUrl, headers)
+                }
+                setNegativeButton("رفض") { _, _ ->
+                    view.stopLoading()
+                }
+            }.resizeAndShow()
+            return true
+        }
+
+        return super.shouldOverrideUrlLoading(view, request)
+    }
 
     override fun shouldInterceptRequest(
         view: WebView,
