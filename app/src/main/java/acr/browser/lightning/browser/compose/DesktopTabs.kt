@@ -174,7 +174,7 @@ fun TopTabDesktopNavigationBar(
                 Row(
                     modifier = Modifier
                         .width(175.dp)
-                        .height(36.dp)
+                        .height(if (tab.isPopup) 64.dp else 36.dp)
                         .animateItem(
                             fadeInSpec = null,
                             fadeOutSpec = null
@@ -233,7 +233,7 @@ fun TopTabDesktopNavigationBar(
                             .fillMaxWidth()
                             .weight(1f, false),
                         style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 1,
+                        maxLines = if (tab.isPopup) 3 else 1,
                         overflow = TextOverflow.Ellipsis,
                         text = tab.title
                     )
