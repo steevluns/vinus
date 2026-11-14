@@ -192,7 +192,7 @@ fun DrawerTabs(
                                     .fillMaxWidth()
                                     .weight(1f, false),
                                 style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
+                                maxLines = if (tab.isPopup) 3 else 1,
                                 overflow = TextOverflow.Ellipsis,
                                 fontWeight = if (tab.isSelected) {
                                     FontWeight.Bold
