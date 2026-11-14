@@ -86,7 +86,7 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                 trailingIcon = {
                     androidx.compose.material3.Checkbox(
                         checked = browserViewState.blockImagesEnabled,
-                        onCheckedChange = { presenter.toggleImageBlocking(); dropDownExpanded = false }
+                        onCheckedChange = null
                     )
                 }
             )
@@ -96,7 +96,7 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                 trailingIcon = {
                     androidx.compose.material3.Checkbox(
                         checked = browserViewState.blockVideosEnabled,
-                        onCheckedChange = { presenter.toggleVideoBlocking(); dropDownExpanded = false }
+                        onCheckedChange = null
                     )
                 }
             )
