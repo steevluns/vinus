@@ -510,27 +510,35 @@ class TabAdapter @AssistedInject constructor(
         width: Int = view.width,
         height: Int = view.height
     ): Bitmap? = withContext(coroutineDispatchers.main) {
-        // Ensure the view has been laid out
-        if (width == 0 || height == 0) {
+        // WebView content is rendered by Chromium using hardware acceleration. Drawing a
+        // hardware-accelerated WebView directly into a regular Canvas can produce a black
+        // bitmap, which is why the tab switcher previously showed empty black previews.
+        if (width <= 0 || height <= 0 || view.isAttachedToWindow.not()) {
             return@withContext null
         }
 
-        // Create a Bitmap with the specified dimensions and ARGB_8888 configuration
-        val bitmap = createBitmap(width / 3, height / 3)
-
-        // Create a Canvas to draw on the Bitmap
+        val previewWidth = (width / 3).coerceAtLeast(1)
+        val previewHeight = (height / 3).coerceAtLeast(1)
+        val bitmap = createBitmap(previewWidth, previewHeight)
         val canvas = Canvas(bitmap)
+        val previousLayerType = view.layerType
 
-        canvas.scale(0.33F, 0.33F)
-
-        canvas.translate(-webView().scrollX.toFloat(), -webView().scrollY.toFloat())
-
-        // Layout the view if it hasn't been laid out yet
-        view.layout(0, 0, width, height)
-
-        // Draw the view onto the canvas
-        view.draw(canvas)
-
-        return@withContext bitmap
+        try {
+            // Force a software pass only while capturing the thumbnail. Restore the
+            // original layer immediately so normal browsing keeps hardware acceleration.
+            view.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+            canvas.scale(
+                previewWidth.toFloat() / width,
+                previewHeight.toFloat() / height
+            )
+            canvas.translate(-view.scrollX.toFloat(), -view.scrollY.toFloat())
+            view.draw(canvas)
+            bitmap
+        } catch (exception: Exception) {
+            bitmap.recycle()
+            null
+        } finally {
+            view.setLayerType(previousLayerType, null)
+        }
     }
 }
