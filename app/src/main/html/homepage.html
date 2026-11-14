@@ -1,128 +1,164 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
-
 <head>
     <meta content="en-us" http-equiv="Content-Language"/>
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <title>${TITLE}</title>
+    <style>
+        :root { --body-bg: {COLOR} --box-bg: {COLOR} --box-txt: {COLOR} }
+        * { box-sizing: border-box; }
+        body { background:var(--body-bg); color:var(--box-txt); margin:0; font-family:Arial,sans-serif; }
+        .page { width:100%; min-height:100vh; padding:26px 12px 40px; }
+        .search_bar { display:flex; align-items:center; width:92%; max-width:500px; height:42px; margin:0 auto 24px; padding:0 8px; border-radius:10px; background:var(--box-bg); }
+        #search_input { flex:1; min-width:0; height:38px; border:0; outline:0; color:var(--box-txt); background:transparent; font-size:16px; }
+        #search_submit { height:36px; border:0; background:transparent; color:var(--box-txt); font-size:15px; font-weight:bold; }
+        #shortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:20px 8px; width:100%; max-width:650px; margin:0 auto; align-items:start; }
+        .shortcut { min-width:0; display:flex; flex-direction:column; align-items:center; color:var(--box-txt); text-decoration:none; -webkit-tap-highlight-color:transparent; }
+        .icon { width:48px; height:48px; max-width:100%; border-radius:15px; background:var(--box-bg); display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:22px; font-weight:bold; }
+        .icon img { width:28px; height:28px; object-fit:contain; }
+        .label { display:block; width:100%; margin-top:7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; font-size:11px; }
+        #add_button { border:0; color:var(--box-txt); cursor:pointer; }
+        #add_button .icon { font-size:30px; font-weight:300; }
+        #add_form { display:none; width:92%; max-width:500px; margin:0 auto 22px; gap:7px; }
+        #url_input { flex:1; min-width:0; padding:11px; border:1px solid #8886; border-radius:8px; background:var(--box-bg); color:var(--box-txt); font-size:15px; }
+        #save_url { border:0; border-radius:8px; padding:0 16px; background:var(--box-bg); color:var(--box-txt); font-weight:bold; }
+        #context_menu { display:none; position:fixed; z-index:10; min-width:155px; padding:6px; border-radius:10px; background:var(--box-bg); box-shadow:0 4px 20px #0005; }
+        #context_menu button { display:block; width:100%; padding:12px; border:0; border-radius:6px; text-align:start; color:var(--box-txt); background:transparent; font-size:14px; }
+    </style>
 </head>
-<style>
-    :root {
-        --body-bg: {COLOR}
-        --box-bg: {COLOR}
-        --box-txt: {COLOR}
-    }
-
-    body {
-        background: var(--body-bg);
-        text-align: center;
-        margin: 0px;
-    }
-
-    input {
-        color: var(--box-txt);
-    }
-    
-    #search_input {
-        height: 35px;
-        width: 100%;
-        outline: none;
-        border: none;
-        font-size: 16px;
-        background-color: transparent;
-    }
-    
-    span {
-        display: block;
-        overflow: hidden;
-        padding-left: 5px;
-        vertical-align: middle;
-    }
-    
-    .search_bar {
-        display: table;
-        vertical-align: middle;
-        width: 90%;
-        height: 40px;
-        max-width: 500px;
-        margin: 0 auto;
-        background-color: var(--box-bg);
-        font-family: Arial;
-        color: var(--box-txt);
-        -moz-border-radius: 8px;
-        -webkit-border-radius: 8px;
-        border-radius: 8px;
-    }
-    
-    #search_submit {
-        outline: none;
-        height: 37px;
-        float: right;
-        color: var(--box-txt);
-        font-size: 16px;
-        font-weight: bold;
-        border: none;
-        background-color: transparent;
-    }
-    
-    .outer {
-        display: table;
-        position: absolute;
-        height: 100%;
-        width: 100%;
-    }
-    
-    .middle {
-        display: table-cell;
-        vertical-align: middle;
-    }
-    
-    .inner {
-        margin-left: auto;
-        margin-right: auto;
-        margin-bottom: 10%;
-        width: 100%;
-    }
-    
-    img.smaller {
-        width: 50%;
-        max-width: 300px;
-    }
-
-
-</style>
-
 <body>
-<div class="outer">
-    <div class="middle">
-        <div class="inner">
-            <!--suppress HtmlUnknownTarget -->
-            <img id="image_url" class="smaller" src="${IMAGE}">
-            </br>
-            </br>
-            <form onsubmit="return search()" class="search_bar" autocomplete="off">
-                <input type="submit" id="search_submit" value="Search">
-                <span>
-                        <input class="search" type="text" value="" id="search_input"/>
-                    </span>
-            </form>
-            </br>
-            </br>
-        </div>
+<div class="page">
+    <form onsubmit="return search()" class="search_bar" autocomplete="off">
+        <input type="submit" id="search_submit" value="Search"/>
+        <input type="text" value="" id="search_input" placeholder="Search or enter address"/>
+    </form>
+    <form id="add_form" onsubmit="return addShortcut()">
+        <input id="url_input" type="url" inputmode="url" placeholder="Paste website link" autocomplete="url"/>
+        <button id="save_url" type="submit">Add</button>
+    </form>
+    <div id="shortcuts">
+        <button id="add_button" class="shortcut" type="button" onclick="showAddForm()">
+            <span class="icon">+</span><span class="label">Add</span>
+        </button>
     </div>
 </div>
+<div id="context_menu">
+    <button type="button" onclick="renameShortcut()">Rename</button>
+    <button type="button" onclick="deleteShortcut()">Delete</button>
+</div>
 <script type="text/javascript">
-        function search() {
-            if (document.getElementById("search_input").value != "") {
-                window.location.href = "${BASE_URL}" + document.getElementById("search_input").value;
-                document.getElementById("search_input").value = "";
-            }
-            return false;
+    const STORAGE_KEY = "vinus_home_shortcuts_v1";
+    let shortcuts = [];
+    let selectedIndex = -1;
+    let pressTimer = null;
+    function search() {
+        const value = document.getElementById("search_input").value.trim();
+        if (value) {
+            window.location.href = "${BASE_URL}" + value;
+            document.getElementById("search_input").value = "";
         }
-
+        return false;
+    }
+    function normalizeUrl(value) {
+        value = value.trim();
+        if (!/^https?:\/\//i.test(value)) value = "https://" + value;
+        try {
+            const parsed = new URL(value);
+            if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+            return parsed.href;
+        } catch (e) { return null; }
+    }
+    function showAddForm() {
+        const form = document.getElementById("add_form");
+        form.style.display = "flex";
+        const input = document.getElementById("url_input");
+        input.value = "";
+        input.focus();
+    }
+    function addShortcut() {
+        const url = normalizeUrl(document.getElementById("url_input").value);
+        if (!url) { alert("Please enter a valid website link."); return false; }
+        if (!shortcuts.some(item => item.url === url)) {
+            let host = new URL(url).hostname.replace(/^www\./, "");
+            shortcuts.push({url:url, title:host});
+            saveShortcuts();
+        }
+        document.getElementById("add_form").style.display = "none";
+        renderShortcuts();
+        return false;
+    }
+    function saveShortcuts() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(shortcuts)); } catch (e) {}
+    }
+    function renderShortcuts() {
+        const container = document.getElementById("shortcuts");
+        container.innerHTML = "";
+        shortcuts.forEach((item, index) => {
+            const link = document.createElement("a");
+            link.className = "shortcut";
+            link.href = item.url;
+            link.title = item.title;
+            const icon = document.createElement("span");
+            icon.className = "icon";
+            const image = document.createElement("img");
+            image.src = "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(new URL(item.url).hostname) + "&sz=128";
+            image.alt = "";
+            image.onerror = function() { icon.textContent = (item.title || item.url).charAt(0).toUpperCase(); };
+            icon.appendChild(image);
+            const label = document.createElement("span");
+            label.className = "label";
+            label.textContent = item.title || item.url;
+            link.appendChild(icon);
+            link.appendChild(label);
+            link.addEventListener("contextmenu", function(event) { event.preventDefault(); openContextMenu(index,event.clientX,event.clientY); });
+            link.addEventListener("touchstart", function(event) {
+                const touch = event.touches[0];
+                pressTimer = setTimeout(function() { openContextMenu(index,touch.clientX,touch.clientY); }, 600);
+            }, {passive:true});
+            ["touchend","touchmove","touchcancel"].forEach(type => link.addEventListener(type, function() { clearTimeout(pressTimer); }, {passive:true}));
+            container.appendChild(link);
+        });
+        const add = document.createElement("button");
+        add.id = "add_button";
+        add.className = "shortcut";
+        add.type = "button";
+        add.innerHTML = '<span class="icon">+</span><span class="label">Add</span>';
+        add.onclick = showAddForm;
+        container.appendChild(add);
+    }
+    function openContextMenu(index,x,y) {
+        selectedIndex = index;
+        const menu = document.getElementById("context_menu");
+        menu.style.display = "block";
+        menu.style.left = Math.max(8,Math.min(x,window.innerWidth-165)) + "px";
+        menu.style.top = Math.max(8,Math.min(y,window.innerHeight-105)) + "px";
+    }
+    function closeContextMenu() { document.getElementById("context_menu").style.display = "none"; }
+    function renameShortcut() {
+        closeContextMenu();
+        if (selectedIndex < 0 || !shortcuts[selectedIndex]) return;
+        const name = prompt("Enter a new name",shortcuts[selectedIndex].title);
+        if (name !== null && name.trim()) {
+            shortcuts[selectedIndex].title = name.trim();
+            saveShortcuts(); renderShortcuts();
+        }
+    }
+    function deleteShortcut() {
+        closeContextMenu();
+        if (selectedIndex < 0) return;
+        shortcuts.splice(selectedIndex,1);
+        selectedIndex = -1;
+        saveShortcuts(); renderShortcuts();
+    }
+    document.addEventListener("click", function(event) {
+        if (!event.target.closest("#context_menu")) closeContextMenu();
+    });
+    try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        if (Array.isArray(stored)) shortcuts = stored.filter(item => item && typeof item.url === "string" && /^https?:\/\//i.test(item.url));
+    } catch (e) { shortcuts = []; }
+    renderShortcuts();
 </script>
 </body>
-
 </html>
