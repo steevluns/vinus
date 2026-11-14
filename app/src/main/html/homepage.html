@@ -29,9 +29,9 @@
 </head>
 <body>
 <div class="page">
-    <form onsubmit="return search()" class="search_bar" autocomplete="off">
+    <form id="search_form" onsubmit="return search()" class="search_bar" autocomplete="off">
         <input type="submit" id="search_submit" value="Search"/>
-        <input type="text" value="" id="search_input" placeholder="Search or enter address"/>
+        <input type="search" enterkeyhint="search" inputmode="search" value="" id="search_input" placeholder="Search or enter address"/>
     </form>
     <form id="add_form" onsubmit="return addShortcut()">
         <input id="url_input" type="url" inputmode="url" placeholder="Paste website link" autocomplete="url"/>
@@ -53,13 +53,18 @@
     let selectedIndex = -1;
     let pressTimer = null;
     function search() {
-        const value = document.getElementById("search_input").value.trim();
+        const input = document.getElementById("search_input");
+        const value = input.value.trim();
+        input.blur();
         if (value) {
             window.location.href = "${BASE_URL}" + value;
             document.getElementById("search_input").value = "";
         }
         return false;
     }
+    document.getElementById("search_form").addEventListener("click", function(event) {
+        if (event.target === this) document.getElementById("search_input").focus();
+    });
     function normalizeUrl(value) {
         value = value.trim();
         if (!/^https?:\/\//i.test(value)) value = "https://" + value;
