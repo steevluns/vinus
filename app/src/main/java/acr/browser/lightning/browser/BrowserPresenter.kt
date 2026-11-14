@@ -145,6 +145,14 @@ class BrowserPresenter @Inject constructor(
 
     init {
         browserCoroutineScope.launch {
+            state.updateSelf {
+                copy(
+                    blockImagesEnabled = userPreferencesDataStore.blockImagesEnabled.get(),
+                    blockVideosEnabled = userPreferencesDataStore.blockVideosEnabled.get()
+                )
+            }
+        }
+        browserCoroutineScope.launch {
             val bookmarks = async {
                 bookmarkRepository.bookmarksAndFolders(folder = Bookmark.Folder.Root)
             }
@@ -181,6 +189,26 @@ class BrowserPresenter @Inject constructor(
 
                 tabCountNotifier.notifyTabCountChange(list.size)
             }
+        }
+    }
+
+    /** Toggle image blocking from the browser overflow menu. */
+    fun toggleImageBlocking() {
+        browserCoroutineScope.launch {
+            val enabled = !userPreferencesDataStore.blockImagesEnabled.get()
+            userPreferencesDataStore.blockImagesEnabled.set(enabled)
+            state.updateSelf { copy(blockImagesEnabled = enabled) }
+            currentTab?.reload()
+        }
+    }
+
+    /** Toggle video hiding from the browser overflow menu. */
+    fun toggleVideoBlocking() {
+        browserCoroutineScope.launch {
+            val enabled = !userPreferencesDataStore.blockVideosEnabled.get()
+            userPreferencesDataStore.blockVideosEnabled.set(enabled)
+            state.updateSelf { copy(blockVideosEnabled = enabled) }
+            currentTab?.reload()
         }
     }
 
