@@ -93,6 +93,8 @@ data class BrowserViewState(
     val scrollToTab: Int = -1,
 
     val toolbarVisibility: ToolbarVisibility = ToolbarVisibility.FIXED,
+    val blockImagesEnabled: Boolean = false,
+    val blockVideosEnabled: Boolean = false,
 ) {
 
     /**
@@ -229,6 +231,8 @@ class BrowserComposeState(
     var scrollToTab: Int by mutableIntStateOf(-1)
 
     var toolbarVisibility: BrowserViewState.ToolbarVisibility by mutableStateOf(browserViewState.toolbarVisibility)
+    var blockImagesEnabled: Boolean by mutableStateOf(browserViewState.blockImagesEnabled)
+    var blockVideosEnabled: Boolean by mutableStateOf(browserViewState.blockVideosEnabled)
 
     fun updateFrom(browserViewState: BrowserViewState) {
         displayUrl = browserViewState.displayUrl
@@ -257,5 +261,7 @@ class BrowserComposeState(
         showCustomView = browserViewState.showCustomView
         scrollToTab = browserViewState.scrollToTab
         toolbarVisibility = browserViewState.toolbarVisibility
+        blockImagesEnabled = browserViewState.blockImagesEnabled
+        blockVideosEnabled = browserViewState.blockVideosEnabled
     }
 }
