@@ -5,9 +5,6 @@ import acr.browser.lightning.R
 import acr.browser.lightning.browser.BrowserComposeState
 import acr.browser.lightning.browser.BrowserPresenter
 import acr.browser.lightning.browser.menu.MenuSelection
-import acr.browser.lightning.downloadmanager.DownloadsActivity
-import android.content.Intent
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.material3.DropdownMenu
@@ -30,7 +27,6 @@ import androidx.compose.ui.window.PopupProperties
 
 @Composable
 fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserComposeState) {
-    val context = LocalContext.current
     Box {
         var dropDownExpanded by remember { mutableStateOf(false) }
         IconButton(onClick = {
