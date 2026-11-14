@@ -380,7 +380,8 @@ class BrowserPresenter @Inject constructor(
         icon = favicon,
         title = title.orUntitled(),
         isSelected = selected,
-        preview = preview
+        preview = preview,
+        isPopup = tabType == TabModel.Type.POP_UP
     )
 
     private fun List<TabViewState>.updateId(
