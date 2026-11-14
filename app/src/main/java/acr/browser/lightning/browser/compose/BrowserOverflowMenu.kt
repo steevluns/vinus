@@ -79,7 +79,6 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                         dropDownExpanded = false
                     }
                 )
-                }
             }
             DropdownMenuItem(
                 text = { DropdownText(stringResource(R.string.action_bookmarks)) },
