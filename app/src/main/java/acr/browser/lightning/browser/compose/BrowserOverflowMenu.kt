@@ -81,6 +81,26 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                 )
             }
             DropdownMenuItem(
+                text = { DropdownText(stringResource(R.string.hide_images)) },
+                onClick = { presenter.toggleImageBlocking(); dropDownExpanded = false },
+                trailingIcon = {
+                    androidx.compose.material3.Checkbox(
+                        checked = browserViewState.blockImagesEnabled,
+                        onCheckedChange = { presenter.toggleImageBlocking(); dropDownExpanded = false }
+                    )
+                }
+            )
+            DropdownMenuItem(
+                text = { DropdownText(stringResource(R.string.hide_videos)) },
+                onClick = { presenter.toggleVideoBlocking(); dropDownExpanded = false },
+                trailingIcon = {
+                    androidx.compose.material3.Checkbox(
+                        checked = browserViewState.blockVideosEnabled,
+                        onCheckedChange = { presenter.toggleVideoBlocking(); dropDownExpanded = false }
+                    )
+                }
+            )
+            DropdownMenuItem(
                 text = { DropdownText(stringResource(R.string.action_bookmarks)) },
                 onClick = {
                     presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.BOOKMARKS))
