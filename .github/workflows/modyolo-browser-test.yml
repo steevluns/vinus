@@ -1,0 +1,82 @@
+name: Modyolo Browser and APK Download Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      page_url:
+        description: "Modyolo app page to test"
+        required: true
+        default: "https://modyolo.com/download/my-hurricane-tracker-pro-809"
+
+permissions:
+  contents: read
+
+jobs:
+  modyolo-download-test:
+    name: Browse Modyolo and test APK download
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          accept-android-sdk-licenses: true
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Build debug APK
+        run: |
+          set -eu
+          gradle --no-daemon --stacktrace assembleDebug
+          echo "APK files produced by Gradle:"
+          find "$GITHUB_WORKSPACE" -type f -name "*.apk" -print
+          APK_PATH="$(find "$GITHUB_WORKSPACE" -type f -path "*/build/outputs/apk/*" -name "*.apk" | head -n 1)"
+          if [ -z "$APK_PATH" ]; then
+            echo "ERROR: assembleDebug succeeded but no APK was found under build/outputs/apk."
+            find "$GITHUB_WORKSPACE" -maxdepth 5 -type d -name outputs -print
+            exit 1
+          fi
+          echo "APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
+          echo "Using APK: $APK_PATH"
+
+      - name: Install Vinus and browse Modyolo in emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          MODYOLO_PAGE_URL: ${{ inputs.page_url || 'https://modyolo.com/download/my-hurricane-tracker-pro-809' }}
+        with:
+          api-level: 29
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          disable-snapshots: true
+          wipe-data: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-snapshot-save -memory 2048 -cores 2
+          script: bash .github/scripts/modyolo-emulator-test.sh
+
+      - name: Upload Modyolo test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modyolo-browser-download-evidence
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14

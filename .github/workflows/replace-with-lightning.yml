@@ -1,0 +1,274 @@
+name: Replace DownLS10 with Lightning Browser + integrated downloads
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge-and-build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Lightning Browser
+        run: |
+          cp .github/workflows/replace-with-lightning.yml /tmp/replace-with-lightning.yml
+          git clone --depth 1 https://github.com/anthonycr/Lightning-Browser.git /tmp/lightning
+
+      - name: Integrate DownLS10 download engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="https://raw.githubusercontent.com/steevluns/vinus/main/src/main/java/com/downls10"
+          DEST="/tmp/lightning/app/src/main/java/acr/browser/lightning/downloadmanager"
+          mkdir -p "$DEST"
+          for file in DownloadItem.kt DownloadPersistence.kt DownloadManagerEngine.kt DownloadsRepository.kt DownloadService.kt DownloadHistory.kt LinkResolver.kt FtpClient.kt MegaSupport.kt; do
+            curl --fail --location --silent --show-error "$SRC/$file" -o "$DEST/$file"
+            sed -i 's/^package com\.downls10$/package acr.browser.lightning.downloadmanager/' "$DEST/$file"
+          done
+          sed -i '1a import acr.browser.lightning.DefaultBrowserActivity' "$DEST/DownloadService.kt"
+          sed -i 's/DownLS10MainActivity::class.java/DefaultBrowserActivity::class.java/g' "$DEST/DownloadService.kt"
+
+          cat > "$DEST/DownLS10DownloadBridge.kt" <<'KOTLIN'
+          package acr.browser.lightning.downloadmanager
+          import android.content.Context
+          object DownLS10DownloadBridge {
+              fun start(context: Context, url: String, userAgent: String?, referer: String?, mimeType: String?) {
+                  DownloadsRepository.startNewDownload(
+                      context = context, url = url, userAgent = userAgent,
+                      referer = referer, mimeType = mimeType, showToast = true
+                  )
+              }
+          }
+          KOTLIN
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("/tmp/lightning/app/src/main/java/acr/browser/lightning/browser/tab/TabAdapter.kt")
+          s = p.read_text()
+          anchor = "import acr.browser.lightning.download.PendingDownload"
+          assert anchor in s, "TabAdapter import anchor missing"
+          s = s.replace(anchor, anchor + "\nimport acr.browser.lightning.downloadmanager.DownLS10DownloadBridge")
+          pattern = r"setDownloadListener \{ url, userAgent, contentDisposition, mimetype, contentLength ->.*?\n        \}"
+          replacement = """setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                  DownLS10DownloadBridge.start(
+                      context = this@setup.context,
+                      url = url,
+                      userAgent = userAgent,
+                      referer = this@setup.url,
+                      mimeType = mimetype
+                  )
+              }"""
+          s, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
+          assert count == 1, "Could not patch Lightning download listener"
+          p.write_text(s)
+          PY
+
+          cat > "$DEST/DownloadsActivity.kt" <<'KOTLIN'
+          package acr.browser.lightning.downloadmanager
+
+          import android.app.Activity
+          import android.app.AlertDialog
+          import android.os.Bundle
+          import android.view.Gravity
+          import android.view.ViewGroup
+          import android.widget.Button
+          import android.widget.EditText
+          import android.widget.LinearLayout
+          import android.widget.ProgressBar
+          import android.widget.ScrollView
+          import android.widget.TextView
+
+          class DownloadsActivity : Activity() {
+              private lateinit var list: LinearLayout
+              private val listener: () -> Unit = { runOnUiThread { renderDownloads() } }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  DownloadsRepository.ensureLoaded(this)
+                  title = "مدير التنزيلات"
+                  val root = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(16, 16, 16, 16)
+                  }
+                  val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                  header.addView(Button(this).apply {
+                      text = "إضافة رابط"
+                      setOnClickListener { addUrlDialog() }
+                  }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                  header.addView(Button(this).apply {
+                      text = "إيقاف الكل"
+                      setOnClickListener { DownloadsRepository.pauseAll(this@DownloadsActivity) }
+                  }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                  header.addView(Button(this).apply {
+                      text = "استئناف الكل"
+                      setOnClickListener { DownloadsRepository.resumeAll(this@DownloadsActivity) }
+                  }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                  root.addView(header)
+                  val scroll = ScrollView(this)
+                  list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                  scroll.addView(list)
+                  root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+                  setContentView(root)
+                  DownloadsRepository.addListener(listener)
+                  renderDownloads()
+              }
+
+              override fun onDestroy() {
+                  DownloadsRepository.removeListener(listener)
+                  super.onDestroy()
+              }
+
+              private fun addUrlDialog() {
+                  val input = EditText(this).apply { hint = "https://example.com/file.zip"; setSingleLine(true) }
+                  AlertDialog.Builder(this).setTitle("تنزيل رابط").setView(input)
+                      .setNegativeButton("إلغاء", null)
+                      .setPositiveButton("تنزيل") { _, _ ->
+                          val url = input.text.toString().trim()
+                          if (url.isNotEmpty()) DownloadsRepository.startNewDownload(this, url)
+                      }.show()
+              }
+
+              private fun renderDownloads() {
+                  if (!::list.isInitialized) return
+                  list.removeAllViews()
+                  val items = DownloadsRepository.downloadList.toList()
+                  if (items.isEmpty()) {
+                      list.addView(TextView(this).apply {
+                          text = "لا توجد تنزيلات بعد"; gravity = Gravity.CENTER; setPadding(12, 32, 12, 32)
+                      })
+                      return
+                  }
+                  items.forEach { item ->
+                      val card = LinearLayout(this).apply {
+                          orientation = LinearLayout.VERTICAL
+                          setPadding(12, 12, 12, 12)
+                      }
+                      card.addView(TextView(this).apply { text = item.fileName; textSize = 16f })
+                      card.addView(TextView(this).apply { text = item.status + " • " + item.speed })
+                      card.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+                          max = 100; progress = item.progress.coerceIn(0, 100)
+                      })
+                      val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                      if (item.state != DownloadState.COMPLETED) {
+                          actions.addView(Button(this@DownloadsActivity).apply {
+                              text = if (item.state == DownloadState.DOWNLOADING) "إيقاف" else "استئناف"
+                              setOnClickListener {
+                                  if (item.state == DownloadState.DOWNLOADING) {
+                                      DownloadsRepository.pauseDownload(this@DownloadsActivity, item)
+                                  } else {
+                                      DownloadsRepository.resumeDownload(this@DownloadsActivity, item)
+                                  }
+                              }
+                          }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                      }
+                      actions.addView(Button(this).apply {
+                          text = "حذف"
+                          setOnClickListener {
+                              DownloadsRepository.deleteDownload(this@DownloadsActivity, item, true)
+                              renderDownloads()
+                          }
+                      }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                      card.addView(actions)
+                      list.addView(card, LinearLayout.LayoutParams(
+                          ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                      ))
+                  }
+              }
+          }
+          KOTLIN
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path("/tmp/lightning/app/src/main/java/acr/browser/lightning/browser/compose/BrowserOverflowMenu.kt")
+          s = p.read_text()
+          s = s.replace("import acr.browser.lightning.browser.menu.MenuSelection",
+                        "import acr.browser.lightning.browser.menu.MenuSelection\nimport acr.browser.lightning.downloadmanager.DownloadsActivity")
+          s = s.replace("import androidx.compose.runtime.Composable",
+                        "import androidx.compose.runtime.Composable\nimport androidx.compose.ui.platform.LocalContext\nimport android.content.Intent")
+          anchor = "fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserComposeState) {\n    Box {"
+          assert anchor in s, "Overflow menu anchor missing"
+          s = s.replace(anchor, anchor + "\n        val context = LocalContext.current")
+          pattern = r"onClick = \{\s*presenter\.onEvent\(BrowserUiEvent\.MenuClick\(MenuSelection\.DOWNLOADS\)\)\s*dropDownExpanded = false\s*\}"
+          replacement = """onClick = {
+                          context.startActivity(Intent(context, DownloadsActivity::class.java))
+                          dropDownExpanded = false
+                      }"""
+          s, count = re.subn(pattern, replacement, s, count=1)
+          assert count == 1, "Downloads menu item patch failed"
+          p.write_text(s)
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("/tmp/lightning/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          s = s.replace('<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+              '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n'
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n'
+              '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />\n'
+              '    <uses-permission android:name="android.permission.WAKE_LOCK" />\n'
+              '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />')
+          end = "    </application>"
+          additions = """        <activity android:name="acr.browser.lightning.downloadmanager.DownloadsActivity"
+                      android:exported="false" android:label="مدير التنزيلات"
+                      android:theme="@style/Theme.LightTheme" />
+                  <service android:name="acr.browser.lightning.downloadmanager.DownloadService"
+                      android:exported="false" android:foregroundServiceType="dataSync" />
+          """
+          assert end in s, "Manifest application end tag missing"
+          p.write_text(s.replace(end, additions + end))
+          PY
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("/tmp/lightning/app/build.gradle.kts")
+          s = p.read_text()
+          anchor = 'implementation("org.jsoup:jsoup:1.24.1")'
+          assert anchor in s, "Gradle dependency anchor missing"
+          if "commons-net:commons-net" not in s:
+              s = s.replace(anchor, anchor + '\n    implementation("commons-net:commons-net:3.11.1")')
+          p.write_text(s)
+          PY
+
+          mkdir -p /tmp/lightning/.github/workflows
+          rm -f /tmp/lightning/.github/workflows/action.yml
+          mkdir -p /tmp/lightning/.github/workflows
+          cp -a "$GITHUB_WORKSPACE/.github/workflows/." /tmp/lightning/.github/workflows/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Lightning Browser APK
+        working-directory: /tmp/lightning
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleLightningPlusRelease --write-locks --no-daemon
+
+      - name: Replace repository with merged Lightning project
+        run: |
+          set -euo pipefail
+          rsync -a --delete --exclude='.git' /tmp/lightning/ "$GITHUB_WORKSPACE/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Replace DownLS10 with Lightning Browser and integrated download manager"
+          git push origin HEAD:main
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Lightning-Browser-DownLS10-Downloads
+          path: /tmp/lightning/app/build/outputs/apk/lightningPlus/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
