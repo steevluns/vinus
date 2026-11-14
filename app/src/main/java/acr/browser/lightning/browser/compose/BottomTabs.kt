@@ -351,7 +351,7 @@ fun TabsBottomSheet(
                             modifier = Modifier
                                 .weight(1f),
                             style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
+                            maxLines = if (tab.isPopup) 3 else 1,
                             overflow = TextOverflow.Ellipsis,
                             text = tab.title
                         )
