@@ -99,6 +99,9 @@ class TabWebViewClient @AssistedInject constructor(
      */
     val urlSharedFlow: MutableSharedFlow<String> = MutableSharedFlow()
 
+    /** Emits the full URL currently awaiting popup approval. */
+    val popupUrlSharedFlow: MutableSharedFlow<String> = MutableSharedFlow()
+
     /**
      * The current SSL state of the page.
      */
@@ -176,20 +179,34 @@ class TabWebViewClient @AssistedInject constructor(
             url != "about:blank" && url != "about:srcdoc"
         ) {
             view.stopLoading()
+            updateUrl(url)
+            tabCoroutineScope.launch {
+                // Keep the complete URL visible in the popup tab entry even before approval.
+                urlSharedFlow.emit(url)
+                popupUrlSharedFlow.emit(url)
+            }
+            val urlView = android.widget.TextView(view.context).apply {
+                text = url
+                contentDescription = url
+                maxLines = 3
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                textSize = 14f
+                setPadding(24, 12, 24, 12)
+            }
             AlertDialog.Builder(view.context).apply {
                 setTitle(R.string.title_warning)
-                setMessage(url)
+                setView(urlView)
                 setCancelable(false)
                 setPositiveButton(R.string.action_allow) { _, _ ->
                     popupNavigationApproved = true
                     view.loadUrl(url)
                 }
                 setNegativeButton(R.string.action_dont_allow) { _, _ ->
-                    popupNavigationApproved = true
+                    popupNavigationApproved = false
                     view.stopLoading()
                 }
                 setOnCancelListener {
-                    popupNavigationApproved = true
+                    popupNavigationApproved = false
                     view.stopLoading()
                 }
             }.resizeAndShow()
