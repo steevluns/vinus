@@ -178,6 +178,8 @@ fun BrowserSearchSuggestions(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
+                        // Close the on-screen keyboard as soon as a suggestion is selected.
+                        keyboardController?.hide()
                         presenter.onEvent(BrowserUiEvent.SearchSuggestionClick(it))
                         coroutineScope.launch {
                             searchBarState.animateToCollapsed()
