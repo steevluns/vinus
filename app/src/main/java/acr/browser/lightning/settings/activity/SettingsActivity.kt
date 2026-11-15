@@ -20,11 +20,16 @@ import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import javax.inject.Inject
 
 class SettingsActivity : ThemableActivity() {
+
+    companion object {
+        const val EXTRA_SETTINGS_DESTINATION = "settings_destination"
+    }
 
     @Inject internal lateinit var settingsScreenStateProvider: SettingsScreenStateProvider
     @Inject internal lateinit var licensesScreenPresenterFactory: LicensesScreenPresenter.Factory
@@ -39,7 +44,17 @@ class SettingsActivity : ThemableActivity() {
 
         super.onCreate(savedInstanceState)
 
+        val initialDestination = intent
+            .getStringExtra(EXTRA_SETTINGS_DESTINATION)
+            ?.let { destination -> SettingsNavigation.values().firstOrNull { it.name == destination } }
+            ?: SettingsNavigation.ROOT
+
         setContent {
+            LaunchedEffect(initialDestination) {
+                if (initialDestination != SettingsNavigation.ROOT) {
+                    settingsNavigator.navigateTo(initialDestination)
+                }
+            }
             BrowserTheme(appThemeStateFlow) {
                 val navigationState by settingsNavigator.events.collectAsState(SettingsNavigation.ROOT)
                 AnimatedContent(navigationState, transitionSpec = {
