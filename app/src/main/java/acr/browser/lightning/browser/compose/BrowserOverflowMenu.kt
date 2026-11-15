@@ -122,6 +122,13 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
             )
             if (!browserViewState.isIncognito) {
                 DropdownMenuItem(
+                    text = { DropdownText(stringResource(R.string.settings_adblock)) },
+                    onClick = {
+                        presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.ADBLOCK_SETTINGS))
+                        dropDownExpanded = false
+                    }
+                )
+                DropdownMenuItem(
                     text = { DropdownText(stringResource(R.string.settings)) },
                     onClick = {
                         presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.SETTINGS))
