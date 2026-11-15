@@ -144,8 +144,13 @@ fun BottomTabNavigationBar(
                 TabCountButton(browserViewState) {
                     presenter.onEvent(BrowserUiEvent.TabCountClick)
                 }
-
-IconButton(
+                IconButton(
+                    enabled = browserViewState.isBookmarkEnabled,
+                    onClick = { presenter.onEvent(BrowserUiEvent.StarClick) }
+                ) {
+                    BookmarkIcon(browserViewState.isBookmarked)
+                }
+                IconButton(
                     onClick = {
                         context.startActivity(Intent(context, DownloadsActivity::class.java))
                     }
