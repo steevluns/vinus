@@ -47,6 +47,15 @@
     <button type="button" onclick="renameShortcut()">إعادة تسمية</button>
     <button type="button" onclick="deleteShortcut()">حذف</button>
 </div>
+<div id="edit_dialog" style="display:none;position:fixed;inset:0;z-index:20;align-items:center;justify-content:center;padding:24px;background:#0008">
+    <div style="width:100%;max-width:340px;padding:18px;border-radius:12px;background:var(--box-bg)">
+        <input id="edit_title" type="text" maxlength="40" placeholder="اسم الرابط" style="width:100%;padding:11px;border:1px solid #8886;border-radius:8px;color:var(--box-txt);background:var(--body-bg);font-size:16px"/>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+            <button type="button" onclick="cancelEdit()" style="padding:9px 14px">إلغاء</button>
+            <button type="button" onclick="saveRename()" style="padding:9px 14px">حفظ</button>
+        </div>
+    </div>
+</div>
 <script type="text/javascript">
     const STORAGE_KEY = "vinus_home_shortcuts_v1";
     let shortcuts = [];
@@ -144,8 +153,18 @@
     function renameShortcut(){
         closeContextMenu();
         if(selectedIndex<0||!shortcuts[selectedIndex])return;
-        const name=prompt("اكتب الاسم الجديد",shortcuts[selectedIndex].title);
-        if(name!==null&&name.trim()){shortcuts[selectedIndex].title=name.trim();saveShortcuts();renderShortcuts();}
+        document.getElementById("edit_title").value=shortcuts[selectedIndex].title||"";
+        document.getElementById("edit_dialog").style.display="flex";
+        document.getElementById("edit_title").focus();
+    }
+    function saveRename(){
+        if(selectedIndex<0||!shortcuts[selectedIndex])return;
+        const name=document.getElementById("edit_title").value.trim();
+        if(name){shortcuts[selectedIndex].title=name;saveShortcuts();renderShortcuts();}
+        cancelEdit();
+    }
+    function cancelEdit(){
+        document.getElementById("edit_dialog").style.display="none";
         selectedIndex=-1;
     }
     function deleteShortcut(){
