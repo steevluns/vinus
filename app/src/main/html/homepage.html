@@ -10,8 +10,8 @@
         * { box-sizing: border-box; }
         body { background:var(--body-bg); color:var(--box-txt); margin:0; font-family:Arial,sans-serif; }
         .page { width:100%; min-height:100vh; padding:26px 12px 40px; }
-        .search_bar { display:flex; align-items:center; width:92%; max-width:500px; height:42px; margin:0 auto 24px; padding:0 8px; border-radius:10px; background:var(--box-bg); }
-        #search_input { flex:1; min-width:0; height:38px; border:0; outline:0; color:var(--box-txt); background:transparent; font-size:16px; }
+        .search_bar { display:flex; align-items:center; width:92%; max-width:500px; height:44px; margin:0 auto 24px; padding:0 10px; border:1px solid #7779; border-radius:10px; background:var(--box-bg); }
+        #search_input { flex:1; min-width:0; width:100%; height:40px; padding:0 4px; border:0; outline:0; color:var(--box-txt); background:transparent; font-size:16px; }
         #search_submit { height:36px; border:0; background:transparent; color:var(--box-txt); font-size:15px; font-weight:bold; }
         #shortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:22px 6px; width:100%; max-width:650px; margin:0 auto; align-items:start; }
         .shortcuts_scroll { width:100%; overflow-x:hidden; overflow-y:visible; -webkit-overflow-scrolling:touch; }
@@ -33,6 +33,9 @@
 <body>
 <img id="image_url" alt="" style="display:none"/>
 <div class="page">
+    <form id="search_form" class="search_bar" onsubmit="return search()" autocomplete="off">
+        <input type="search" id="search_input" enterkeyhint="search" inputmode="search" aria-label="Search"/>
+    </form>
     <form id="add_form" onsubmit="return addShortcut()">
         <input id="url_input" type="text" inputmode="url" placeholder="أدخل رابط الموقع" autocomplete="url"/>
         <button id="save_url" type="submit">إضافة</button>
@@ -61,6 +64,14 @@
     let shortcuts = [];
     let selectedIndex = -1;
     let pressTimer = null;
+    function search() {
+        const input = document.getElementById("search_input");
+        const value = input.value.trim();
+        if (!value) return false;
+        window.location.href = "${BASE_URL}" + encodeURIComponent(value);
+        input.blur();
+        return false;
+    }
     function normalizeUrl(value) {
         value = value.trim();
         if (!/^https?:\/\//i.test(value)) value = "https://" + value;
