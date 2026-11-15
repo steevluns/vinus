@@ -688,6 +688,7 @@ class BrowserPresenter @Inject constructor(
                 ?.let { showAddBookmarkDialog() }
 
             MenuSelection.SETTINGS -> navigator.openSettings()
+            MenuSelection.ADBLOCK_SETTINGS -> navigator.openAdBlockSettings()
             MenuSelection.BACK -> onBackClick()
             MenuSelection.FORWARD -> onForwardClick()
         }
