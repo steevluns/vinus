@@ -112,6 +112,9 @@ interface BrowserContract {
          */
         fun openSettings()
 
+        /** Open the ad-block settings screen directly. */
+        fun openAdBlockSettings()
+
         /**
          * Share the web page with the provided [url] and [title].
          */
