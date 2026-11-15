@@ -56,13 +56,9 @@ class HomePageInitializer @Inject constructor(
 ) : TabInitializer {
 
     override suspend fun initialize(tab: TabModel) {
-        val homepage = userPreferencesDataStore.homepage.get()
-
-        when (homepage) {
-            SCHEME_HOMEPAGE -> startPageInitializer
-            SCHEME_BOOKMARKS -> bookmarkPageInitializer
-            else -> UrlInitializer(homepage)
-        }.initialize(tab)
+        // New tabs and the Home action always open the clean start page.
+        // Bookmarks remain available from the browser's bookmarks control.
+        startPageInitializer.initialize(tab)
     }
 
 }
