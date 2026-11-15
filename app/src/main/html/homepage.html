@@ -23,6 +23,7 @@
         #add_button { border:0; color:var(--box-txt); cursor:pointer; }
         #add_button .icon { font-size:30px; font-weight:300; }
         #add_form { display:none; width:92%; max-width:500px; margin:0 auto 22px; gap:7px; }
+        #add_form.is-visible { display:flex; }
         #url_input { flex:1; min-width:0; padding:11px; border:1px solid #8886; border-radius:8px; background:var(--box-bg); color:var(--box-txt); font-size:15px; }
         #save_url { border:0; border-radius:8px; padding:0 16px; background:var(--box-bg); color:var(--box-txt); font-weight:bold; }
         #context_menu { display:none; position:fixed; z-index:10; min-width:155px; padding:6px; border-radius:10px; background:var(--box-bg); box-shadow:0 4px 20px #0005; }
@@ -41,7 +42,7 @@
         <button id="save_url" type="submit">إضافة</button>
     </form>
     <div class="shortcuts_scroll"><div id="shortcuts">
-        <button id="add_button" class="shortcut" type="button" onclick="showAddForm()">
+        <button id="add_button" class="shortcut" type="button">
             <span class="icon">+</span><span class="label">إضافة</span>
         </button>
     </div>
@@ -88,10 +89,16 @@
     }
     function showAddForm() {
         const form = document.getElementById("add_form");
-        form.style.display = "flex";
         const input = document.getElementById("url_input");
+        if (!form || !input) return;
+        form.classList.add("is-visible");
+        form.style.display = "flex";
         input.value = "";
-        input.focus();
+        input.setCustomValidity("");
+        setTimeout(function() {
+            form.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            input.focus();
+        }, 80);
     }
     function addShortcut() {
         const url = normalizeUrl(document.getElementById("url_input").value);
@@ -102,6 +109,7 @@
             shortcuts.push({url:url, title:host});
             saveShortcuts();
         }
+        document.getElementById("add_form").classList.remove("is-visible");
         document.getElementById("add_form").style.display = "none";
         renderShortcuts();
         return false;
@@ -115,7 +123,7 @@
         const add = document.createElement("button");
         add.id = "add_button"; add.className = "shortcut"; add.type = "button";
         add.innerHTML = '<span class="icon">+</span><span class="label">إضافة</span>';
-        add.onclick = showAddForm;
+        add.addEventListener("click", showAddForm);
         container.appendChild(add);
         shortcuts.forEach((item, index) => {
             const link = document.createElement("a");
