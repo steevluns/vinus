@@ -204,10 +204,18 @@ class TabWebViewClient @AssistedInject constructor(
                 setNegativeButton(R.string.action_dont_allow) { _, _ ->
                     popupNavigationApproved = false
                     view.stopLoading()
+                    // A rejected popup must not remain as an empty/new tab.
+                    tabCoroutineScope.launch {
+                        closeWindowSharedFlow.emit(Unit)
+                    }
                 }
                 setOnCancelListener {
                     popupNavigationApproved = false
                     view.stopLoading()
+                    // Treat dismissing the confirmation exactly like rejecting it.
+                    tabCoroutineScope.launch {
+                        closeWindowSharedFlow.emit(Unit)
+                    }
                 }
             }.resizeAndShow()
             return
