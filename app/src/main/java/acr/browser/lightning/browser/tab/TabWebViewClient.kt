@@ -102,6 +102,9 @@ class TabWebViewClient @AssistedInject constructor(
     /** Emits the full URL currently awaiting popup approval. */
     val popupUrlSharedFlow: MutableSharedFlow<String> = MutableSharedFlow()
 
+    /** Emits a request to close a popup rejected by the user. */
+    val closeWindowSharedFlow: MutableSharedFlow<Unit> = MutableSharedFlow()
+
     /**
      * The current SSL state of the page.
      */
