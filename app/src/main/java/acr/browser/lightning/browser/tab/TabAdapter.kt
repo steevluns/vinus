@@ -10,7 +10,7 @@ import acr.browser.lightning.concurrency.TabCoroutineScope
 import acr.browser.lightning.connectivity.ConnectivityProvider
 import acr.browser.lightning.constant.DESKTOP_USER_AGENT
 import acr.browser.lightning.download.PendingDownload
-import acr.browser.lightning.downloadmanager.DownLS10DownloadBridge
+import acr.browser.lightning.downloadmanager.DownloadsRepository
 import acr.browser.lightning.ids.ViewIdGenerator
 import acr.browser.lightning.pool.ObjectPool
 import acr.browser.lightning.preview.PreviewModel
@@ -113,14 +113,16 @@ class TabAdapter @AssistedInject constructor(
         webViewClient = tabWebViewClient
         webChromeClient = tabWebChromeClient
         setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-        DownLS10DownloadBridge.start(
-            context = this@setup.context,
-            url = url,
-            userAgent = userAgent,
-            referer = this@setup.url,
-            mimeType = mimetype
-        )
-    }
+            // Show file details and let the user either queue it without downloading,
+            // start the download immediately, or cancel.
+            DownloadsRepository.confirmAndStartDownload(
+                context = this@setup.context,
+                url = url,
+                userAgent = userAgent,
+                referer = this@setup.url,
+                mimeType = mimetype
+            )
+        }
         id = this@TabAdapter.id
 
         setCompositeOnFocusChangeListener("focus_change") { _, hasFocus ->
