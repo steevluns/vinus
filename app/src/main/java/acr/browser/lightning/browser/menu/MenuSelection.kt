@@ -15,6 +15,7 @@ enum class MenuSelection {
     BOOKMARKS,
     ADD_BOOKMARK,
     SETTINGS,
+    ADBLOCK_SETTINGS,
     BACK,
     FORWARD,
     TRANSLATE_TO_ARABIC
