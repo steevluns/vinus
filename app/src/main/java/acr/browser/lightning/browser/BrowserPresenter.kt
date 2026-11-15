@@ -149,10 +149,12 @@ class BrowserPresenter @Inject constructor(
             // non-suspending state update lambda.
             val blockImagesEnabled = userPreferencesDataStore.blockImagesEnabled.get()
             val blockVideosEnabled = userPreferencesDataStore.blockVideosEnabled.get()
+            val popupConfirmationEnabled = userPreferencesDataStore.popupConfirmationEnabled.get()
             state.updateSelf {
                 copy(
                     blockImagesEnabled = blockImagesEnabled,
-                    blockVideosEnabled = blockVideosEnabled
+                    blockVideosEnabled = blockVideosEnabled,
+                    popupConfirmationEnabled = popupConfirmationEnabled
                 )
             }
         }
@@ -213,6 +215,15 @@ class BrowserPresenter @Inject constructor(
             userPreferencesDataStore.blockVideosEnabled.set(enabled)
             state.updateSelf { copy(blockVideosEnabled = enabled) }
             currentTab?.reload()
+        }
+    }
+
+    /** Toggle whether popup windows ask for approval before opening. */
+    fun togglePopupConfirmation() {
+        browserCoroutineScope.launch {
+            val enabled = !userPreferencesDataStore.popupConfirmationEnabled.get()
+            userPreferencesDataStore.popupConfirmationEnabled.set(enabled)
+            state.updateSelf { copy(popupConfirmationEnabled = enabled) }
         }
     }
 
