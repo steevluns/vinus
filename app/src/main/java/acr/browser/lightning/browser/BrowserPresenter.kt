@@ -145,10 +145,14 @@ class BrowserPresenter @Inject constructor(
 
     init {
         browserCoroutineScope.launch {
+            // Read suspend preferences inside the coroutine, before entering the
+            // non-suspending state update lambda.
+            val blockImagesEnabled = userPreferencesDataStore.blockImagesEnabled.get()
+            val blockVideosEnabled = userPreferencesDataStore.blockVideosEnabled.get()
             state.updateSelf {
                 copy(
-                    blockImagesEnabled = userPreferencesDataStore.blockImagesEnabled.get(),
-                    blockVideosEnabled = userPreferencesDataStore.blockVideosEnabled.get()
+                    blockImagesEnabled = blockImagesEnabled,
+                    blockVideosEnabled = blockVideosEnabled
                 )
             }
         }
