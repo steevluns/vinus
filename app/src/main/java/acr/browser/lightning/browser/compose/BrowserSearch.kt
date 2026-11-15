@@ -48,6 +48,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,6 +66,14 @@ fun BrowserSearchSuggestions(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val searchFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(searchBarState.currentValue) {
+        if (searchBarState.currentValue == SearchBarValue.Expanded) {
+            kotlinx.coroutines.delay(120)
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
     LaunchedEffect(browserViewState.isSearchBarExpanded) {
         if (searchBarState.currentValue == SearchBarValue.Expanded &&
             !browserViewState.isSearchBarExpanded
@@ -114,7 +124,8 @@ fun BrowserSearchSuggestions(
             BasicTextField(
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
-                    .wrapContentHeight(),
+                    .wrapContentHeight()
+                    .focusRequester(searchFocusRequester),
                 value = state,
                 onValueChange = {
                     // Updating the state mid-animation can cause cursor selection bugs
