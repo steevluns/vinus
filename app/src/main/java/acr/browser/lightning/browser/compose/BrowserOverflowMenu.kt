@@ -101,6 +101,19 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                 }
             )
             DropdownMenuItem(
+                text = { DropdownText("النافذة المنبثقة") },
+                onClick = {
+                    presenter.togglePopupConfirmation()
+                    dropDownExpanded = false
+                },
+                trailingIcon = {
+                    Text(
+                        text = if (browserViewState.popupConfirmationEnabled) "فتح" else "إغلاق",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            )
+            DropdownMenuItem(
                 text = { DropdownText(stringResource(R.string.action_bookmarks)) },
                 onClick = {
                     presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.BOOKMARKS))
