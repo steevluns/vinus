@@ -425,7 +425,10 @@ class TabAdapter @AssistedInject constructor(
     override fun createWindowRequests(): Flow<TabInitializer> =
         tabWebChromeClient.createWindowSharedFlow
 
-    override fun closeWindowRequests(): Flow<Unit> = tabWebChromeClient.closeWindowSharedFlow
+    override fun closeWindowRequests(): Flow<Unit> = merge(
+        tabWebChromeClient.closeWindowSharedFlow,
+        tabWebViewClient.closeWindowSharedFlow
+    )
 
     override fun focusRequests(): Flow<Unit> = focusSharedFlow
     override fun showHideToolbar(): Flow<Boolean> = showHideFlow
