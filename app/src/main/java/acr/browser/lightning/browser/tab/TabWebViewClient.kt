@@ -175,7 +175,9 @@ class TabWebViewClient @AssistedInject constructor(
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
-        if (popupConfirmationEnabled && !popupNavigationApproved &&
+        val shouldAskForPopupApproval = popupConfirmationEnabled &&
+            runBlocking { userPreferencesDataStore.popupConfirmationEnabled.get() }
+        if (shouldAskForPopupApproval && !popupNavigationApproved &&
             url != "about:blank" && url != "about:srcdoc"
         ) {
             view.stopLoading()
