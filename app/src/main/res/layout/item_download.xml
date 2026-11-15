@@ -10,7 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:layoutDirection="ltr">
 
         <TextView
             android:id="@+id/tvFileIcon"
@@ -74,7 +75,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:layoutDirection="ltr">
 
         <TextView
             android:id="@+id/tvStatus"
