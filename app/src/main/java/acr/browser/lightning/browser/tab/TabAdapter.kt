@@ -511,23 +511,19 @@ class TabAdapter @AssistedInject constructor(
         width: Int = view.width,
         height: Int = view.height
     ): Bitmap? = withContext(coroutineDispatchers.main) {
-        // WebView content is rendered by Chromium using hardware acceleration. Drawing a
-        // hardware-accelerated WebView directly into a regular Canvas can produce a black
-        // bitmap, which is why the tab switcher previously showed empty black previews.
-        if (width <= 0 || height <= 0 || view.isAttachedToWindow.not()) {
+        // Capture the WebView on the UI thread without switching it to a software
+        // layer. Changing a Chromium WebView to LAYER_TYPE_SOFTWARE immediately
+        // before drawing can leave its compositor surface blank on some devices.
+        if (width <= 0 || height <= 0 || !view.isAttachedToWindow) {
             return@withContext null
         }
 
-        val previewWidth = (width / 3).coerceAtLeast(1)
-        val previewHeight = (height / 3).coerceAtLeast(1)
+        val previewWidth = (width / 2).coerceAtLeast(1)
+        val previewHeight = (height / 2).coerceAtLeast(1)
         val bitmap = createBitmap(previewWidth, previewHeight)
         val canvas = Canvas(bitmap)
-        val previousLayerType = view.layerType
 
         try {
-            // Force a software pass only while capturing the thumbnail. Restore the
-            // original layer immediately so normal browsing keeps hardware acceleration.
-            view.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
             canvas.scale(
                 previewWidth.toFloat() / width,
                 previewHeight.toFloat() / height
@@ -538,8 +534,6 @@ class TabAdapter @AssistedInject constructor(
         } catch (exception: Exception) {
             bitmap.recycle()
             null
-        } finally {
-            view.setLayerType(previousLayerType, null)
         }
     }
 }
