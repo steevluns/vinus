@@ -33,7 +33,7 @@ class SettingsScreenStateProvider @Inject constructor(
         SettingsNavigation.DISPLAY -> displaySettingsScreen.createSettingsFrameworkState()
         SettingsNavigation.PRIVACY -> privacySettingsScreen.createSettingsFrameworkState()
         SettingsNavigation.ADVANCED -> advancedSettingsScreen.createSettingsFrameworkState()
-        SettingsNavigation.ABOUT -> error("About screen removed")
+        SettingsNavigation.ABOUT -> rootSettingsScreen.createSettingsFrameworkState()
         SettingsNavigation.LICENSES -> error("Unsupported")
         SettingsNavigation.DEBUG -> debugSettingsScreen.createSettingsFrameworkState()
     }
