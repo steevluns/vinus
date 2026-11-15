@@ -41,12 +41,7 @@ class RootSettingsScreen @Inject constructor(
                 title = resourceProvider.stringResource(R.string.settings_advanced),
                 onClick = ClickableOnClick.Navigate(SettingsNavigation.ADVANCED),
             ),
-            ClickableState(
-                title = resourceProvider.stringResource(R.string.settings_about),
-                summary = { resourceProvider.stringResource(R.string.settings_about_explain) },
-                onClick = ClickableOnClick.Navigate(SettingsNavigation.ABOUT),
-            ),
-            ClickableState(
+ClickableState(
                 title = resourceProvider.stringResource(R.string.faq),
                 summary = { resourceProvider.stringResource(R.string.faq_description) },
                 onClick = ClickableOnClick.WebLink("http://acrdevelopment.org/lightning/faq"),
