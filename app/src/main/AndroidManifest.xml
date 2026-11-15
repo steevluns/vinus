@@ -35,7 +35,7 @@
 
     <application
         android:name=".BrowserApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher_orange"
         android:label="MyBLight"
