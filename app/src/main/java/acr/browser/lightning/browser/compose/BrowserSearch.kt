@@ -320,15 +320,5 @@ fun BrowserSearchBarInputField(
                 style = MaterialTheme.typography.bodyLarge
             )
         }
-        IconButton(onClick = { presenter.onEvent(BrowserUiEvent.RefreshOrStopClick) }) {
-            Icon(
-                modifier = Modifier.size(24.dp),
-                painter = when (browserViewState.isRefresh) {
-                    true -> painterResource(R.drawable.ic_action_refresh)
-                    false -> painterResource(R.drawable.ic_action_delete)
-                },
-                contentDescription = "refresh"
-            )
-        }
     }
 }
