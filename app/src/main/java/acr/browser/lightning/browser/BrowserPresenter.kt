@@ -1439,8 +1439,13 @@ class BrowserPresenter @Inject constructor(
             }
 
             BrowserContract.CloseTabEvent.CLOSE_ALL -> {
-                model.deleteAllTabs()
+                // Create and select a replacement before destroying the old WebViews.
+                // This keeps the browser alive and avoids an empty/stale selected-tab state.
                 val newTab = model.createTab(homePageInitializer)
+                model.tabsList
+                    .filter { it.id != newTab.id }
+                    .map { it.id }
+                    .forEach { model.deleteTab(it) }
                 state.updateSelf { updateTabViewState() }
                 selectTab(model.selectTab(newTab.id))
             }
