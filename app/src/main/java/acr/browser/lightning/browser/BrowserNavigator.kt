@@ -39,6 +39,13 @@ class BrowserNavigator @Inject constructor(
         activity.startActivity(Intent(activity, SettingsActivity::class.java))
     }
 
+    override fun openAdBlockSettings() {
+        activity.startActivity(
+            Intent(activity, SettingsActivity::class.java)
+                .putExtra(SettingsActivity.EXTRA_SETTINGS_DESTINATION, "ADBLOCK")
+        )
+    }
+
     override fun sharePage(url: String, title: String?) {
         intentUtils.shareUrl(url, title)
     }
