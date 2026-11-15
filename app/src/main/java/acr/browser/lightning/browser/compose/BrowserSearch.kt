@@ -52,6 +52,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,10 +68,13 @@ fun BrowserSearchSuggestions(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val searchFocusRequester = remember { FocusRequester() }
     LaunchedEffect(searchBarState.currentValue) {
         if (searchBarState.currentValue == SearchBarValue.Expanded) {
-            kotlinx.coroutines.delay(120)
+            // Wait briefly for the expanded input field to enter the composition,
+            // then focus it and show the keyboard immediately.
+            kotlinx.coroutines.delay(60)
             searchFocusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -149,13 +153,17 @@ fun BrowserSearchSuggestions(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = {
-                    // Hide the IME directly when the keyboard Search action is pressed.
+                    // Submit the query, dismiss the IME, and remove input focus.
+                    presenter.onEvent(BrowserUiEvent.SearchConfirmed(state.text))
                     keyboardController?.hide()
+                    focusManager.clearFocus(force = true)
                     coroutineScope.launch {
                         searchBarState.animateToCollapsed()
                         presenter.onEvent(BrowserUiEvent.SearchBarExpandedOrCollapsed(expanded = false))
+                        // Re-hide after navigation/state updates in case the IME was reopened.
+                        kotlinx.coroutines.delay(80)
+                        keyboardController?.hide()
                     }
-                    presenter.onEvent(BrowserUiEvent.SearchConfirmed(state.text))
                 }),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
                 decorationBox = {
