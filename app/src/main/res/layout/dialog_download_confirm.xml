@@ -15,12 +15,15 @@
         android:textSize="18sp"
         android:textStyle="bold" />
 
+    <!-- Hide file details in the confirmation UI only. The real metadata
+         remains in DownloadPreview and is still used by the download code. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#1E1E1E"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="12dp"
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
