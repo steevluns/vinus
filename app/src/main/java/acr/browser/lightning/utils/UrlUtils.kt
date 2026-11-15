@@ -22,6 +22,8 @@ import acr.browser.lightning.html.history.HistoryPageFactory
 import acr.browser.lightning.html.homepage.HomePageFactory
 import android.util.Patterns
 import android.webkit.URLUtil
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.Locale
 import java.util.regex.Pattern
 
@@ -59,7 +61,11 @@ fun smartUrlFilter(url: String, canBeSearch: Boolean, searchUrl: String): String
     }
 
     return if (canBeSearch) {
-        URLUtil.composeSearchUrl(inUrl, searchUrl, QUERY_PLACE_HOLDER)
+        // Encode search terms explicitly as UTF-8. URLUtil.composeSearchUrl() may use
+        // the platform's default charset on some Android versions, which corrupts
+        // non-Latin queries (for example Arabic) before they reach the search engine.
+        val encodedQuery = URLEncoder.encode(inUrl, StandardCharsets.UTF_8.name())
+        searchUrl.replace(QUERY_PLACE_HOLDER, encodedQuery)
     } else {
         ""
     }
