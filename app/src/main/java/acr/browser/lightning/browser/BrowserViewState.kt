@@ -95,6 +95,7 @@ data class BrowserViewState(
     val toolbarVisibility: ToolbarVisibility = ToolbarVisibility.FIXED,
     val blockImagesEnabled: Boolean = false,
     val blockVideosEnabled: Boolean = false,
+    val popupConfirmationEnabled: Boolean = true,
 ) {
 
     /**
@@ -233,6 +234,7 @@ class BrowserComposeState(
     var toolbarVisibility: BrowserViewState.ToolbarVisibility by mutableStateOf(browserViewState.toolbarVisibility)
     var blockImagesEnabled: Boolean by mutableStateOf(browserViewState.blockImagesEnabled)
     var blockVideosEnabled: Boolean by mutableStateOf(browserViewState.blockVideosEnabled)
+    var popupConfirmationEnabled: Boolean by mutableStateOf(browserViewState.popupConfirmationEnabled)
 
     fun updateFrom(browserViewState: BrowserViewState) {
         displayUrl = browserViewState.displayUrl
@@ -263,5 +265,6 @@ class BrowserComposeState(
         toolbarVisibility = browserViewState.toolbarVisibility
         blockImagesEnabled = browserViewState.blockImagesEnabled
         blockVideosEnabled = browserViewState.blockVideosEnabled
+        popupConfirmationEnabled = browserViewState.popupConfirmationEnabled
     }
 }
