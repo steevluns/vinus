@@ -13,7 +13,7 @@
         .search_bar { display:flex; align-items:center; width:92%; max-width:500px; height:42px; margin:0 auto 24px; padding:0 8px; border-radius:10px; background:var(--box-bg); }
         #search_input { flex:1; min-width:0; height:38px; border:0; outline:0; color:var(--box-txt); background:transparent; font-size:16px; }
         #search_submit { height:36px; border:0; background:transparent; color:var(--box-txt); font-size:15px; font-weight:bold; }
-        #shortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:20px 8px; width:100%; max-width:650px; margin:0 auto; align-items:start; }
+        #shortcuts { display:grid; grid-template-columns:repeat(5,minmax(58px,1fr)); gap:20px 8px; width:100%; min-width:320px; max-width:650px; margin:0 auto; align-items:start; }\n        .shortcuts_scroll { width:100%; overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; }\n        body { overflow-y:auto; }
         .shortcut { min-width:0; display:flex; flex-direction:column; align-items:center; color:var(--box-txt); text-decoration:none; -webkit-tap-highlight-color:transparent; }
         .icon { width:48px; height:48px; max-width:100%; border-radius:15px; background:var(--box-bg); display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:22px; font-weight:bold; }
         .icon img { width:28px; height:28px; object-fit:contain; }
@@ -37,7 +37,7 @@
         <input id="url_input" type="url" inputmode="url" placeholder="Paste website link" autocomplete="url"/>
         <button id="save_url" type="submit">Add</button>
     </form>
-    <div id="shortcuts">
+    <div class="shortcuts_scroll"><div id="shortcuts">
         <button id="add_button" class="shortcut" type="button" onclick="showAddForm()">
             <span class="icon">+</span><span class="label">Add</span>
         </button>
