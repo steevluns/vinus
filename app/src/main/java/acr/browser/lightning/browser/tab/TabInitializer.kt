@@ -1,15 +1,12 @@
 package acr.browser.lightning.browser.tab
 
 import acr.browser.lightning.R
-import acr.browser.lightning.constant.SCHEME_BOOKMARKS
-import acr.browser.lightning.constant.SCHEME_HOMEPAGE
 import acr.browser.lightning.extensions.resizeAndShow
 import acr.browser.lightning.html.HtmlPageFactory
 import acr.browser.lightning.html.bookmark.BookmarkPageFactory
 import acr.browser.lightning.html.download.DownloadPageFactory
 import acr.browser.lightning.html.history.HistoryPageFactory
 import acr.browser.lightning.html.homepage.HomePageFactory
-import acr.browser.lightning.preference.UserPreferencesDataStore
 import android.app.Activity
 import android.os.Bundle
 import android.os.Message
@@ -50,9 +47,7 @@ class UrlInitializer(private val url: String) : TabInitializer {
  */
 @Reusable
 class HomePageInitializer @Inject constructor(
-    private val userPreferencesDataStore: UserPreferencesDataStore,
-    private val startPageInitializer: StartPageInitializer,
-    private val bookmarkPageInitializer: BookmarkPageInitializer
+    private val startPageInitializer: StartPageInitializer
 ) : TabInitializer {
 
     override suspend fun initialize(tab: TabModel) {
