@@ -227,6 +227,13 @@ class UserPreferencesDataStore @Inject constructor(
         defaultValue = true
     )
 
+    /** True when popup windows must ask the user before opening their target page. */
+    val popupConfirmationEnabled: NonNullPreferenceStore<Boolean> = NonNullPreferenceStore(
+        key = booleanPreferencesKey(POPUP_CONFIRMATION),
+        dataStore = dataStore,
+        defaultValue = true
+    )
+
     /**
      * True if the app should remember which browser tabs were open and restore them if the browser
      * is automatically closed by the system.
@@ -537,6 +544,7 @@ private const val JAVASCRIPT = "java"
 private const val LOCATION = "location"
 private const val OVERVIEW_MODE = "overviewmode"
 private const val POPUPS = "newwindows"
+private const val POPUP_CONFIRMATION = "popupConfirmationEnabled"
 private const val RESTORE_LOST_TABS = "restoreclosed"
 private const val SEARCH = "search"
 private const val SEARCH_URL = "searchurl"
