@@ -150,8 +150,12 @@ class TabWebViewClient @AssistedInject constructor(
         popupConfirmationEnabled = true
     }
 
-    private fun shouldBlockRequest(requestUri: Uri) =
-        runBlocking { adBlocker.await().isAd(requestUri) }
+    // The built-in ad blocker is controlled only by its own master switch.
+    // Independent subscriptions are checked separately in shouldInterceptRequest.
+    private fun shouldBlockRequest(requestUri: Uri): Boolean =
+        runBlocking {
+            userPreferencesDataStore.adBlockEnabled.get() && adBlocker.await().isAd(requestUri)
+        }
 
     private fun updateUrl(url: String) {
         searchQuery = if (!url.isSpecialUrl()) {
