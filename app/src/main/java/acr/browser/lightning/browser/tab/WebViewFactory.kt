@@ -92,11 +92,9 @@ class WebViewFactory @Inject constructor(
         }
         settings.mediaPlaybackRequiresUserGesture = true
 
-        settings.mixedContentMode = if (!incognitoMode) {
-            WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        } else {
-            WebSettings.MIXED_CONTENT_NEVER_ALLOW
-        }
+        // Block insecure HTTP subresources inside HTTPS pages in both normal and incognito tabs.
+        // Top-level HTTP navigation remains available after the browser's explicit warning.
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
 
         settings.domStorageEnabled = true
         // Remove when minSdk >= 35
@@ -162,6 +160,8 @@ class WebViewFactory @Inject constructor(
             TextSize.X_SMALL -> 50
         }
 
+        // Preserve first-party login sessions; third-party cookies remain controlled by the
+        // existing user preference rather than being disabled globally.
         CookieManager.getInstance().setAcceptCookie(tabSettings.cookiesEnabled)
 
         CookieManager.getInstance().setAcceptThirdPartyCookies(
