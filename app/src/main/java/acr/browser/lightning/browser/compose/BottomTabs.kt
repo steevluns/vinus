@@ -144,6 +144,19 @@ fun BottomTabNavigationBar(
                 TabCountButton(browserViewState) {
                     presenter.onEvent(BrowserUiEvent.TabCountClick)
                 }
+                // Keep refresh fixed beside the tabs button, independent of search-bar state.
+                IconButton(
+                    onClick = { presenter.onEvent(BrowserUiEvent.RefreshOrStopClick) }
+                ) {
+                    Icon(
+                        modifier = Modifier.size(24.dp),
+                        painter = when (browserViewState.isRefresh) {
+                            true -> painterResource(R.drawable.ic_action_refresh)
+                            false -> painterResource(R.drawable.ic_action_delete)
+                        },
+                        contentDescription = "refresh"
+                    )
+                }
                 IconButton(
                     enabled = browserViewState.isBookmarkEnabled,
                     onClick = { presenter.onEvent(BrowserUiEvent.StarClick) }
