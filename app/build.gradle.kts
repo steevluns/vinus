@@ -30,9 +30,6 @@ android {
         create("lightningPlus").apply {
             setRoot("src/LightningPlus")
         }
-        create("lightningLite").apply {
-            setRoot("src/LightningLite")
-        }
     }
 
     buildFeatures {
@@ -74,12 +71,6 @@ android {
         create("lightningPlus") {
             dimension = "capabilities"
             buildConfigField("boolean", "FULL_VERSION", "Boolean.parseBoolean(\"true\")")
-            applicationId = "com.myblight"
-            versionCode = commonVersionCode
-        }
-        create("lightningLite") {
-            dimension = "capabilities"
-            buildConfigField("boolean", "FULL_VERSION", "Boolean.parseBoolean(\"false\")")
             applicationId = "com.myblight"
             versionCode = commonVersionCode
         }
