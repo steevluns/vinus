@@ -70,11 +70,17 @@ fun BrowserSearchSuggestions(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val searchFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(searchBarState.currentValue) {
-        if (searchBarState.currentValue == SearchBarValue.Expanded) {
-            // Wait briefly for the expanded input field to enter the composition,
-            // then focus it and show the keyboard immediately.
-            kotlinx.coroutines.delay(60)
+    LaunchedEffect(searchBarState.targetValue) {
+        if (searchBarState.targetValue == SearchBarValue.Expanded) {
+            // Wait until the expanded search field is composed before requesting
+            // focus. Use targetValue so this runs as soon as the first tap starts
+            // expanding the search bar, rather than after the animation completes.
+            kotlinx.coroutines.delay(150)
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+            // Some Android versions need the keyboard request repeated after focus
+            // has settled during the full-screen search transition.
+            kotlinx.coroutines.delay(100)
             searchFocusRequester.requestFocus()
             keyboardController?.show()
         }
