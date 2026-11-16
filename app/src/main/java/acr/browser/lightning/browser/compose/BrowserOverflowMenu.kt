@@ -120,14 +120,16 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                     dropDownExpanded = false
                 }
             )
+            // Keep Ad Block available in the overflow menu and open the existing
+            // dedicated ad-block settings screen when selected.
+            DropdownMenuItem(
+                text = { DropdownText(stringResource(R.string.settings_adblock)) },
+                onClick = {
+                    dropDownExpanded = false
+                    presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.ADBLOCK_SETTINGS))
+                }
+            )
             if (!browserViewState.isIncognito) {
-                DropdownMenuItem(
-                    text = { DropdownText(stringResource(R.string.settings_adblock)) },
-                    onClick = {
-                        presenter.onEvent(BrowserUiEvent.MenuClick(MenuSelection.ADBLOCK_SETTINGS))
-                        dropDownExpanded = false
-                    }
-                )
                 DropdownMenuItem(
                     text = { DropdownText(stringResource(R.string.settings)) },
                     onClick = {
