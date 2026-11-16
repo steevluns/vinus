@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import java.io.StringReader
 import java.util.Locale
 import javax.inject.Inject
 
@@ -49,30 +50,26 @@ class GoogleSuggestionsModel @Inject constructor(
 
     @Throws(Exception::class)
     override fun parseResults(responseBody: ResponseBody): List<SearchSuggestion> {
-        parser.setInput(responseBody.byteStream(), UTF8)
+        // Decode explicitly as UTF-8 before parsing. This avoids Arabic text
+        // being corrupted when a server sends a missing or incorrect charset.
+        val xml = String(responseBody.bytes(), Charsets.UTF_8)
+        val parser = XmlPullParserFactory.newInstance().apply {
+            isNamespaceAware = true
+        }.newPullParser()
+        parser.setInput(StringReader(xml))
 
         val suggestions = mutableListOf<SearchSuggestion>()
         var eventType = parser.eventType
         while (eventType != XmlPullParser.END_DOCUMENT) {
             if (eventType == XmlPullParser.START_TAG && "suggestion" == parser.name) {
                 val suggestion = parser.getAttributeValue(null, "data")
-                suggestions.add(SearchSuggestion("$searchSubtitle \"$suggestion\"", suggestion))
+                if (!suggestion.isNullOrBlank()) {
+                    suggestions.add(SearchSuggestion("$searchSubtitle \"$suggestion\"", suggestion))
+                }
             }
             eventType = parser.next()
         }
 
         return suggestions
-    }
-
-    companion object {
-
-        // Converting to a lambda results in pulling the newInstance call out of the lazy.
-        @Suppress("ConvertLambdaToReference")
-        private val parser by lazy {
-            XmlPullParserFactory.newInstance().apply {
-                isNamespaceAware = true
-            }.newPullParser()
-        }
-
     }
 }
