@@ -19,7 +19,7 @@
             android:orientation="horizontal">
 
             <Button
-                android:id="@+id/btnAddUrl"
+                android:id="@+id/btnMenu"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?android:attr/selectableItemBackground"
@@ -39,7 +39,7 @@
                 android:contentDescription="فتح المتصفح" />
 
             <Button
-                android:id="@+id/btnMenu"
+                android:id="@+id/btnAddUrl"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginStart="4dp"
