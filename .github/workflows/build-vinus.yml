@@ -39,10 +39,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Lightning Plus and Lite debug APKs
+      - name: Build Lightning Plus debug APK
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon :app:assembleLightningPlusDebug :app:assembleLightningLiteDebug --write-locks --stacktrace
+          ./gradlew --no-daemon :app:assembleLightningPlusDebug --write-locks --stacktrace
 
       - name: Upload APK files
         uses: actions/upload-artifact@v4
