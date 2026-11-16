@@ -2,6 +2,16 @@ name: Build Vinus APK
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build-vinus.yml'
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
 
 permissions:
   contents: read
@@ -32,7 +42,7 @@ jobs:
       - name: Build Lightning Plus and Lite debug APKs
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon :app:assembleLightningPlusDebug :app:assembleLightningLiteDebug --stacktrace
+          ./gradlew --no-daemon --no-configuration-cache :app:assembleLightningPlusDebug :app:assembleLightningLiteDebug --write-locks --stacktrace
 
       - name: Upload APK files
         uses: actions/upload-artifact@v4
