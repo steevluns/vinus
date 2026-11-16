@@ -89,18 +89,18 @@
             android:textSize="12sp" />
 
         <Button
-            android:id="@+id/btnPauseResume"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:text="إيقاف"
-            android:textSize="11sp" />
-
-        <Button
             android:id="@+id/btnDelete"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
-            android:layout_marginStart="4dp"
             android:text="حذف"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/btnPauseResume"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:text="إيقاف"
             android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>
