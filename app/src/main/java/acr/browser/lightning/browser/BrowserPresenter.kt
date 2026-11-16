@@ -1135,7 +1135,12 @@ class BrowserPresenter @Inject constructor(
                 )
             }
         } else {
-            showAddBookmarkDialog()
+            // Save directly to the root bookmarks folder without showing the add dialog.
+            onBookmarkConfirmed(
+                title = title,
+                url = url,
+                folder = ""
+            )
         }
     }
 
