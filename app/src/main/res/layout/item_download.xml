@@ -13,14 +13,16 @@
         android:orientation="horizontal"
         android:layoutDirection="ltr">
 
-        <TextView
-            android:id="@+id/tvFileIcon"
+        <Button
+            android:id="@+id/btnMore"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="#222222"
-            android:gravity="center"
-            android:text="📄"
-            android:textSize="20sp" />
+            android:background="?android:attr/selectableItemBackground"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:text="⋮"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -58,17 +60,15 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btnMore"
+        <TextView
+            android:id="@+id/tvFileIcon"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginStart="4dp"
-            android:background="?android:attr/selectableItemBackground"
-            android:minWidth="0dp"
-            android:minHeight="0dp"
-            android:text="⋮"
-            android:textColor="#FFFFFF"
-            android:textSize="24sp" />
+            android:background="#222222"
+            android:gravity="center"
+            android:text="📄"
+            android:textSize="20sp" />
     </LinearLayout>
 
     <LinearLayout
