@@ -11,8 +11,8 @@
         body { background:var(--body-bg); color:var(--box-txt); margin:0; font-family:Arial,sans-serif; }
         .page { width:100%; min-height:100vh; padding:26px 12px 40px; }
                 #search_submit { height:36px; border:0; background:transparent; color:var(--box-txt); font-size:15px; font-weight:bold; }
-        #shortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:22px 6px; width:100%; max-width:650px; margin:0 auto; align-items:start; }
-        .shortcuts_scroll { width:100%; overflow-x:hidden; overflow-y:visible; -webkit-overflow-scrolling:touch; }
+        #shortcuts { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); grid-auto-rows:min-content; gap:22px 6px; width:100%; max-width:650px; margin:0 auto; align-items:start; }
+        .shortcuts_scroll { width:100%; max-height:calc(100vh - 190px); overflow-x:hidden; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain; }
         body { overflow-y:auto; }
         .shortcut { min-width:0; display:flex; flex-direction:column; align-items:center; color:var(--box-txt); text-decoration:none; -webkit-tap-highlight-color:transparent; }
         .icon { width:48px; height:48px; max-width:100%; border-radius:15px; background:var(--box-bg); display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:22px; font-weight:bold; }
