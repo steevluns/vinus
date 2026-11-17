@@ -346,7 +346,7 @@ class TabWebViewClient @AssistedInject constructor(
         val errorCodeMessageCodes = error.getAllSslErrorMessageCodes()
         val stringBuilder = StringBuilder()
         for (messageCode in errorCodeMessageCodes) {
-            stringBuilder.append(" - ").append(context.getString(messageCode)).append('\\n')
+            stringBuilder.append(" - ").append(context.getString(messageCode)).append('\n')
         }
         val alertMessage =
             context.getString(R.string.message_insecure_connection, stringBuilder.toString())
