@@ -327,7 +327,16 @@ class TabWebViewClient @AssistedInject constructor(
     @SuppressLint("WebViewClientOnReceivedSslError")
     override fun onReceivedSslError(webView: WebView, handler: SslErrorHandler, error: SslError) {
         val context = webView.context
-        urlWithSslError = webView.url
+        val warningUrl = error.url ?: webView.url
+        urlWithSslError = warningUrl
+
+        // A previous explicit approval applies only to this host and this app session.
+        if (sslWarningPreferences.recallBehaviorForDomain(warningUrl) ==
+            SslWarningPreferences.Behavior.PROCEED
+        ) {
+            handler.proceed()
+            return
+        }
 
         tabCoroutineScope.launch {
             val sslState = SslState.Invalid(error)
@@ -335,25 +344,29 @@ class TabWebViewClient @AssistedInject constructor(
         }
 
         val errorCodeMessageCodes = error.getAllSslErrorMessageCodes()
-
         val stringBuilder = StringBuilder()
         for (messageCode in errorCodeMessageCodes) {
-            stringBuilder.append(" - ").append(context.getString(messageCode)).append('\n')
+            stringBuilder.append(" - ").append(context.getString(messageCode)).append('\\n')
         }
         val alertMessage =
             context.getString(R.string.message_insecure_connection, stringBuilder.toString())
 
         AlertDialog.Builder(context).apply {
-            val view = DialogSslWarningBinding.inflate(LayoutInflater.from(context))
-            // Always show the certificate warning; never remember an approval that
-            // could silently bypass future SSL warnings for this domain.
-            view.checkBoxDontAskAgain.visibility = android.view.View.GONE
-            setTitle(context.getString(R.string.title_warning))
+            val dialogView = DialogSslWarningBinding.inflate(LayoutInflater.from(context))
+            dialogView.checkBoxDontAskAgain.visibility = android.view.View.VISIBLE
+            dialogView.checkBoxDontAskAgain.isChecked = false
+            setTitle(R.string.title_warning)
             setMessage(alertMessage)
             setCancelable(false)
-            setView(view.root)
+            setView(dialogView.root)
             setOnCancelListener { handler.cancel() }
             setPositiveButton(context.getString(R.string.action_yes)) { _, _ ->
+                if (dialogView.checkBoxDontAskAgain.isChecked && !warningUrl.isNullOrBlank()) {
+                    sslWarningPreferences.rememberBehaviorForDomain(
+                        warningUrl,
+                        SslWarningPreferences.Behavior.PROCEED
+                    )
+                }
                 handler.proceed()
             }
             setNegativeButton(context.getString(R.string.action_no)) { _, _ ->
