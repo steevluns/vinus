@@ -37,6 +37,7 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
         var selectedSearchEngine by remember { mutableStateOf(-1) }
         var customSearchUrl by remember { mutableStateOf("") }
         var customSearchDialog by remember { mutableStateOf(false) }
+        var gameSearchDialog by remember { mutableStateOf(false) }
         IconButton(onClick = {
             dropDownExpanded = !dropDownExpanded
         }) {
@@ -139,6 +140,13 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                     }
                 }
             )
+            DropdownMenuItem(
+                text = { DropdownText("محركات البحث ٢") },
+                onClick = {
+                    dropDownExpanded = false
+                    gameSearchDialog = true
+                }
+            )
             // Keep Ad Block available in the overflow menu and open the existing
             // dedicated ad-block settings screen when selected.
             DropdownMenuItem(
@@ -187,6 +195,31 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                 },
                 confirmButton = {
                     TextButton(onClick = { searchEngineDialog = false }) { Text("إغلاق") }
+                }
+            )
+        }
+        if (gameSearchDialog) {
+            AlertDialog(
+                onDismissRequest = { gameSearchDialog = false },
+                title = { Text("محركات البحث ٢") },
+                text = {
+                    androidx.compose.foundation.layout.Column {
+                        listOf(
+                            "Steam Store" to "https://store.steampowered.com/search/?term=",
+                            "GOG Games" to "https://www.gog.com/en/games?query=",
+                            "itch.io Games" to "https://itch.io/search?q="
+                        ).forEach { (name, url) ->
+                            TextButton(
+                                onClick = {
+                                    presenter.selectGameSearchEngine(url)
+                                    gameSearchDialog = false
+                                }
+                            ) { Text(name) }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { gameSearchDialog = false }) { Text("إغلاق") }
                 }
             )
         }
