@@ -652,10 +652,10 @@ class BrowserPresenter @Inject constructor(
     fun loadSearchEngineOptions(onLoaded: (List<String>, Int) -> Unit) {
         browserCoroutineScope.launch {
             val engines = searchEngineProvider.provideAllSearchEngines()
-            val selected = userPreferencesDataStore.searchChoice.get().value
+            val selected = userPreferencesDataStore.searchChoice.get()
             onLoaded(
                 engines.map { resourceProvider.stringResource(it.titleRes) },
-                SearchEngineChoice.entries.indexOfFirst { it.value == selected }
+                SearchEngineChoice.entries.indexOf(selected)
             )
         }
     }
