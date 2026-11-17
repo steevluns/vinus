@@ -7,12 +7,15 @@ import acr.browser.lightning.browser.BrowserPresenter
 import acr.browser.lightning.browser.menu.MenuSelection
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +32,11 @@ import androidx.compose.ui.window.PopupProperties
 fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserComposeState) {
     Box {
         var dropDownExpanded by remember { mutableStateOf(false) }
+        var searchEngineDialog by remember { mutableStateOf(false) }
+        var searchEngineNames by remember { mutableStateOf(emptyList<String>()) }
+        var selectedSearchEngine by remember { mutableStateOf(-1) }
+        var customSearchUrl by remember { mutableStateOf("") }
+        var customSearchDialog by remember { mutableStateOf(false) }
         IconButton(onClick = {
             dropDownExpanded = !dropDownExpanded
         }) {
@@ -120,6 +128,17 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                     dropDownExpanded = false
                 }
             )
+            DropdownMenuItem(
+                text = { DropdownText("محرك البحث") },
+                onClick = {
+                    dropDownExpanded = false
+                    presenter.loadSearchEngineOptions { names, selected ->
+                        searchEngineNames = names
+                        selectedSearchEngine = selected
+                        searchEngineDialog = true
+                    }
+                }
+            )
             // Keep Ad Block available in the overflow menu and open the existing
             // dedicated ad-block settings screen when selected.
             DropdownMenuItem(
@@ -138,6 +157,61 @@ fun BrowserOverflowMenu(presenter: BrowserPresenter, browserViewState: BrowserCo
                     }
                 )
             }
+        }
+        if (searchEngineDialog) {
+            AlertDialog(
+                onDismissRequest = { searchEngineDialog = false },
+                title = { Text("محرك البحث") },
+                text = {
+                    androidx.compose.foundation.lazy.LazyColumn {
+                        items(searchEngineNames.size) { index ->
+                            androidx.compose.material3.RadioButton(
+                                selected = selectedSearchEngine == index,
+                                onClick = {
+                                    selectedSearchEngine = index
+                                    if (index == 0) {
+                                        searchEngineDialog = false
+                                        customSearchDialog = true
+                                    } else {
+                                        presenter.selectSearchEngine(index)
+                                        searchEngineDialog = false
+                                    }
+                                }
+                            )
+                            Text(
+                                text = searchEngineNames[index],
+                                modifier = Modifier
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { searchEngineDialog = false }) { Text("إغلاق") }
+                }
+            )
+        }
+        if (customSearchDialog) {
+            AlertDialog(
+                onDismissRequest = { customSearchDialog = false },
+                title = { Text("محرك بحث مخصص") },
+                text = {
+                    OutlinedTextField(
+                        value = customSearchUrl,
+                        onValueChange = { customSearchUrl = it },
+                        label = { Text("رابط البحث") },
+                        singleLine = true
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        presenter.selectSearchEngine(0, customSearchUrl)
+                        customSearchDialog = false
+                    }) { Text("حفظ") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { customSearchDialog = false }) { Text("إلغاء") }
+                }
+            )
         }
     }
 }
