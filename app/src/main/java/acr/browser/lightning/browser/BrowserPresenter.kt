@@ -40,6 +40,7 @@ import acr.browser.lightning.preference.UserPreferencesDataStore
 import acr.browser.lightning.resources.NumberFormatter
 import acr.browser.lightning.resources.ResourceProvider
 import acr.browser.lightning.search.SearchEngineProvider
+import acr.browser.lightning.search.SearchEngineChoice
 import acr.browser.lightning.search.engine.search
 import acr.browser.lightning.ssl.SslState
 import acr.browser.lightning.theme.ThemeProvider
@@ -646,6 +647,28 @@ class BrowserPresenter @Inject constructor(
         // the panic intent since finish() isn't completely
         // closing the browser
         exitProcess(1)
+    }
+
+    fun loadSearchEngineOptions(onLoaded: (List<String>, Int) -> Unit) {
+        browserCoroutineScope.launch {
+            val engines = searchEngineProvider.provideAllSearchEngines()
+            val selected = userPreferencesDataStore.searchChoice.get().value
+            onLoaded(
+                engines.map { resourceProvider.stringResource(it.titleRes) },
+                SearchEngineChoice.entries.indexOfFirst { it.value == selected }
+            )
+        }
+    }
+
+    fun selectSearchEngine(index: Int, customUrl: String? = null) {
+        browserCoroutineScope.launch {
+            val choice = SearchEngineChoice.entries.getOrNull(index) ?: return@launch
+            if (choice == SearchEngineChoice.CUSTOM) {
+                if (customUrl.isNullOrBlank()) return@launch
+                userPreferencesDataStore.searchUrl.set(customUrl)
+            }
+            userPreferencesDataStore.searchChoice.set(choice)
+        }
     }
 
     private suspend fun onMenuClick(menuSelection: MenuSelection) {
