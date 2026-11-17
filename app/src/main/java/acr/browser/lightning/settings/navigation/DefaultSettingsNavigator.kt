@@ -1,23 +1,22 @@
 package acr.browser.lightning.settings.navigation
 
-import acr.browser.lightning.concurrency.AppCoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
 import javax.inject.Inject
 
 /**
- * Default implementation of [SettingsNavigator] that simply exposes the events triggered by
- * [navigateTo] as a [MutableSharedFlow].
+ * Default implementation of [SettingsNavigator].
+ *
+ * A StateFlow retains the latest destination so an initial navigation request
+ * (for example, opening Ad Block Settings directly from the browser menu) is
+ * not lost before the Settings screen starts collecting navigation updates.
  */
-class DefaultSettingsNavigator @Inject constructor(
-    private val appCoroutineScope: AppCoroutineScope
-) : SettingsNavigator {
+class DefaultSettingsNavigator @Inject constructor() : SettingsNavigator {
 
-    override val events: MutableSharedFlow<SettingsNavigation> = MutableSharedFlow()
+    private val destination = MutableStateFlow(SettingsNavigation.ROOT)
+
+    override val events = destination
 
     override fun navigateTo(settingsNavigation: SettingsNavigation) {
-        appCoroutineScope.launch {
-            events.emit(settingsNavigation)
-        }
+        destination.value = settingsNavigation
     }
 }
