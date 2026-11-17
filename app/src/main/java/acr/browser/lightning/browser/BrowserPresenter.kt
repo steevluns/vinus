@@ -671,6 +671,19 @@ class BrowserPresenter @Inject constructor(
         }
     }
 
+    /**
+     * Select one of the built-in legal game storefront search providers.
+     * The selected URL is persisted as the browser's custom search engine,
+     * so subsequent address-bar searches use this provider directly.
+     */
+    fun selectGameSearchEngine(queryUrl: String) {
+        if (queryUrl.isBlank()) return
+        browserCoroutineScope.launch {
+            userPreferencesDataStore.searchUrl.set(queryUrl)
+            userPreferencesDataStore.searchChoice.set(SearchEngineChoice.CUSTOM)
+        }
+    }
+
     private suspend fun onMenuClick(menuSelection: MenuSelection) {
         when (menuSelection) {
             MenuSelection.NEW_TAB -> onNewTabClick()
